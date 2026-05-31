@@ -1,20 +1,11 @@
-import { redis } from "../redis.js";
-import {
-  MANGA_SUBSCRIBERS_SET_PREFIX as SUBSCRIBERS_SET,
-  MANGA_MUTES_SET_PREFIX as MUTES_SET,
-  USER_SETTINGS_KEY,
-  USER_FOLLOWS_SET_PREFIX,
-  USER_ALL_MODE_SET_KEY,
-  MANGA_POPULARITY_KEY,
-} from "../constants/redis.js";
 import { normalizeTitleKey } from "../domain.js";
 import { arrayUnion, arrayUnique } from "../utils.js";
 import { getLogger } from "../logger.js";
 import { NotifyMode } from "../types.js";
+import { supabase } from "../supabase.js";
 
 const logger = getLogger({ scope: "notifications" });
 
-// Re-export for backward compatibility
 export { NotifyMode };
 
 export const NOTIFY_MODES = {
@@ -23,62 +14,50 @@ export const NOTIFY_MODES = {
   NONE: NotifyMode.NONE,
 };
 
-const userFollowSetKey = (userId: string) => `${USER_FOLLOWS_SET_PREFIX}${userId}`;
-const ALL_MODE_SET = USER_ALL_MODE_SET_KEY;
-
-// Internal helpers
-
-async function getUserSettings(userId: string): Promise<any> {
-  const json = await redis.hget(USER_SETTINGS_KEY, userId);
-  if (!json) return {};
-  try {
-    return typeof json === "string" ? JSON.parse(json) : json;
-  } catch (err) {
-    logger.warn({ userId }, "Failed to parse user settings");
-    return {};
-  }
-}
-
 export async function getUserNotifyMode(userId: string): Promise<NotifyMode> {
-  const settings = await getUserSettings(userId);
-  return (settings.notify_mode as NotifyMode) || NotifyMode.FOLLOWS;
+  const { data } = await supabase.from("user_notify_settings").select("notify_mode").eq("user_id", userId).maybeSingle();
+  return (data?.notify_mode as NotifyMode) || NotifyMode.FOLLOWS;
 }
 
 export async function setUserNotifyMode(userId: string, mode: NotifyMode): Promise<void> {
   if (!Object.values(NotifyMode).includes(mode)) {
     throw new Error(`Invalid notify mode: ${mode}`);
   }
-
-  const settings = await getUserSettings(userId);
-  settings.notify_mode = mode;
-
-  await redis.hset(USER_SETTINGS_KEY, { [userId]: JSON.stringify(settings) });
-  await updateNotifyModeIndex(userId, mode);
+  const { error } = await supabase.from("user_notify_settings").upsert(
+    { user_id: userId, notify_mode: mode, settings_json: { notify_mode: mode } },
+    { onConflict: "user_id" },
+  );
+  if (error) throw error;
+  if (mode === NotifyMode.ALL) {
+    await supabase.from("user_all_mode").upsert({ user_id: userId }, { onConflict: "user_id" });
+  } else {
+    await supabase.from("user_all_mode").delete().eq("user_id", userId);
+  }
 }
 
 export async function getUserFollowsMembers(userId: string): Promise<string[]> {
   if (!userId) return [];
-  const members = await redis.smembers(userFollowSetKey(userId));
-  return (members as string[]) || [];
+  const { data } = await supabase.from("user_follows").select("title_key").eq("user_id", userId);
+  return (data || []).map((r) => r.title_key);
 }
 
 export async function isUserFollowing(userId: string, title: string): Promise<boolean> {
   const titleKey = normalizeTitleKey(title);
   if (!titleKey || !userId) return false;
-  return Boolean(await redis.sismember(userFollowSetKey(userId), titleKey));
+  const { data } = await supabase.from("user_follows").select("title_key").eq("user_id", userId).eq("title_key", titleKey).maybeSingle();
+  return !!data;
 }
 
 export async function followManga(userId: string, title: string): Promise<void> {
   if (!userId) return;
   const titleKey = normalizeTitleKey(title);
   if (!titleKey) return;
-
   try {
-    await Promise.all([
-      redis.sadd(userFollowSetKey(userId), titleKey),
-      redis.sadd(`${SUBSCRIBERS_SET}${titleKey}`, userId),
-      redis.zincrby(MANGA_POPULARITY_KEY, 1, titleKey),
-    ]);
+    await supabase.from("user_follows").upsert(
+      { user_id: userId, title_key: titleKey },
+      { onConflict: "user_id,title_key" },
+    );
+    supabase.rpc("increment_popularity", { key: titleKey, delta: 1 }).then();
   } catch (err: unknown) {
     logger.error({ error: err instanceof Error ? err.message : String(err), titleKey }, "followManga failed");
   }
@@ -88,13 +67,9 @@ export async function unfollowManga(userId: string, title: string): Promise<void
   if (!userId) return;
   const titleKey = normalizeTitleKey(title);
   if (!titleKey) return;
-
   try {
-    await Promise.all([
-      redis.srem(userFollowSetKey(userId), titleKey),
-      redis.srem(`${SUBSCRIBERS_SET}${titleKey}`, userId),
-      redis.zincrby(MANGA_POPULARITY_KEY, -1, titleKey),
-    ]);
+    await supabase.from("user_follows").delete().eq("user_id", userId).eq("title_key", titleKey);
+    supabase.rpc("increment_popularity", { key: titleKey, delta: -1 }).then();
   } catch (err: unknown) {
     logger.error({ error: err instanceof Error ? err.message : String(err), titleKey }, "unfollowManga failed");
   }
@@ -104,42 +79,46 @@ export async function muteManga(userId: string, title: string): Promise<void> {
   if (!userId) return;
   const titleKey = normalizeTitleKey(title);
   if (!titleKey) return;
-  await redis.sadd(`${MUTES_SET}${titleKey}`, userId);
+  try {
+    await supabase.from("manga_mutes").upsert(
+      { user_id: userId, title_key: titleKey },
+      { onConflict: "user_id,title_key" },
+    );
+  } catch (err: unknown) {
+    logger.error({ error: err instanceof Error ? err.message : String(err), titleKey }, "muteManga failed");
+  }
 }
 
 export async function unmuteManga(userId: string, title: string): Promise<void> {
   if (!userId) return;
   const titleKey = normalizeTitleKey(title);
   if (!titleKey) return;
-  await redis.srem(`${MUTES_SET}${titleKey}`, userId);
+  try {
+    await supabase.from("manga_mutes").delete().eq("user_id", userId).eq("title_key", titleKey);
+  } catch (err: unknown) {
+    logger.error({ error: err instanceof Error ? err.message : String(err), titleKey }, "unmuteManga failed");
+  }
 }
 
 export async function getMangaSubscribers(title: string): Promise<string[]> {
   const titleKey = normalizeTitleKey(title);
   if (!titleKey) return [];
-
   try {
-    // 3-way fetch for notification dispatch
-    const [nativeSubs, allModeUsers, nativeMutes] = await Promise.all([
-      redis.smembers(`${SUBSCRIBERS_SET}${titleKey}`) as Promise<string[]>,
-      redis.smembers(ALL_MODE_SET) as Promise<string[]>,
-      redis.smembers(`${MUTES_SET}${titleKey}`) as Promise<string[]>,
+    const [followRows, allRows, muteRows] = await Promise.all([
+      supabase.from("user_follows").select("user_id").eq("title_key", titleKey),
+      supabase.from("user_all_mode").select("user_id"),
+      supabase.from("manga_mutes").select("user_id").eq("title_key", titleKey),
     ]);
 
-    const subscribers = arrayUnique(arrayUnion(nativeSubs, allModeUsers));
-    const mutes = new Set(nativeMutes);
+    const nativeSubs = (followRows.data || []).map((r) => r.user_id);
+    const allModeUsers = (allRows.data || []).map((r) => r.user_id);
+    const muteList = (muteRows.data || []).map((r) => r.user_id);
 
-    return subscribers.filter(userId => !mutes.has(userId));
+    const subscribers = arrayUnique(arrayUnion(nativeSubs, allModeUsers));
+    const mutes = new Set(muteList);
+    return subscribers.filter((uid) => !mutes.has(uid));
   } catch (err: unknown) {
     logger.error({ error: err instanceof Error ? err.message : String(err), titleKey }, "getMangaSubscribers failed");
     return [];
-  }
-}
-
-export async function updateNotifyModeIndex(userId: string, mode: NotifyMode): Promise<void> {
-  if (mode === NotifyMode.ALL) {
-    await redis.sadd(ALL_MODE_SET, userId);
-  } else {
-    await redis.srem(ALL_MODE_SET, userId);
   }
 }

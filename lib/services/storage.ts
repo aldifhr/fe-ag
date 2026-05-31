@@ -69,13 +69,26 @@ export async function writeObjectCache(
 export async function writeCronStatus(redisClient: RedisClient, status: CronStatus): Promise<void> {
   const payload = JSON.stringify(status);
   await redisClient.set(CRON_LAST_RUN_KEY, payload);
+  supabase.from("cron_run_status").insert({ status }).then(({ error }: any) => {
+    if (error) logger.warn({ error: error.message }, "Failed to persist cron status to Supabase");
+  });
 }
 
 export async function readCronStatus(redisClient: RedisClient): Promise<CronStatus | null> {
   const data = await redisClient.get(CRON_LAST_RUN_KEY);
-  if (!data) return null;
-  const parsed = typeof data === "string" ? JSON.parse(data) : data;
-  return validateData(CronStatusSchema, parsed, "cron_status", logger);
+  if (data) {
+    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    return validateData(CronStatusSchema, parsed, "cron_status", logger);
+  }
+  const { data: dbRow } = await supabase.from("cron_run_status").select("status").order("id", { ascending: false }).limit(1).maybeSingle();
+  if (dbRow?.status) {
+    const validated = validateData(CronStatusSchema, dbRow.status, "cron_status", logger);
+    if (validated) {
+      await redisClient.set(CRON_LAST_RUN_KEY, JSON.stringify(validated));
+      return validated;
+    }
+  }
+  return null;
 }
 
 export async function loadSourceHealthSnapshot(
@@ -319,6 +332,20 @@ export async function batchClaimPendingChapters(
     (res: any) => Number(res) === 1,
   );
 
+  // Persist successful claims to Supabase asynchronously
+  const successful = items.filter((_, i) => results[i]);
+  if (successful.length > 0) {
+    const rows = successful.map(({ key, duplicateKey, nowIso }) => ({
+      chapter_url: key,
+      duplicate_key: duplicateKey || null,
+      status: "pending",
+      claimed_at: nowIso,
+      expires_at: new Date(nowMs + ttlMs).toISOString(),
+    }));
+    const { error } = await supabase.from("dispatch_claims").upsert(rows, { onConflict: "chapter_url" }).then((r: any) => r);
+    if (error) logger.warn({ error: error.message }, "Failed to persist dispatch claims to Supabase");
+  }
+
   return results;
 }
 export async function batchCheckDispatchedChapters(chapterUrls: string[]): Promise<Set<string>> {
@@ -338,22 +365,23 @@ export async function batchCheckDispatchedChapters(chapterUrls: string[]): Promi
 }
 
 export async function recordDispatchToSupabase(chapter: ChapterItem, titleKey: string): Promise<void> {
+  const now = new Date().toISOString();
   try {
-    const { error } = await supabase
-      .from('dispatch_history')
-      .upsert({
+    await Promise.all([
+      supabase.from('dispatch_history').upsert({
         chapter_url: chapter.url,
         title_key: titleKey,
         source: chapter.source,
         chapter_title: chapter.chapter,
-        sent_at: new Date().toISOString(),
-        metadata: {
-          cover: chapter.cover,
-          updatedTime: chapter.updatedTime
-        }
-      });
-    
-    if (error) throw error;
+        sent_at: now,
+        metadata: { cover: chapter.cover, updatedTime: chapter.updatedTime },
+      }),
+      supabase.from('dispatch_claims').upsert({
+        chapter_url: chapter.url,
+        status: "sent",
+        sent_at: now,
+      }, { onConflict: "chapter_url" }),
+    ]);
   } catch (err) {
     logger.error({ err, url: chapter.url }, "Failed to record dispatch to Supabase");
   }
