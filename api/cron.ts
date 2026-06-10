@@ -94,16 +94,19 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
       };
 
       const providersToScrape = ["ikiru", "shinigami"] as const;
-      const publishPromises = providersToScrape.map(source => 
-        publishScrapeTaskToQStash({
+      // Publish sequentially to avoid QStash race condition on shared cron lock
+      const publishResults: boolean[] = [];
+      for (const source of providersToScrape) {
+        const success = await publishScrapeTaskToQStash({
           action: "scrape_source",
           source,
           channelIds: activeChannelIds,
           options: scrapeOptions
-        })
-      );
-      
-      const publishResults = await Promise.all(publishPromises);
+        });
+        publishResults.push(success);
+        // Small delay between publishes to stagger QStash delivery
+        if (success) await new Promise(r => setTimeout(r, 2000));
+      }
       const ikiruSuccess = publishResults[0];
       const shinigamiSuccess = publishResults[1];
       

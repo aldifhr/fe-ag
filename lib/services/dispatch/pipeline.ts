@@ -3,6 +3,7 @@ import {
   DISPATCH_HISTORY_KEY,
   MANGA_LAST_UPDATES_KEY,
   RECENT_CHAPTERS_KEY,
+  MANGA_LAST_CHAPTERS_KEY,
 } from "../../constants/redis.js";
 import { addHexpireToPipeline } from "../../redis.js";
 import { ATOMIC_DISPATCH_SCRIPT } from "../../redisScripts.js";
@@ -13,6 +14,7 @@ import {
 } from "../../config.js";
 import { scanAndCleanupExpired } from "./history.js";
 import { getLogger } from "../../logger.js";
+import { getChapterNumber } from "../../domain.js";
 
 const logger = getLogger({ scope: "dispatch" });
 
@@ -69,7 +71,7 @@ export function addSuccessWriteCommandsToPipeline({
 
     pipeline.eval(
       ATOMIC_DISPATCH_SCRIPT,
-      [DISPATCH_HISTORY_KEY, MANGA_LAST_UPDATES_KEY, RECENT_CHAPTERS_KEY],
+      [DISPATCH_HISTORY_KEY, MANGA_LAST_UPDATES_KEY, RECENT_CHAPTERS_KEY, MANGA_LAST_CHAPTERS_KEY],
       [
         key,
         titleKey,
@@ -80,6 +82,7 @@ export function addSuccessWriteCommandsToPipeline({
         String(RECENT_LIST_MAX_SIZE),
         duplicateKey || "",
         dupPayload,
+        String(getChapterNumber(item.chapter) || ""),
       ],
     );
 

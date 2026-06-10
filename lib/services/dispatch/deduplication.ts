@@ -329,17 +329,25 @@ export async function prepareDispatchQueue(
 
   // 3. CHECK SUPABASE (Hybrid Deduplication)
   // Check if any of these chapters are already in Supabase 'dispatch_history'
+  // Redis keys use "chapter:${normalizedUrl}" format, but Supabase stores raw URLs
   const allPossibleKeys = [...new Set([...keys, ...duplicateKeys])];
   const supabaseSentKeys = new Set<string>();
   if (allPossibleKeys.length > 0) {
     try {
-      const { data: dbSent } = await supabase
-        .from('dispatch_history')
-        .select('chapter_url')
-        .in('chapter_url', allPossibleKeys);
+      // Strip "chapter:" prefix to match Supabase's raw URL format
+      const supabaseQueryKeys = allPossibleKeys
+        .map(k => k.startsWith("chapter:") ? k.slice("chapter:".length) : k)
+        .filter(k => !k.includes(":")); // Exclude dedup keys (chapter:dedupe:...)
       
-      if (dbSent) {
-        dbSent.forEach(row => supabaseSentKeys.add(row.chapter_url));
+      if (supabaseQueryKeys.length > 0) {
+        const { data: dbSent } = await supabase
+          .from('dispatch_history')
+          .select('chapter_url')
+          .in('chapter_url', supabaseQueryKeys);
+        
+        if (dbSent) {
+          dbSent.forEach(row => supabaseSentKeys.add(row.chapter_url));
+        }
       }
     } catch (err) {
       // console.error("[prepareDispatchQueue] Supabase check failed:", err);
@@ -371,7 +379,9 @@ export async function prepareDispatchQueue(
     );
 
     // Hybrid: Mark as SENT if found in Supabase
-    const isSupabaseSent = supabaseSentKeys.has(entry.key!) || (entry.duplicateKey && supabaseSentKeys.has(entry.duplicateKey));
+    // entry.key is "chapter:${normalizedUrl}", but supabaseSentKeys contains raw URLs
+    const rawKey = entry.key?.startsWith("chapter:") ? entry.key.slice("chapter:".length) : entry.key;
+    const isSupabaseSent = (rawKey && supabaseSentKeys.has(rawKey)) || (entry.duplicateKey && supabaseSentKeys.has(entry.duplicateKey));
 
     if (localState === "sent" || isSupabaseSent) {
       alreadyStateBreakdown.sent += 1;
@@ -407,8 +417,9 @@ export async function prepareDispatchQueue(
   const claimableMeta = validChapterMeta.filter(
     (entry, i) => {
       // Basic Redis/Supabase checks
+      const rawEntryKey = entry.key?.startsWith("chapter:") ? entry.key.slice("chapter:".length) : entry.key;
       const isBlocked = isBlockingClaim(existingFlags[i]) || 
-                       supabaseSentKeys.has(entry.key!) ||
+                       (rawEntryKey && supabaseSentKeys.has(rawEntryKey)) ||
                        (entry.duplicateKey && (isBlockingClaim(duplicateFlagMap.get(entry.duplicateKey)) || supabaseSentKeys.has(entry.duplicateKey)));
       
       if (isBlocked) return false;

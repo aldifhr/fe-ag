@@ -31,13 +31,14 @@ const mockRedis = {
 
 describe("Deduplication Logic", () => {
   it("should select the preferred (earlier) version for duplicates", async () => {
+    const now = new Date();
     const chapters: ChapterItem[] = [
       {
         title: "Test Manga",
         titleKey: "test manga",
         chapter: "Chapter 12",
         url: "https://ikiru.wtf/manga/test-manga-12",
-        updatedTime: "2026-05-31T12:00:00.000Z",
+        updatedTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30 min ago
         source: "ikiru"
       },
       {
@@ -45,7 +46,7 @@ describe("Deduplication Logic", () => {
         titleKey: "test manga",
         chapter: "Chapter 12",
         url: "https://shinigami.asia/manga/test-manga-12",
-        updatedTime: "2026-05-31T11:00:00.000Z", // Earlier updated time
+        updatedTime: new Date(now.getTime() - 60 * 60 * 1000).toISOString(), // 1 hour ago (earlier)
         source: "shinigami"
       }
     ];
@@ -58,13 +59,14 @@ describe("Deduplication Logic", () => {
   });
 
   it("should filter out chapters older or equal to last dispatched chapter", async () => {
+    const now = new Date();
     const chapters: ChapterItem[] = [
       {
         title: "Test Manga",
         titleKey: "test manga",
         chapter: "Chapter 9", // <= 10 (last dispatched)
         url: "https://ikiru.wtf/manga/test-manga-9",
-        updatedTime: "2026-05-31T12:00:00.000Z",
+        updatedTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30 min ago
         source: "ikiru"
       },
       {
@@ -72,7 +74,7 @@ describe("Deduplication Logic", () => {
         titleKey: "test manga",
         chapter: "Chapter 11", // > 10
         url: "https://ikiru.wtf/manga/test-manga-11",
-        updatedTime: "2026-05-31T12:00:00.000Z",
+        updatedTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30 min ago
         source: "ikiru"
       }
     ];
