@@ -19,14 +19,14 @@ class IkiruScraper:
         self._is_logged_in = bool(cookies)
 
     def _do_get(self, url, **kwargs):
-        kwargs.setdefault("impersonate", "chrome124")
+        kwargs.setdefault("impersonate", "chrome131")
         res = self.fetcher.get(url, cookies=self.cookies, **kwargs)
         if hasattr(res, 'cookies') and res.cookies:
             self.cookies.update(res.cookies)
         return res
 
     def _do_post(self, url, data=None, **kwargs):
-        kwargs.setdefault("impersonate", "chrome124")
+        kwargs.setdefault("impersonate", "chrome131")
         res = self.fetcher.post(url, data=data, cookies=self.cookies, **kwargs)
         if hasattr(res, 'cookies') and res.cookies:
             self.cookies.update(res.cookies)
