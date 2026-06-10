@@ -7,6 +7,8 @@ import re
 import os
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+import urllib.request
+import ssl
 
 class IkiruScraper:
     def __init__(self, base_url: str, username: Optional[str] = None, password: Optional[str] = None, cookies: Optional[Dict] = None):
@@ -29,7 +31,6 @@ class IkiruScraper:
 
         for attempt in range(2):
             if attempt == 1:
-                sys.stderr.write(f"Retrying {url} without impersonation (got 403)\n")
                 fetch_kwargs = dict(kwargs, impersonate=None, stealthy_headers=False)
                 fetch_headers = dict(headers)
                 fetch_headers.setdefault("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -45,8 +46,29 @@ class IkiruScraper:
             if hasattr(res, 'cookies') and res.cookies:
                 self.cookies.update(res.cookies)
 
-            if res.status != 403:
-                return res
+            if res.status == 403:
+                sys.stderr.write(f"[403] {url}\n")
+                sys.stderr.write(f"  Sent headers: {json.dumps(dict(getattr(res, 'request_headers', {})))}\n")
+                sys.stderr.write(f"  Response headers: {json.dumps(dict(getattr(res, 'headers', {})))}\n")
+                body = str(getattr(res, 'text', getattr(res, 'content', b'')))[:800]
+                sys.stderr.write(f"  Body: {body}\n")
+                continue
+
+            return res
+
+        sys.stderr.write(f"Trying urllib fallback for {url}\n")
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Referer": self.base_url,
+            })
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+                sys.stderr.write(f"  urllib fallback status: {resp.status}\n")
+        except Exception as e:
+            sys.stderr.write(f"  urllib fallback failed: {e}\n")
 
         return res
 
