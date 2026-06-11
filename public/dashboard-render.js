@@ -1001,7 +1001,7 @@ export function createDashboardRenderer({ state, $, esc }) {
           )
           .join("");
 
-        return `<li class="manga-item" style="padding: 10px 16px; min-height: 70px;">
+        return `<li class="manga-item" style="padding: 6px 12px; border-bottom: 1px solid var(--border); min-height: 48px;">
           <span class="manga-index">${String(displayIndex + 1).padStart(2, "0")}</span>
           <div class="whitelist-item-content" style="display: flex; align-items: center; gap: 14px; flex: 1;">
             ${coverHtml}
