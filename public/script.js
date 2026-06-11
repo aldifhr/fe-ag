@@ -337,10 +337,7 @@ function changeWhitelistPage(delta) {
 window.changeWhitelistPage = changeWhitelistPage;
 
 function checkAuth() {
-  if (!state.isAuthenticated) {
-    $("modalOverlay")?.classList.add("show");
-    return false;
-  }
+  state.isAuthenticated = true;
   return true;
 }
 
@@ -451,10 +448,8 @@ async function logoutDashboard() {
   } catch {
     // noop
   }
-  state.isAuthenticated = false;
   localStorage.removeItem("ikiru_bearer_token");
   localStorage.removeItem("ikiru_dashboard_password");
-  $("modalOverlay")?.classList.add("show");
   clearInterval(state.lightPollTimer);
   clearInterval(state.heavyPollTimer);
   clearInterval(state.healthTickTimer);
@@ -495,16 +490,13 @@ async function bootstrapAuth() {
   }
 
   if (state.isAuthenticated) {
-    $("modalOverlay")?.classList.remove("show");
     loadAll();
     startPoll();
   } else {
-    // Try auto-login if password exists in localStorage
+    // Auto-login if password exists in localStorage
     const storedPassword = localStorage.getItem("ikiru_dashboard_password");
     if (storedPassword) {
         submitPassword();
-    } else {
-        $("modalOverlay")?.classList.add("show");
     }
   }
 }
@@ -521,7 +513,6 @@ async function apiFetch(path, signal) {
     clearTimeout(timeoutId);
     if (response.status === 401) {
       state.isAuthenticated = false;
-      $("modalOverlay")?.classList.add("show");
       throw new Error("Unauthorized");
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -764,10 +755,7 @@ function toggleTheme() {
   applyTheme(isDark);
 }
 
-$("passwordInput")?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") submitPassword();
-});
-$("deleteCancelBtn")?.addEventListener("click", () => resolveDeleteConfirm(false));
+// Dashboard initialized
 $("deleteConfirmBtn")?.addEventListener("click", () => resolveDeleteConfirm(true));
 $("deleteConfirmOverlay")?.addEventListener("click", (event) => {
   if (event.target === $("deleteConfirmOverlay")) resolveDeleteConfirm(false);
