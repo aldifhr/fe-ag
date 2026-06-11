@@ -659,8 +659,18 @@ body {
 
 /* ==================== CRON BAR ==================== */
 
-.hero-card { }
-.hero-strip { }
+.hero-card,
+.hero-strip {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 16px 24px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+}
 
 .cron-bar {
     display: flex;
