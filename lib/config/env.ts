@@ -63,7 +63,7 @@ const envSchema = z.object({
     IKIRU_MAX_RETRIES: z.preprocess((v) => Number(v) || 2, z.number()).default(2),
     IKIRU_RETRY_DELAY: z.preprocess((v) => Number(v) || 1000, z.number()).default(1000),
     IKIRU_MAX_CHAPTERS: z.preprocess((v) => Number(v) || 10, z.number()).default(10),
-    IKIRU_MAX_PAGES: z.preprocess((v) => Number(v) || 3, z.number()).default(3),
+    IKIRU_MAX_PAGES: z.preprocess((v) => Number(v) || 2, z.number()).default(2),
     IKIRU_CHAPTER_LIST_MAX_PAGES: z.preprocess((v) => Number(v) || 2, z.number()).default(2),
 
     SECONDARY_TOTAL_TIMEOUT: z.preprocess((v) => Number(v) || 22000, z.number()).default(22000),
