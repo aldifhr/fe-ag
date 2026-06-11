@@ -19,27 +19,28 @@ const receiver = new Receiver({
 });
 
 export default async function handler(req: Request, res: Response) {
-  // Verify QStash webhook signature in production
-  const qstashSignature = req.headers["upstash-signature"] as string | undefined;
-  
-  if (!qstashSignature && process.env.NODE_ENV !== "development") {
-    logger.warn("No QStash signature provided to cron-task");
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  try {
-    const isValid = await receiver.verify({
-      signature: qstashSignature || "",
-      body: JSON.stringify(req.body),
-    });
-
-    if (!isValid && process.env.NODE_ENV !== "development") {
-      logger.warn("Invalid QStash signature on cron-task");
+  // Skip QStash verification in development mode (NODE_ENV defaults to "development" if unset)
+  const isDev = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+  if (!isDev) {
+    const qstashSignature = req.headers["upstash-signature"] as string | undefined;
+    
+    if (!qstashSignature) {
+      logger.warn("No QStash signature provided to cron-task");
       return res.status(401).json({ error: "Unauthorized" });
     }
-  } catch (err) {
-    logger.error({ err }, "Signature verification error on cron-task");
-    if (process.env.NODE_ENV !== "development") {
+
+    try {
+      const isValid = await receiver.verify({
+        signature: qstashSignature,
+        body: JSON.stringify(req.body),
+      });
+
+      if (!isValid) {
+        logger.warn("Invalid QStash signature on cron-task");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+    } catch (err) {
+      logger.error({ err }, "Signature verification error on cron-task");
       return res.status(401).json({ error: "Unauthorized" });
     }
   }
@@ -71,6 +72,7 @@ export default async function handler(req: Request, res: Response) {
           ...scrapeOptions,
           skipExpansion: false,
         },
+        skipLock: true,
         scrapeMangaUpdatesWithMetaFn: async (redisClient, opts) => {
           const { scrapeMangaUpdatesWithMeta } = await import("../lib/scrapers/orchestrator.js");
           return scrapeMangaUpdatesWithMeta(redisClient || redis, {

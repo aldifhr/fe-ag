@@ -69,6 +69,8 @@ export interface RunCronJobOptions {
   };
   lifecycle?: LifecycleState;
   deadlineMs?: number;
+  /** Skip global cron lock acquisition (used when per-source locks already handle concurrency) */
+  skipLock?: boolean;
 }
 
 /**

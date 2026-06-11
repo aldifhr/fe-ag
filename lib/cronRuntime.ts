@@ -78,6 +78,7 @@ export async function runCronJob({
   scrapeOptions = {},
   lifecycle = { currentStep: "initializing" },
   deadlineMs = 0,
+  skipLock = false,
 }: import("./types.js").RunCronJobOptions = {}) {
   const sendEmbedFn = sendEmbed ?? sendDiscordEmbed;
   const channelValidationConcurrency = resolvePositiveInt(
@@ -105,16 +106,18 @@ export async function runCronJob({
     // 0. Sync dynamic config (e.g. healed domains)
     await syncDynamicOverrides();
 
-    // 1. Acquire lock
-    const lockResult = await acquireCronLock(redisClient, { skipIfLocked: true });
-    if (!lockResult.acquired) {
-      return {
-        statusCode: 200,
-        body: { ok: true, skipped: true, reason: "already_running" },
-        logMeta: { skipped: true, reason: "already_running" }
-      };
+    // 1. Acquire lock (skipped when per-source locks already handle concurrency)
+    if (!skipLock) {
+      const lockResult = await acquireCronLock(redisClient, { skipIfLocked: true });
+      if (!lockResult.acquired) {
+        return {
+          statusCode: 200,
+          body: { ok: true, skipped: true, reason: "already_running" },
+          logMeta: { skipped: true, reason: "already_running" }
+        };
+      }
+      lockRelease = lockResult.release;
     }
-    lockRelease = lockResult.release;
 
     // 2. Load inputs
     lifecycle.currentStep = "loading_inputs";

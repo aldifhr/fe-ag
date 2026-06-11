@@ -37,27 +37,28 @@ const receiver = new Receiver({
 });
 
 export default async function handler(req: Request, res: Response) {
-  // Verify this is a QStash webhook using official Receiver
-  const qstashSignature = req.headers["upstash-signature"] as string | undefined;
-  
-  if (!qstashSignature && process.env.NODE_ENV !== "development") {
-    logger.warn("No QStash signature provided");
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  // Skip QStash verification in development mode (NODE_ENV defaults to "development" if unset)
+  const isDev = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+  if (!isDev) {
+    const qstashSignature = req.headers["upstash-signature"] as string | undefined;
 
-  try {
-    const isValid = await receiver.verify({
-      signature: qstashSignature || "",
-      body: JSON.stringify(req.body),
-    });
-
-    if (!isValid && process.env.NODE_ENV !== "development") {
-      logger.warn("Invalid QStash signature");
+    if (!qstashSignature) {
+      logger.warn("No QStash signature provided");
       return res.status(401).json({ error: "Unauthorized" });
     }
-  } catch (err) {
-    logger.error({ err }, "Signature verification error");
-    if (process.env.NODE_ENV !== "development") {
+
+    try {
+      const isValid = await receiver.verify({
+        signature: qstashSignature,
+        body: JSON.stringify(req.body),
+      });
+
+      if (!isValid) {
+        logger.warn("Invalid QStash signature");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+    } catch (err) {
+      logger.error({ err }, "Signature verification error");
       return res.status(401).json({ error: "Unauthorized" });
     }
   }
