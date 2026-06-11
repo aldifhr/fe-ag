@@ -2,7 +2,6 @@
  * Authorization checks for different endpoints
  */
 
-import { timingSafeEqual } from "crypto";
 import { getLogger } from "../logger.js";
 import { getHeader } from "./http.js";
 import { getCronSecret, getDashboardPassword } from "./config.js";
@@ -13,14 +12,16 @@ import type { RequestLike } from "./http.js";
 const logger = getLogger({ scope: "auth:authorization" });
 
 function constantTimeCompare(a: string, b: string): boolean {
-  const buf1 = Buffer.from(a);
-  const buf2 = Buffer.from(b);
-  if (buf1.length !== buf2.length) {
-    const maxLen = Math.max(buf1.length, buf2.length);
-    timingSafeEqual(Buffer.alloc(maxLen), Buffer.alloc(maxLen));
-    return false;
+  const lenA = a.length;
+  const lenB = b.length;
+  const maxLen = Math.max(lenA, lenB);
+  let result = lenA ^ lenB;
+  for (let i = 0; i < maxLen; i++) {
+    const ca = i < lenA ? a.charCodeAt(i) : 0;
+    const cb = i < lenB ? b.charCodeAt(i) : 0;
+    result |= ca ^ cb;
   }
-  return timingSafeEqual(buf1, buf2);
+  return result === 0;
 }
 
 /**

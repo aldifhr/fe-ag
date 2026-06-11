@@ -2,7 +2,6 @@
  * Cron job locking mechanism to prevent concurrent executions
  */
 
-import { randomUUID } from "crypto";
 import { getLogger } from "../logger.js";
 import type { RedisClient } from "../types.js";
 
@@ -27,7 +26,7 @@ export async function acquireCronLock(
   redis: RedisClient,
   options: { skipIfLocked?: boolean } = {},
 ): Promise<LockResult> {
-  const instanceId = randomUUID();
+  const instanceId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const lockValue = await redis.set(CRON_LOCK_KEY, instanceId, {
     nx: true,
     ex: LOCK_TTL_SECONDS,

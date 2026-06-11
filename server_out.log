@@ -171,3 +171,6 @@
 {"level":30,"time":1781177799297,"msg":"api request","pid":34888,"env":"development","endpoint":"dashboard-snapshot","method":"GET","path":"/api/dashboard-snapshot","reqId":null,"ip":null,"event":"request_start"}
 {"level":30,"time":1781177801935,"msg":"[loadWhitelist] Loaded from Redis cache","pid":34888,"env":"development","scope":"storage","count":71}
 {"level":30,"time":1781177802471,"msg":"api success","pid":34888,"env":"development","endpoint":"dashboard-snapshot","method":"GET","path":"/api/dashboard-snapshot","reqId":null,"ip":null,"event":"request_ok","status":200,"whitelist":71,"queue":0,"fastCronFound":true}
+{"level":30,"time":1781178086989,"msg":"api request","pid":34888,"env":"development","endpoint":"dashboard-snapshot","method":"GET","path":"/api/dashboard-snapshot","reqId":null,"ip":null,"event":"request_start"}
+{"level":30,"time":1781178089378,"msg":"[loadWhitelist] Loaded from Redis cache","pid":34888,"env":"development","scope":"storage","count":71}
+{"level":30,"time":1781178090348,"msg":"api success","pid":34888,"env":"development","endpoint":"dashboard-snapshot","method":"GET","path":"/api/dashboard-snapshot","reqId":null,"ip":null,"event":"request_ok","status":200,"whitelist":71,"queue":0,"fastCronFound":true}
