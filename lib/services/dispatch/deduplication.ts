@@ -9,10 +9,13 @@ import { DISPATCH_HISTORY_KEY, MANGA_LAST_CHAPTERS_KEY, MANGA_LAST_UPDATES_KEY }
 import { getChapterNumber } from "../../domain.js";
 import { RedisClient, DispatchChapterMeta, DispatchQueueState, ClaimState, ChapterItem } from "../../types.js";
 import { supabase } from "../../supabase.js";
+import { getLogger } from "../../logger.js";
 import {
   buildDispatchChapterMeta,
   preferDuplicateMeta,
 } from "./meta.js";
+
+const logger = getLogger({ scope: "dispatch:dedup" });
 
 // Re-export for backward compatibility
 export type { DispatchQueueState } from "../../types.js";
@@ -350,7 +353,7 @@ export async function prepareDispatchQueue(
         }
       }
     } catch (err) {
-      // console.error("[prepareDispatchQueue] Supabase check failed:", err);
+      logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Supabase check failed, continuing without dedup");
     }
   }
 

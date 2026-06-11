@@ -1,0 +1,38 @@
+{"level":30,"time":1781169401311,"msg":"API routes loaded","pid":26028,"env":"development","module":"express-dev","loaded":11,"failed":0,"routes":["admin-actions","auth","cron","cron-task","dashboard-snapshot","health-status","history","incidents","interactive","qstash-worker","whitelist"]}
+{"level":30,"time":1781169401312,"msg":"========================================","pid":26028,"env":"development","module":"express-dev"}
+{"level":30,"time":1781169401313,"msg":"Server ready","pid":26028,"env":"development","module":"express-dev","port":3000,"apiPrefix":"/api","dashboard":"http://localhost:3000","status":"http://localhost:3000/status/"}
+{"level":30,"time":1781169401313,"msg":"========================================","pid":26028,"env":"development","module":"express-dev"}
+{"level":30,"time":1781169636068,"msg":"api request","pid":26028,"env":"development","endpoint":"cron","method":"GET","path":"/api/cron?action=update","reqId":null,"ip":null,"event":"request_start"}
+{"level":30,"time":1781169636068,"msg":"api success","pid":26028,"env":"development","endpoint":"cron","method":"GET","path":"/api/cron?action=update","reqId":null,"ip":null,"event":"request_ok","status":401,"reason":"unauthorized"}
+{"level":30,"time":1781169665670,"msg":"api request","pid":26028,"env":"development","endpoint":"cron","method":"GET","path":"/api/cron?action=update&key=zQZMgj7spvZXkDcJe135fMJJPAqVsdPS9Yq0_nDMZJtj04JI","reqId":null,"ip":null,"event":"request_start"}
+{"level":30,"time":1781169665671,"msg":"QStash enabled check","pid":26028,"env":"development","scope":"qstash","enabled":true,"QSTASH_ENABLED":true,"hasWorkerUrl":true,"hasToken":true}
+{"level":30,"time":1781169665671,"msg":"QStash is enabled, delegating cron to parallel workers","pid":26028,"env":"development","scope":"cron"}
+{"level":30,"time":1781169665672,"msg":"Scrape optimizer initialized with Redis","pid":26028,"env":"development","scope":"scrape-optimizer"}
+{"level":30,"time":1781169665672,"msg":"Scrape optimizer initialized","pid":26028,"env":"development","scope":"boot"}
+{"level":30,"time":1781169665672,"msg":"Provider registered","pid":26028,"env":"development","scope":"provider-registry","providerId":"ikiru","displayName":"Ikiru"}
+{"level":30,"time":1781169665672,"msg":"Provider registered","pid":26028,"env":"development","scope":"provider-registry","providerId":"shinigami","displayName":"Shinigami"}
+{"level":30,"time":1781169665672,"msg":"Scrape optimizer initialized with Redis","pid":26028,"env":"development","scope":"scrape-optimizer"}
+{"level":30,"time":1781169665807,"msg":"[loadWhitelist] Loaded from Redis cache","pid":26028,"env":"development","scope":"storage","count":59}
+{"level":30,"time":1781169665808,"msg":"[loadWhitelist] Loaded from Redis cache","pid":26028,"env":"development","scope":"storage","count":59}
+{"level":30,"time":1781169665808,"msg":"All providers initialized","pid":26028,"env":"development","scope":"boot"}
+{"level":50,"time":1781169667701,"msg":"QStash scrape task publish error","pid":26028,"env":"development","scope":"qstash","err":"{\"error\":\"invalid destination url: endpoint resolves to a loopback address: ::1\"}","source":"ikiru"}
+{"level":50,"time":1781169668514,"msg":"QStash scrape task publish error","pid":26028,"env":"development","scope":"qstash","err":"{\"error\":\"invalid destination url: endpoint resolves to a loopback address: ::1\"}","source":"shinigami"}
+{"level":30,"time":1781169668514,"msg":"Scrape tasks published to QStash","pid":26028,"env":"development","scope":"cron","ikiruSuccess":false,"shinigamiSuccess":false}
+{"level":50,"time":1781169668514,"msg":"Failed to publish any scraping task to QStash","pid":26028,"env":"development","scope":"cron"}
+{"level":40,"time":1781169684469,"msg":"No QStash signature provided to cron-task","pid":26028,"env":"development","scope":"cron-task"}
+{"level":30,"time":1781169708144,"msg":"api request","pid":26028,"env":"development","endpoint":"cron","method":"GET","path":"/api/cron?action=update&key=zQZMgj7spvZXkDcJe135fMJJPAqVsdPS9Yq0_nDMZJtj04JI","reqId":null,"ip":null,"event":"request_start"}
+{"level":30,"time":1781169708145,"msg":"QStash enabled check","pid":26028,"env":"development","scope":"qstash","enabled":true,"QSTASH_ENABLED":true,"hasWorkerUrl":true,"hasToken":true}
+{"level":30,"time":1781169708145,"msg":"QStash is enabled, delegating cron to parallel workers","pid":26028,"env":"development","scope":"cron"}
+{"level":30,"time":1781169708145,"msg":"Scrape optimizer initialized with Redis","pid":26028,"env":"development","scope":"scrape-optimizer"}
+{"level":50,"time":1781169709071,"msg":"QStash scrape task publish error","pid":26028,"env":"development","scope":"qstash","err":"{\"error\":\"invalid destination url: endpoint resolves to a loopback address: ::1\"}","source":"ikiru"}
+{"level":50,"time":1781169709880,"msg":"QStash scrape task publish error","pid":26028,"env":"development","scope":"qstash","err":"{\"error\":\"invalid destination url: endpoint resolves to a loopback address: ::1\"}","source":"shinigami"}
+{"level":30,"time":1781169709880,"msg":"Scrape tasks published to QStash","pid":26028,"env":"development","scope":"cron","ikiruSuccess":false,"shinigamiSuccess":false}
+{"level":50,"time":1781169709881,"msg":"Failed to publish any scraping task to QStash","pid":26028,"env":"development","scope":"cron"}
+{"level":50,"time":1781169773913,"msg":"Unhandled error","pid":26028,"env":"development","module":"express-dev","err":"Expected property name or '}' in JSON at position 1 (line 1 column 2)","path":"/api/cron-task","method":"POST","requestId":"unknown","ip":"::1"}
+{"level":50,"time":1781169780739,"msg":"Unhandled error","pid":26028,"env":"development","module":"express-dev","err":"Expected property name or '}' in JSON at position 1 (line 1 column 2)","path":"/api/cron-task","method":"POST","requestId":"unknown","ip":"::1"}
+{"level":50,"time":1781169789418,"msg":"Unhandled error","pid":26028,"env":"development","module":"express-dev","err":"Expected property name or '}' in JSON at position 1 (line 1 column 2)","path":"/api/cron-task","method":"POST","requestId":"unknown","ip":"::1"}
+{"level":50,"time":1781169816576,"msg":"Unhandled error","pid":26028,"env":"development","module":"express-dev","err":"Expected property name or '}' in JSON at position 1 (line 1 column 2)","path":"/api/cron-task","method":"POST","requestId":"unknown","ip":"::1"}
+{"level":50,"time":1781169817840,"msg":"Unhandled error","pid":26028,"env":"development","module":"express-dev","err":"Unexpected token ''', \"'{\"action\"\"... is not valid JSON","path":"/api/cron-task","method":"POST","requestId":"unknown","ip":"::1"}
+{"level":40,"time":1781169852595,"msg":"No QStash signature provided to cron-task","pid":26028,"env":"development","scope":"cron-task"}
+{"level":40,"time":1781169871366,"msg":"No QStash signature provided to cron-task","pid":26028,"env":"development","scope":"cron-task"}
+{"level":40,"time":1781169948750,"msg":"No QStash signature provided to cron-task","pid":26028,"env":"development","scope":"cron-task"}

@@ -145,13 +145,15 @@ export async function orchestrateScrapeSources({
     const fullWhitelistIkiruTitleKeys = new Set(preferredIkiruTitleKeys);
     const fullWhitelistIkiruUrlKeys = new Set(preferredIkiruUrlKeys);
 
-    const preferredSecondaryMatchersBySource: Record<string, PreferredSecondaryMatcher> = {
-      shinigami: buildPreferredSecondaryMatcher(
-        options?.preferredSecondaryTitles?.shinigami,
-        options?.preferredSecondaryUrls?.shinigami,
-        options?.preferredSecondaryEntries?.shinigami,
-      ),
-    };
+    const secondarySourceNames = Object.keys(options?.preferredSecondaryTitles || {});
+    const preferredSecondaryMatchersBySource: Record<string, PreferredSecondaryMatcher> = {};
+    for (const src of secondarySourceNames) {
+      preferredSecondaryMatchersBySource[src] = buildPreferredSecondaryMatcher(
+        options?.preferredSecondaryTitles?.[src],
+        options?.preferredSecondaryUrls?.[src],
+        options?.preferredSecondaryEntries?.[src],
+      );
+    }
     const secondarySources = Object.keys(preferredSecondaryMatchersBySource);
 
     // Keep full copies for final filtering
@@ -291,8 +293,8 @@ export async function orchestrateScrapeSources({
             try {
               const out = await provider.scrapeUpdates({
                 redis,
-                preferredMatcher: matcher,
-                logger,
+                preferredMatcher: matcher as Record<string, unknown> | null,
+                logger: logger as Logger,
                 force: options.force,
                 fullRefresh: options.fullRefresh,
                 skipExpansion: options.skipExpansion,
@@ -371,9 +373,7 @@ export async function orchestrateScrapeSources({
     if (scrapedChapters.length > 0) {
       // 1. Ensure all have title keys and detect potential title mismatches (Auto-Heal candidates)
       scrapedChapters.forEach((ch: ChapterItem & { titleKey?: string }) => {
-        const rawTitle = String(ch?.title || "");
-        const tk = normalizeTitleKey(rawTitle);
-        ch.titleKey = normalizeTitleKey(rawTitle);
+        ch.titleKey = normalizeTitleKey(String(ch?.title || ""));
       });
 
       // 2. Aggregate all whitelist criteria (USE FULL WHITELIST, NOT FILTERED)

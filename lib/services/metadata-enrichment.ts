@@ -57,17 +57,17 @@ export function isMetadataEmpty(meta: MangaMetadata | null): boolean {
   );
 
   // RE-FETCH LOGIC:
-  // 1. Jika status Unknown atau TIDAK ADA (data lama) -> WAJIB fetch
+  // 1. If status is Unknown or MISSING (stale data) -> MUST fetch
   if (!hasStatus || meta.status?.toLowerCase() === "unknown") return true;
 
-  // 2. Jika deskripsi ada dan valid -> SUDAH CUKUP (Jangan anggap empty)
+  // 2. If description exists and is valid -> SUFFICIENT (Don't consider empty)
   if (hasDescription && meta.description !== "Unknown") return false;
 
-  // 3. Jika deskripsi kosong -> fetch (mungkin data belum lengkap)
+  // 3. If description is empty -> fetch (data may be incomplete)
   if (!hasDescription || meta.description === "Unknown") return true;
 
-  // 4. Jika rating kosong (benar-benar tidak ada string angka) -> fetch
-  // Tapi jika rating "0" atau "N/A" tapi ada deskripsi (sudah dicek di atas), kita anggap cukup
+  // 4. If rating is empty (no numeric string at all) -> fetch
+  // But if rating is "0" or "N/A" and description exists (checked above), consider it sufficient
   if (!hasRating && meta.rating !== "0" && meta.rating !== "N/A") return true;
 
   return false;
@@ -301,7 +301,7 @@ export async function enrichChaptersMetadata(
       const existing = metadataMap.get(result.titleKey);
       const newMeta = { ...result.metadata };
 
-      // PROTECTION: Jangan timpa status/rating yang sudah benar dengan "Unknown" atau "N/A"
+      // PROTECTION: Do not overwrite existing valid status/rating with "Unknown" or "N/A"
       if (existing) {
         if ((!newMeta.status || newMeta.status === "Unknown") && existing.status && existing.status !== "Unknown") {
           newMeta.status = existing.status;

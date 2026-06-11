@@ -8,7 +8,7 @@ const logger = getLogger({ scope: "permissions" });
 
 export function isOwner(payload: any): boolean {
   if (!env.DISCORD_OWNER_ID) {
-    logger.warn("DISCORD_OWNER_ID tidak di-set");
+    logger.warn("DISCORD_OWNER_ID is not set");
     return false;
   }
   const userId = payload.member?.user?.id ?? payload.user?.id;
@@ -74,8 +74,8 @@ export async function isAddAllowedUser(payload: any, redis: RedisClient | null =
     }
   }
 
-  // 5. Open access: allow everyone when no Redis is provided
-  if (!redis) return true;
+  // 5. Deny when Redis unavailable (prevent open access)
+  if (!redis) return false;
 
   return false;
 }

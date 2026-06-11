@@ -3,7 +3,8 @@ import {
   RedisClient, 
   ProviderResult, 
   MangaMetadata,
-  SourceState
+  SourceState,
+  Logger,
 } from "../types.js";
 
 /**
@@ -45,8 +46,8 @@ export interface MangaProvider {
    */
   scrapeUpdates(options: {
     redis: RedisClient | null;
-    preferredMatcher?: any;
-    logger?: any;
+    preferredMatcher?: Record<string, unknown> | null;
+    logger?: Logger;
     force?: boolean;
     fullRefresh?: boolean;
     skipExpansion?: boolean;

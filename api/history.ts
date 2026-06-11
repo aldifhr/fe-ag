@@ -15,6 +15,7 @@ import { prepareAuthorizedGet } from "../lib/api/response.js";
 import { readCronDailyStats } from "../lib/cronLogs.js";
 import { LOGS_CACHE_SEC, RECENT_CACHE_SEC } from "../lib/config.js";
 import { getTimestampMs } from "../lib/dateUtils.js";
+import { getClientAddress } from "../lib/auth/ip.js";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -125,8 +126,7 @@ export default async function handler(req: Request, res: Response) {
   const reqLogger = logApiHit("history", req);
 
   // Apply Serverless Rate Limiting
-  const ip = req.headers["x-real-ip"] || req.headers["x-forwarded-for"] || req.ip || "unknown";
-  const clientIp = Array.isArray(ip) ? ip[0] : ip;
+  const clientIp = getClientAddress(req);
   try {
     const { rateLimiters } = await import("../lib/rateLimiter.js");
     await rateLimiters.standard.consume(clientIp);

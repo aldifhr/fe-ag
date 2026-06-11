@@ -133,15 +133,17 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
       sent = queuedCount;
     }
 
-    skipped = matched.length - sent;
+    const filteredByDedup = queueState.invalidCount + queueState.alreadySentCount + queueState.staleCount + queueState.duplicateCount + queueState.overLimitCount;
+    const passedDedup = Math.max(0, matched.length - filteredByDedup);
+    skipped = Math.max(0, passedDedup - sent);
     skipBreakdown = {
       invalid: queueState.invalidCount,
       alreadySentOrPending: queueState.alreadySentCount,
       stale: queueState.staleCount,
       duplicate: queueState.duplicateCount,
       overLimit: queueState.overLimitCount,
-      runtimeClaimOrSend: matched.length - sent - (queueState.invalidCount + queueState.alreadySentCount + queueState.staleCount + queueState.duplicateCount + queueState.overLimitCount),
-      total: matched.length - sent,
+      runtimeClaimOrSend: skipped,
+      total: skipped + filteredByDedup,
       alreadyStateBreakdown: queueState.alreadyStateBreakdown,
       alreadyStateBySource: queueState.alreadyStateBySource,
       blockedSample: queueState.blockedSample,

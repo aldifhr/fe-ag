@@ -81,7 +81,7 @@ class ProviderRegistry {
       return {
         success: false,
         error: {
-          message: "Domain atau format URL tidak didukung oleh provider manapun.",
+          message: "Domain or URL format is not supported by any provider.",
           source: "registry",
           code: "UNSUPPORTED_DOMAIN"
         }
@@ -113,7 +113,7 @@ class ProviderRegistry {
       return {
         success: false,
         error: {
-          message: `Gagal memproses URL: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to process URL: ${err instanceof Error ? err.message : String(err)}`,
           source: provider.id,
           code: "PROVIDER_ERROR"
         }

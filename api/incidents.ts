@@ -10,6 +10,7 @@ import {
   daysBackQuerySchema,
   parseQueryParams,
 } from "../lib/validation.js";
+import { getClientAddress } from "../lib/auth/ip.js";
 import { logApiError, logApiHit, logApiOk } from "../lib/logger.js";
 import { getLogger } from "../lib/logger.js";
 import { isMonitorAuthorized } from "../lib/auth.js";
@@ -614,8 +615,7 @@ export default async function handler(req: Request, res: Response) {
   const reqLogger = logApiHit(isNotices ? "notices" : "incidents", req);
 
   // Apply Serverless Rate Limiting
-  const ip = req.headers["x-real-ip"] || req.headers["x-forwarded-for"] || req.ip || "unknown";
-  const clientIp = Array.isArray(ip) ? ip[0] : ip;
+  const clientIp = getClientAddress(req);
   try {
     const { rateLimiters } = await import("../lib/rateLimiter.js");
     await rateLimiters.standard.consume(clientIp);
@@ -635,7 +635,7 @@ export default async function handler(req: Request, res: Response) {
       .json(createErrorResponse("METHOD_NOT_ALLOWED", "Method not allowed"));
   }
 
-  if (!isPublicRead && !isMonitorAuthorized(req as any)) {
+  if (!isPublicRead && !(await isMonitorAuthorized(req as any))) {
     logApiOk(reqLogger, { status: 401, reason: "unauthorized" });
     return res
       .status(401)

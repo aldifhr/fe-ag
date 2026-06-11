@@ -1,5 +1,6 @@
 import { httpGet } from "../httpClient.js";
 import { HTTP_USER_AGENT, SECONDARY_SOURCE_URL } from "../scrapers/shared.js";
+import type { Logger } from "../types.js";
 import { getLogger } from "../logger.js";
 import { MangaProvider } from "./base.js";
 import { 
@@ -70,7 +71,7 @@ export const shinigamiProvider: MangaProvider = {
       return {
         success: false,
         error: {
-          message: "URL Chapter Shinigami tidak diperbolehkan. Mohon masukkan URL halaman Series utama.",
+          message: "Shinigami chapter URLs are not allowed. Please enter the main Series page URL.",
           source: "shinigami"
         }
       };
@@ -82,7 +83,7 @@ export const shinigamiProvider: MangaProvider = {
       return {
         success: false,
         error: {
-          message: "Format URL Shinigami tidak valid. Gunakan format `/series/<uuid-36-karakter>`",
+          message: "Invalid Shinigami URL format. Use `/series/<uuid>` format.",
           source: "shinigami"
         }
       };
@@ -113,7 +114,7 @@ export const shinigamiProvider: MangaProvider = {
     return {
       success: false,
       error: {
-        message: "Manga tidak ditemukan di Shinigami database.",
+        message: "Manga not found in Shinigami database.",
         source: "shinigami"
       }
     };
@@ -121,8 +122,8 @@ export const shinigamiProvider: MangaProvider = {
 
   async scrapeUpdates(options: {
     redis: RedisClient | null;
-    preferredMatcher?: any;
-    logger?: any;
+    preferredMatcher?: Record<string, unknown> | null;
+    logger?: Logger;
     force?: boolean;
     fullRefresh?: boolean;
     skipExpansion?: boolean;
@@ -133,7 +134,7 @@ export const shinigamiProvider: MangaProvider = {
 
     try {
       const { results, state: catchState } = await scrapeSecondaryUpdatesWithMeta("shinigami", {
-        preferredMatcher,
+        preferredMatcher: preferredMatcher as any,
         redis,
         options: rest,
         deadline: rest.deadline

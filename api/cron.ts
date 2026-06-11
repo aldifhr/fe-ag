@@ -229,11 +229,11 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("Gagal mendapatkan lock")) {
+    if (message.includes("Failed to acquire lock")) {
       const ttl = await redis.ttl(CRON_EXEC_LOCK_KEY);
       const lockMessage = ttl > 0
         ? `Cron job already running. Try again in ${ttl} seconds or use forceUnlock=1`
-        : `Cron job lock conflict. Silakan coba lagi dalam beberapa detik atau gunakan forceUnlock=1`;
+        : `Cron job lock conflict. Please try again in a few seconds or use forceUnlock=1`;
 
       logApiOk(reqLogger, { status: 409, reason: "cron_locked", ttl });
       return res.status(409).json(createErrorResponse("CRON_LOCKED", lockMessage));

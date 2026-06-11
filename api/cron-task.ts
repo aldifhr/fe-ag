@@ -95,7 +95,7 @@ export default async function handler(req: Request, res: Response) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ err: message }, "Provider scrape task failed");
     
-    if (message.includes("Gagal mendapatkan lock")) {
+    if (message.includes("Failed to acquire lock")) {
       return res.status(409).json({ error: "LOCKED", message });
     }
     // Return 200 so QStash doesn't keep retrying if there is a real scrape logic or target page failure

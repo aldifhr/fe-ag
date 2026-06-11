@@ -9,7 +9,7 @@ import {
   DISCORD_BUTTON_STYLE,
 } from "../config.js";
 import type { DiscordEmbedData, MangaMetadata } from "../types.js";
-import { ratingStars, shortSynopsis, truncateTitle, normalizeChapterText } from "./formatting.js";
+import { ratingStars, shortSynopsis, truncateTitle, escapeDiscordMentions, normalizeChapterText } from "./formatting.js";
 import { sourceMeta, normalizeSourceLabel, statusBar, getNormalizedStatus } from "./source.js";
 import { ICON_BELL } from "./common.js";
 
@@ -108,7 +108,7 @@ export function buildRichChapterEmbed(data: DiscordEmbedData, eventTimestamp: st
     if (genresText) {
         fields.push({
         name: "🏷️ Genres",
-        value: `\`${genresText}\``,
+        value: `\`${escapeDiscordMentions(genresText)}\``,
         inline: false,
         });
     }
@@ -174,7 +174,7 @@ export function buildRichChapterEmbed(data: DiscordEmbedData, eventTimestamp: st
 
   // Add synopsis as description if available
   if (synopsisText && synopsisText.length > 0) {
-    embed.description = synopsisText.trim() + (actionLine ? `\n${actionLine}` : "");
+    embed.description = escapeDiscordMentions(synopsisText.trim()) + (actionLine ? `\n${actionLine}` : "");
   } else if (actionLine) {
     embed.description = actionLine;
   }
@@ -223,7 +223,7 @@ export function buildMangaPreviewEmbed(data: {
   ];
 
   if (genresText) {
-    fields.push({ name: "🏷️ Genre", value: `\`${genresText}\``, inline: false });
+    fields.push({ name: "🏷️ Genre", value: `\`${escapeDiscordMentions(genresText)}\``, inline: false });
   }
 
   const embed: any = {
@@ -236,7 +236,7 @@ export function buildMangaPreviewEmbed(data: {
   };
 
   if (synopsisText) {
-    embed.description = synopsisText;
+    embed.description = escapeDiscordMentions(synopsisText);
   }
 
   const coverUrl = meta.cover;

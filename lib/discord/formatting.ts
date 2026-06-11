@@ -37,11 +37,24 @@ export const shortSynopsis = (description: string | null | undefined): string | 
 };
 
 /**
+ * Escape Discord mentions (@everyone, @here, <@...>) to prevent mention injection
+ */
+export const escapeDiscordMentions = (text: string): string => {
+  return text
+    .replace(/@everyone/g, "@\u200Beveryone")
+    .replace(/@here/g, "@\u200Bhere")
+    .replace(/<@&(\d+)>/g, "<@&\u200B$1>")
+    .replace(/<@!?(\d+)>/g, "<@\u200B$1>")
+    .replace(/<#(\d+)>/g, "<#\u200B$1>");
+};
+
+/**
  * Truncate title to Discord embed limit
  */
 export const truncateTitle = (title: string, limit = DISCORD_EMBED_TITLE_LIMIT): string => {
-  if (title.length <= limit) return title;
-  return title.substring(0, limit - 3) + "...";
+  const escaped = escapeDiscordMentions(title);
+  if (escaped.length <= limit) return escaped;
+  return escaped.substring(0, limit - 3) + "...";
 };
 
 /**

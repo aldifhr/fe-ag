@@ -2,6 +2,7 @@
  * Authorization checks for different endpoints
  */
 
+import { timingSafeEqual } from "crypto";
 import { getLogger } from "../logger.js";
 import { getHeader } from "./http.js";
 import { getCronSecret, getDashboardPassword } from "./config.js";
@@ -10,6 +11,17 @@ import { env } from "../config/env.js";
 import type { RequestLike } from "./http.js";
 
 const logger = getLogger({ scope: "auth:authorization" });
+
+function constantTimeCompare(a: string, b: string): boolean {
+  const buf1 = Buffer.from(a);
+  const buf2 = Buffer.from(b);
+  if (buf1.length !== buf2.length) {
+    const maxLen = Math.max(buf1.length, buf2.length);
+    timingSafeEqual(Buffer.alloc(maxLen), Buffer.alloc(maxLen));
+    return false;
+  }
+  return timingSafeEqual(buf1, buf2);
+}
 
 /**
  * Check if monitor endpoint is authorized
@@ -24,10 +36,10 @@ export async function isMonitorAuthorized(req: RequestLike): Promise<boolean> {
     const token = provided.substring(7);
 
     const cronSecret = getCronSecret();
-    if (cronSecret && token === cronSecret) return true;
+    if (cronSecret && constantTimeCompare(token, cronSecret)) return true;
 
     const dashboardPassword = getDashboardPassword();
-    if (dashboardPassword && token === dashboardPassword) return true;
+    if (dashboardPassword && constantTimeCompare(token, dashboardPassword)) return true;
   }
 
   // Fall back to session check
@@ -41,17 +53,10 @@ export async function isMonitorAuthorized(req: RequestLike): Promise<boolean> {
 export async function isCronAuthorized(req: RequestLike): Promise<boolean> {
   const secret = getCronSecret();
   const provided = getHeader(req, "authorization");
-  
-  // Allow authorization via query parameter for browser triggers
-  const query = (req as any).query;
-  const queryKey = query?.key || query?.token || query?.secret;
 
-  if (secret) {
-    // Check Header
-    if (provided === `Bearer ${secret}`) return true;
-    
-    // Check Query Param
-    if (queryKey === secret) return true;
+  if (secret && provided?.startsWith("Bearer ")) {
+    const token = provided.substring(7);
+    if (constantTimeCompare(token, secret)) return true;
   }
 
   return (

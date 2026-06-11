@@ -109,16 +109,16 @@ export function applySourceOutcome(
       let baseCooldownSec = cooldownSeconds;
       const errUpper = (outcome.error || "").toUpperCase();
       if (errUpper.includes("429") || errUpper.includes("RATE LIMIT")) {
-        baseCooldownSec = 14400; // 4 jam untuk rate limit
+        baseCooldownSec = 14400; // 4 hours for rate limit
       } else if (errUpper.includes("TIMEOUT") || errUpper.includes("ETIMEDOUT")) {
-        baseCooldownSec = 900; // 15 menit untuk timeout
+        baseCooldownSec = 900; // 15 minutes for timeout
       }
       
-      // Hitung backoff factor (maksimal 2^5 = 32x lipat)
+          // Calculate backoff factor (max 2^5 = 32x)
       const extraFailures = Math.max(0, nextHealth.consecutiveFailures - failureThreshold);
       const backoffFactor = Math.pow(2, Math.min(extraFailures, 5));
       
-      // Tambahkan random jitter sebesar +/- 10% untuk mencegah penyerbuan serentak
+      // Add +/- 10% random jitter to prevent thundering herd
       const jitter = 0.9 + Math.random() * 0.2;
       const actualCooldownSec = Math.round(baseCooldownSec * backoffFactor * jitter);
       
@@ -261,11 +261,11 @@ export function buildNextSourceHealthMap({
             baseCooldownSec = 900; // 15 mins for transient timeouts
           }
           
-          // Hitung backoff factor (maksimal 2^5 = 32x lipat)
+      // Calculate backoff factor (max 2^5 = 32x)
           const extraFailures = Math.max(0, nextHealth.consecutiveFailures - failureThreshold);
           const backoffFactor = Math.pow(2, Math.min(extraFailures, 5));
           
-          // Tambahkan random jitter sebesar +/- 10% untuk mencegah penyerbuan serentak
+      // Add +/- 10% random jitter to prevent thundering herd
           const jitter = 0.9 + Math.random() * 0.2;
           const actualCooldownSec = Math.round(baseCooldownSec * backoffFactor * jitter);
           

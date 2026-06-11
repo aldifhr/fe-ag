@@ -172,7 +172,10 @@ export async function batchPreHydrateMetadata(
   results?.forEach((saved: unknown, index: number) => {
     if (saved && index < uniqueUrls.length) {
       const url = uniqueUrls[index];
-      const parsed = typeof saved === "string" ? JSON.parse(saved) : saved;
+      let parsed = saved;
+      if (typeof saved === "string") {
+        try { parsed = JSON.parse(saved); } catch { return; }
+      }
       ikiruMetaCache.set(url, parseMetaCacheEntry(parsed));
     }
   });

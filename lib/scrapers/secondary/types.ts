@@ -43,5 +43,7 @@ export function isAxiosLikeResponse(obj: unknown): obj is AxiosLikeResponse {
 }
 
 export function isSecondaryApiData(obj: unknown): obj is SecondaryApiData {
-  return obj !== null && typeof obj === "object";
+  if (obj === null || typeof obj !== "object") return false;
+  const maybe = obj as Record<string, unknown>;
+  return typeof maybe?.data === "object" || Array.isArray(maybe?.results) || Array.isArray(maybe?.manga);
 }

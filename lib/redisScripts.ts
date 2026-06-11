@@ -59,11 +59,9 @@ local payload = cjson.encode({
 })
 
 redis.call("HSET", historyKey, ARGV[4], payload)
-redis.call("HPEXPIRE", historyKey, ttlMs, "FIELDS", 1, ARGV[4])
 
 if ARGV[5] ~= "" then
     redis.call("HSET", historyKey, ARGV[5], payload)
-    redis.call("HPEXPIRE", historyKey, ttlMs, "FIELDS", 1, ARGV[5])
 end
 
 return 1
@@ -92,14 +90,12 @@ local updatesKey = KEYS[2]
 local recentKey = KEYS[3]
 local lastChaptersKey = KEYS[4]
 
--- 1. Update History with TTL
+-- 1. Update History
 redis.call("HSET", historyKey, key, historyPayload)
-redis.call("HPEXPIRE", historyKey, historyTtl, "FIELDS", 1, key)
 
--- 1.1 Update Duplicate Key with TTL
+-- 1.1 Update Duplicate Key
 if duplicateKey ~= nil and duplicateKey ~= "" then
     redis.call("HSET", historyKey, duplicateKey, dupPayload)
-    redis.call("HPEXPIRE", historyKey, historyTtl, "FIELDS", 1, duplicateKey)
 end
 
 -- 2. Update Last Update Time

@@ -1,3 +1,4 @@
+import type { Logger } from "../types.js";
 import { getLogger } from "../logger.js";
 import { MangaProvider } from "./base.js";
 import { 
@@ -110,8 +111,8 @@ export const ikiruProvider: MangaProvider = {
 
   async scrapeUpdates(options: {
     redis: RedisClient | null;
-    preferredMatcher?: any;
-    logger?: any;
+    preferredMatcher?: Record<string, unknown> | null;
+    logger?: Logger;
     force?: boolean;
     fullRefresh?: boolean;
     skipExpansion?: boolean;
@@ -120,7 +121,7 @@ export const ikiruProvider: MangaProvider = {
     const { redis, preferredMatcher, logger, ...rest } = options;
     const start = Date.now();
     try {
-      const res = await scrapeIkiruUpdatesWithMeta(redis, preferredMatcher, logger, rest);
+      const res = await scrapeIkiruUpdatesWithMeta(redis, preferredMatcher as any, logger as any, rest);
       const duration = Date.now() - start;
       metricsTracker.record(duration, res.state.status === "ok");
       if (redis) metricsTracker.persist(redis, "ikiru").catch(() => {});

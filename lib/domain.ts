@@ -279,7 +279,7 @@ export const MARK_REASON_LABELS: Record<string, string> = Object.freeze({
   hiatus: "Hiatus",
   end_season: "Selesai Season",
   end: "Tamat",
-  read: "Sudah Baca",
+  read: "Read",
 });
 
 export function normalizeMarkReason(value: any): string | null {

@@ -1,10 +1,10 @@
 /**
  * Shinigami Source Detector
- * Utility untuk mendeteksi apakah manga ada di project, mirror, atau keduanya
+ * Utility to detect whether a manga exists in project, mirror, or both
  * 
  * Detection strategies:
- * 1. Search-based: Cari manga by keyword, lalu check detail untuk setiap result
- * 2. ID-based: Langsung check detail dengan manga ID
+ * 1. Search-based: Search manga by keyword, then check detail for each result
+ * 2. ID-based: Directly check detail with manga ID
  */
 
 import { httpGet } from "../httpClient.js";
@@ -58,7 +58,7 @@ export interface SearchOptions extends SourceDetectionOptions {
 // ============================================================================
 
 /**
- * Extract manga ID dari berbagai format URL Shinigami
+ * Extract manga ID from various Shinigami URL formats
  */
 export function extractShinigamiMangaId(input: string): string | null {
   // UUID format: a1b2c3d4-e5f6-7890-abcd-ef1234567890
@@ -120,8 +120,8 @@ function detectSourceFromTypes(
 }
 
 /**
- * Fetch manga detail dan detect source dari field "Type"
- * 1 API call untuk tahu keduanya
+ * Fetch manga detail and detect source from "Type" field
+ * Single API call to determine both
  */
 export async function fetchMangaDetailAndDetect(
   mangaId: string,
@@ -171,7 +171,7 @@ export async function fetchMangaDetailAndDetect(
 }
 
 /**
- * Check apakah manga ada di database utama Shinigami
+ * Check if manga exists in the main Shinigami database
  */
 export async function checkProject(
   mangaId: string,
@@ -186,7 +186,7 @@ export async function checkProject(
 }
 
 /**
- * Check apakah manga ada di database sekunder Shinigami
+ * Check if manga exists in the secondary Shinigami database
  */
 export async function checkMirror(
   mangaId: string,
@@ -201,8 +201,8 @@ export async function checkMirror(
 }
 
 /**
- * Detect source dari manga ID
- * Hanya 1 API call dengan parsing field "Type"
+ * Detect source from manga ID
+ * Only 1 API call with "Type" field parsing
  */
 export async function detectSource(
   mangaId: string,
@@ -239,7 +239,7 @@ export async function detectSource(
 }
 
 /**
- * Detect source dari URL atau input string
+ * Detect source from URL or input string
  */
 export async function detectSourceFromInput(
   input: string,
@@ -274,7 +274,7 @@ function extractSearchResults(data: unknown): SearchApiItem[] {
 }
 
 /**
- * Search manga di project
+ * Search manga in project
  * API: /v1/manga/list?type=project&q={keyword}
  */
 export async function searchProject(
@@ -297,7 +297,7 @@ export async function searchProject(
 }
 
 /**
- * Search manga di mirror
+ * Search manga in mirror
  * API: /v1/manga/list?type=mirror&q={keyword}
  */
 export async function searchMirror(
@@ -321,7 +321,7 @@ export async function searchMirror(
 
 /**
  * Search-based detection
- * Cari manga by keyword di kedua source, lalu cross-check hasilnya
+ * Search manga by keyword in both sources, then cross-check results
  */
 export async function detectSourceBySearch(
   keyword: string,
@@ -329,20 +329,20 @@ export async function detectSourceBySearch(
 ): Promise<SearchDetectionResult> {
   const { maxResults = 5 } = options;
 
-  // Search di kedua source secara parallel
+  // Search in both sources in parallel
   const [projectResults, mirrorResults] = await Promise.all([
     searchProject(keyword, options),
     searchMirror(keyword, options),
   ]);
 
-  // Buat map untuk tracking
+  // Create map for tracking
   const projectMap = new Map(projectResults.map(r => [r.manga_id!, r]));
   const mirrorMap = new Map(mirrorResults.map(r => [r.manga_id!, r]));
 
-  // Collect semua unique manga IDs
+  // Collect all unique manga IDs
   const allIds = new Set([...projectMap.keys(), ...mirrorMap.keys()]);
 
-  // Build result dengan cross-check
+  // Build result with cross-check
   const results: SearchSourceResult[] = [];
   for (const mangaId of allIds) {
     const inProject = projectMap.has(mangaId);
@@ -372,7 +372,7 @@ export async function detectSourceBySearch(
 // ============================================================================
 
 /**
- * Utility class untuk batch detection
+ * Utility class for batch detection
  */
 export class ShinigamiSourceDetector {
   private options: SourceDetectionOptions;
@@ -389,7 +389,7 @@ export class ShinigamiSourceDetector {
   }
 
   /**
-   * Detect dari URL atau input
+   * Detect from URL or input
    */
   async detectFromInput(input: string): Promise<SourceDetectionResult | null> {
     return detectSourceFromInput(input, this.options);
@@ -422,7 +422,7 @@ export class ShinigamiSourceDetector {
   }
 
   /**
-   * Check apakah manga ada di project
+   * Check if manga exists in project
    */
   async isInProject(mangaId: string): Promise<boolean> {
     const result = await checkProject(mangaId, this.options);
@@ -430,7 +430,7 @@ export class ShinigamiSourceDetector {
   }
 
   /**
-   * Check apakah manga ada di mirror
+   * Check if manga exists in mirror
    */
   async isInMirror(mangaId: string): Promise<boolean> {
     const result = await checkMirror(mangaId, this.options);
@@ -438,7 +438,7 @@ export class ShinigamiSourceDetector {
   }
 
   /**
-   * Get recommended source untuk manga
+   * Get recommended source for manga
    * Priority: project > mirror > none
    */
   async getRecommendedSource(mangaId: string): Promise<"project" | "mirror" | null> {

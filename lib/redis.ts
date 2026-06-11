@@ -69,6 +69,9 @@ function createRedisClient(): RedisClient {
     logger.error(
       "Redis configuration missing: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set",
     );
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Redis configuration required in production — check UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN");
+    }
     return createMockRedisClient();
   }
 
@@ -80,6 +83,9 @@ function createRedisClient(): RedisClient {
     }) as unknown as RedisClient;
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : String(err) }, "Failed to create Redis client, using mock");
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Failed to connect to Redis — starting in production without Redis will cause data loss");
+    }
     return createMockRedisClient();
   }
 }
@@ -236,7 +242,7 @@ export async function checkRateLimit(
     const reset = Math.floor(Date.now() / 1000) + (ttl > 0 ? ttl : windowSec);
 
     return {
-      allowed: current <= limit,
+      allowed: current < limit,
       remaining: Math.max(0, limit - current),
       reset,
     };
@@ -248,9 +254,9 @@ export async function checkRateLimit(
 }
 
 /**
- * @deprecated HPEXPIRE tidak didukung Upstash. TTL hash field
- * ditegakkan via fireAndForgetCleanup() yang membaca field `e`
- * dari setiap entry JSON dan menghapus yang expired.
+ * @deprecated HPEXPIRE is not supported by Upstash. TTL hash field
+ * enforcement is handled via fireAndForgetCleanup() which reads the `e` field
+ * from each JSON entry and removes expired ones.
  */
 
 
@@ -301,7 +307,7 @@ export async function withDistributedLock<T>(
   }
 
   if (!acquired) {
-    throw new Error(`Gagal mendapatkan lock ${label} (Timeout). Silakan coba lagi nanti.`);
+    throw new Error(`Failed to acquire lock ${label} (Timeout). Please try again later.`);
   }
 
   let renewInterval: NodeJS.Timeout | null = null;
@@ -346,7 +352,7 @@ export async function withDistributedLock<T>(
 export function getMockRedisWarning(): string {
   const url = env.UPSTASH_REDIS_REST_URL;
   if (!url || url.includes("mock-redis.com") || url === "") {
-    return "\n\n⚠️ **Mode Mock Redis Aktif:** Data tidak akan tersimpan secara permanen. Silakan konfigurasi `UPSTASH_REDIS_REST_URL` di Environment Variables.";
+    return "\n\n⚠️ **Mock Redis Active:** Data will not be persisted. Configure `UPSTASH_REDIS_REST_URL` in Environment Variables.";
   }
   return "";
 }

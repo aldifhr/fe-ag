@@ -35,7 +35,7 @@ export async function checkSourceHealth(redis: RedisClient, sources: string[]) {
       
       if (elapsed > STALE_THRESHOLD_MS) {
         const hours = Math.round(elapsed / (1000 * 60 * 60));
-        alerts.push(`⚠️ **[${source.toUpperCase()}]** tidak mengirim update selama **${hours} jam**!`);
+        alerts.push(`⚠️ **[${source.toUpperCase()}]** has not sent updates for **${hours} hours**!`);
       }
     } else {
       // First time initialization
@@ -47,7 +47,7 @@ export async function checkSourceHealth(redis: RedisClient, sources: string[]) {
     logger.warn({ count: alerts.length }, "Source health alerts detected");
     
     // Send alert to Discord
-    const alertMessage = `🚨 **SISTEM MONITORING MANHWA** 🚨\n\n${alerts.join('\n')}\n\n*Catatan: Bot tetap berjalan, namun sumber di atas tidak memberikan update baru selama beberapa jam terakhir.*`;
+    const alertMessage = `🚨 **MANHWA MONITORING SYSTEM** 🚨\n\n${alerts.join('\n')}\n\n*Note: Bot is still running, but the sources above have not provided new updates in the last few hours.*`;
     
     try {
       const embeds: DiscordEmbedData[] = [{

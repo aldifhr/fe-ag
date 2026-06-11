@@ -40,7 +40,7 @@ import { withDistributedLock } from "../redis.js";
 const logger = getLogger({ scope: "whitelist" });
 
 /**
- * Mencegah race condition dengan Redis lock sederhana.
+ * Prevents race condition with a simple Redis lock.
  */
 async function withWhitelistLock<T>(
   redisClient: RedisClient,
@@ -592,10 +592,10 @@ function formatRelativeIndo(isoString: string | null) {
   const diffDay = Math.floor(diffHour / 24);
 
   let text;
-  if (diffDay > 0) text = `${diffDay} hari yang lalu`;
-  else if (diffHour > 0) text = `${diffHour} jam yang lalu`;
-  else if (diffMin > 0) text = `${diffMin} menit yang lalu`;
-  else text = "Baru saja";
+  if (diffDay > 0) text = `${diffDay} days ago`;
+  else if (diffHour > 0) text = `${diffHour} hours ago`;
+  else if (diffMin > 0) text = `${diffMin} minutes ago`;
+  else text = "Just now";
 
   return { text, isHibernating: diffDay >= 14 };
 }
@@ -674,7 +674,7 @@ export async function buildWhitelistListResponse(
             {
               type: DISCORD_COMPONENT_TYPE.BUTTON,
               style: DISCORD_BUTTON_STYLE.PRIMARY,
-              label: "Sebelumnya",
+              label: "Previous",
               custom_id: `list:${safePage - 1}${search ? `:${search.slice(0, 30)}` : ""}${filter ? `|${filter.slice(0, 20)}` : ""}`,
               disabled: safePage <= 1,
             },
@@ -688,7 +688,7 @@ export async function buildWhitelistListResponse(
             {
               type: DISCORD_COMPONENT_TYPE.BUTTON,
               style: DISCORD_BUTTON_STYLE.PRIMARY,
-              label: "Berikutnya",
+              label: "Next",
               custom_id: `list:${safePage + 1}${search ? `:${search.slice(0, 30)}` : ""}${filter ? `|${filter.slice(0, 20)}` : ""}`,
               disabled: safePage >= totalPage,
             },

@@ -30,7 +30,7 @@ async function refreshCookie(): Promise<string | null> {
   const password = env.IKIRU_PASSWORD;
 
   if (!email || !password) {
-    logger.warn("IKIRU_EMAIL/PASSWORD tidak diset, skip cookie refresh");
+    logger.warn("IKIRU_EMAIL/PASSWORD not set, skipping cookie refresh");
     return null;
   }
 
@@ -55,13 +55,13 @@ async function refreshCookie(): Promise<string | null> {
 
     const location = (res.headers["location"] as string) ?? "";
     if (res.status === 302 && location.includes("login=failed")) {
-      logger.error({ url: LOGIN_URL }, "Login gagal — kredensial salah");
+      logger.error({ url: LOGIN_URL }, "Login failed — invalid credentials");
       return null;
     }
 
     const rawCookies = res.headers["set-cookie"];
     if (!rawCookies?.length) {
-      logger.error({ url: LOGIN_URL }, "Login gagal — tidak ada cookie di response");
+      logger.error({ url: LOGIN_URL }, "Login failed — no cookie in response");
       return null;
     }
 
@@ -69,7 +69,7 @@ async function refreshCookie(): Promise<string | null> {
       c.startsWith("wordpress_logged_in_"),
     );
     if (!hasAuthCookie) {
-      logger.error({ url: LOGIN_URL, foundCookies: rawCookies.map(c => c.split('=')[0]).join(', ') }, "Login gagal — tidak ada wordpress_logged_in cookie");
+      logger.error({ url: LOGIN_URL, foundCookies: rawCookies.map(c => c.split('=')[0]).join(', ') }, "Login failed — no wordpress_logged_in cookie");
       return null;
     }
 
@@ -77,10 +77,10 @@ async function refreshCookie(): Promise<string | null> {
       .map((c) => c.split(";")[0])
       .join("; ");
 
-    logger.info("Cookie berhasil diperbarui");
+    logger.info("Cookie refreshed successfully");
     return cookieString;
   } catch (err: unknown) {
-    logger.error({ error: err instanceof Error ? err.message : String(err) }, "Gagal refresh cookie");
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, "Failed to refresh cookie");
     return null;
   }
 }
@@ -138,7 +138,7 @@ export const ACCEPT_LANGUAGES = [
 ];
 
 export function getFingerprintForSource(source = "generic"): { userAgent: string; acceptLanguage: string } {
-  // Gunakan User-Agent utama yang stabil untuk Ikiru agar cookienya tidak lekas mati/invalid
+  // Use a stable primary User-Agent for Ikiru to keep cookies alive longer
   if (source === "ikiru") {
     return {
       userAgent: USER_AGENTS[0],
@@ -146,7 +146,7 @@ export function getFingerprintForSource(source = "generic"): { userAgent: string
     };
   }
   
-  // Rotasikan secara acak untuk source lain (seperti shinigami) agar menyerupai traffic manusia yang beragam
+  // Randomly rotate for other sources (like shinigami) to mimic varied human traffic
   const index = Math.floor(Math.random() * USER_AGENTS.length);
   const langIndex = Math.floor(Math.random() * ACCEPT_LANGUAGES.length);
   return {

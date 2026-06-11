@@ -67,19 +67,19 @@ async function handleLogin(req: Request, res: Response) {
   try {
     const isConfigured = await isDashboardPasswordConfigured();
     if (!isConfigured) {
-      return res.status(500).json(createErrorResponse("SERVER_ERROR", "DASHBOARD_PASSWORD belum diset di server"));
+      return res.status(500).json(createErrorResponse("SERVER_ERROR", "DASHBOARD_PASSWORD not configured on server"));
     }
 
     const throttle = await readDashboardLoginThrottle(redis, req);
     if (throttle.limited) {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Retry-After", String(throttle.retryAfterSec));
-      return res.status(429).json(createErrorResponse("RATE_LIMITED", `Terlalu banyak percobaan. Coba lagi dalam ${throttle.retryAfterSec} detik.`));
+      return res.status(429).json(createErrorResponse("RATE_LIMITED", `Too many attempts. Try again in ${throttle.retryAfterSec} seconds.`));
     }
 
     const password = (await readPassword(req)).trim();
     if (!password) {
-      return res.status(400).json(createErrorResponse("INVALID_INPUT", "Password tidak boleh kosong"));
+      return res.status(400).json(createErrorResponse("INVALID_INPUT", "Password must not be empty"));
     }
 
     const isValid = await validateDashboardPassword(password);
@@ -88,13 +88,13 @@ async function handleLogin(req: Request, res: Response) {
       res.setHeader("Cache-Control", "no-store");
       if (failed.limited) {
         res.setHeader("Retry-After", String(failed.retryAfterSec));
-        return res.status(429).json(createErrorResponse("RATE_LIMITED", `Terlalu banyak percobaan. Coba lagi dalam ${failed.retryAfterSec} detik.`));
+        return res.status(429).json(createErrorResponse("RATE_LIMITED", `Too many attempts. Try again in ${failed.retryAfterSec} seconds.`));
       }
-      return res.status(401).json(createErrorResponse("UNAUTHORIZED", "Password salah"));
+      return res.status(401).json(createErrorResponse("UNAUTHORIZED", "Invalid password"));
     }
 
     const token = await createDashboardSessionToken();
-    if (!token) return res.status(500).json(createErrorResponse("SERVER_ERROR", "Session secret belum diset"));
+    if (!token) return res.status(500).json(createErrorResponse("SERVER_ERROR", "Session secret not configured"));
 
     await clearDashboardLoginThrottle(redis, req);
     const cookie = await getSessionCookieHeader(req, token);
