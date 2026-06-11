@@ -3,7 +3,7 @@
  */
 
 // --- Scrapers & Sources ---
-export const SOURCE_KEYS = ["ikiru", "shinigami", "shinigami_mirror", "shinigami_project"];
+export const SOURCE_KEYS = ["ikiru", "shinigami"];
 
 
 
