@@ -1001,14 +1001,11 @@ export function createDashboardRenderer({ state, $, esc }) {
           )
           .join("");
 
-        return `<li class="manga-item" style="padding: 6px 12px; border-bottom: 1px solid var(--border); min-height: 48px;">
+        return `<li class="manga-item" style="padding: 4px 12px; border-bottom: 1px solid var(--border); min-height: 36px;">
           <span class="manga-index">${String(displayIndex + 1).padStart(2, "0")}</span>
-          <div class="whitelist-item-content" style="display: flex; align-items: center; gap: 14px; flex: 1;">
-            ${coverHtml}
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span class="manga-item-title" style="font-weight: 700; line-height: 1.2;">${highlight(title, query)}${marksHtml}</span>
-              <div style="display:flex; align-items:center;">${badgesHtml}</div>
-            </div>
+          <div class="whitelist-item-content" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <span class="manga-item-title" style="font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${highlight(title, query)}${marksHtml}</span>
+            <div style="display:flex; align-items:center; flex-shrink: 0;">${badgesHtml}</div>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
             <button class="btn-mini ${isRead ? "active-red" : "active-green"}" style="min-width: 60px;" onclick="toggleMarkReadByIndex(${originalIndex})">${isRead ? "sudah ✓" : "mark"}</button>

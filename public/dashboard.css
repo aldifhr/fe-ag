@@ -1076,14 +1076,14 @@ body {
 
 .manga-item {
     display: grid;
-    grid-template-columns: 32px 1fr auto;
+    grid-template-columns: 28px 1fr auto;
+    gap: 4px;
     align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
+    padding: 3px 12px;
     border-bottom: 1px solid var(--border);
-    transition: background 0.12s var(--ease);
+    min-height: 32px;
+    transition: background .15s;
 }
-
 .manga-item:hover { background: var(--surface2); }
 
 .manga-index {
@@ -1261,22 +1261,7 @@ input[type=search]::placeholder {
 
 .whitelist-cover,
 .whitelist-cover-placeholder {
-    width: 28px;
-    height: 38px;
-    object-fit: cover;
-    background: var(--surface2);
-    flex-shrink: 0;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.whitelist-cover-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font: 600 10px var(--mono);
-    color: var(--muted);
-    border-radius: 4px;
+    display: none;
 }
 
 .cover-fallback {
