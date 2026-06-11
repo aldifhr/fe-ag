@@ -6,7 +6,7 @@
     <title>ManhwaScanner</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="./dashboard.css" />
 </head>
@@ -112,12 +112,12 @@
                 <!-- Cron Status -->
                 <div class="cron-bar" id="lastCronBar">
                     <div class="cron-countdown-block">
-                        <div class="cron-label">NEXT RUN</div>
+                        <div class="cron-label">Next run</div>
                         <div class="cron-countdown" id="cronCountdown">--:--</div>
                     </div>
                     <div class="cron-meta">
                         <div class="cron-meta-item">
-                            <span class="cron-label">LAST RUN</span>
+                            <span class="cron-label">Last run</span>
                             <span class="cron-value" id="lastCronTime">--:--:--</span>
                             <span class="cron-sub" id="statDuration">--</span>
                         </div>
@@ -125,15 +125,15 @@
                     <div class="cron-stats">
                         <div class="cron-stat">
                             <span class="cron-stat-value g" id="lastCronSent">-</span>
-                            <span class="cron-stat-label">SENT</span>
+                            <span class="cron-stat-label">Sent</span>
                         </div>
                         <div class="cron-stat">
                             <span class="cron-stat-value a" id="lastCronSkipped">-</span>
-                            <span class="cron-stat-label">SKIP</span>
+                            <span class="cron-stat-label">Skip</span>
                         </div>
                         <div class="cron-stat">
                             <span class="cron-stat-value r" id="lastCronFailed">-</span>
-                            <span class="cron-stat-label">FAIL</span>
+                            <span class="cron-stat-label">Fail</span>
                         </div>
                     </div>
                     <button type="button" id="btnRunCron" onclick="runCronNow()" class="cron-run-btn">▶ RUN</button>
@@ -188,7 +188,6 @@
                             <div class="chart-box chart-box--small"><canvas id="chartSourceHealth"></canvas></div>
                         </div>
                     </div>
-
                     <div class="panel">
                         <div class="panel-header">
                             <span class="panel-title">Source health</span>
@@ -198,13 +197,10 @@
                             <ul id="sourceHealthList" class="list-plain"></ul>
                         </div>
                     </div>
-
                 </div>
 
                 <!-- Logs + Recent -->
                 <div class="data-grid">
-
-
                     <div class="panel panel--recent">
                         <div class="panel-header">
                             <span class="panel-title">Recent dispatch</span>
