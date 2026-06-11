@@ -253,47 +253,8 @@ async function toggleMarkReadByIndex(index) {
   }
 }
 
-async function syncMangaByIndex(index) {
-  const item = state.whitelistItems?.[index];
-  if (!item) return;
-
-  const title = typeof item === "string" ? item : item.title;
-  if (state.isProcessing) return;
-
-  state.isProcessing = true;
-  const loadingToast = showToast(`Syncing ${title}...`, "info", 0);
-  
-  try {
-    const response = await fetch(`${API_BASE}/api/admin-actions`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${localStorage.getItem("ikiru_bearer_token")}`
-      },
-      body: JSON.stringify({ action: "sync-manga", title }),
-    });
-    
-    const data = await response.json();
-    loadingToast?.remove();
-    
-    if (!response.ok) {
-      showAlert(data.error || "Gagal sync manga");
-      return;
-    }
-    
-    const result = data.data || data;
-    if (result.sent > 0) {
-      showToast(`Sync berhasil! Mengirim ${result.sent} chapter ke Discord.`, "success");
-    } else {
-      showToast(result.message || "Tidak ada chapter baru ditemukan.", "info");
-    }
-    
-    await loadAll();
-  } catch (err) {
-    showAlert(`Gagal: ${err.message}`);
-  } finally {
-    state.isProcessing = false;
-  }
+function syncMangaByIndex(_index) {
+  showToast("Sync manga tidak tersedia (route dihapus)", "info");
 }
 
 async function deleteMangaByIndex(index) {
@@ -431,44 +392,8 @@ async function runCronNow() {
   }
 }
 
-async function adminAction(action) {
-  if (!checkAuth() || state.isProcessing) return;
-  
-  const confirmMsg = action === "clear-cache" 
-    ? "Yakin ingin menghapus cache whitelist?" 
-    : action === "force-unlock"
-      ? "Yakin ingin memaksa hapus semua lock distributed Redis?"
-      : action === "reset-health"
-        ? "Yakin ingin meriset semua status circuit breaker kesehatan sumber?"
-        : "Yakin ingin memaksa sinkronisasi database?";
-    
-  if (!confirm(confirmMsg)) return;
-
-  state.isProcessing = true;
-  const loadingToast = showToast("Memproses aksi admin...", "info", 0);
-
-  try {
-    const response = await fetch(`${API_BASE}/api/admin-actions`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    
-    const data = await response.json();
-    loadingToast?.remove();
-    if (!response.ok) {
-      showAlert(data.error || "Aksi admin gagal");
-      return;
-    }
-    
-    showToast(data.message || "Aksi berhasil", "success");
-    await loadAll();
-  } catch (err) {
-    showAlert(`Gagal: ${err.message}`);
-  } finally {
-    state.isProcessing = false;
-  }
+function adminAction(_action) {
+  showToast("Aksi admin tidak tersedia (route dihapus)", "info");
 }
 window.adminAction = adminAction;
 

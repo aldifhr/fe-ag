@@ -1,7 +1,4 @@
-import {
-  redis,
-  addHexpireToPipeline,
-} from "../redis.js";
+import { redis } from "../redis.js";
 import { CHAPTER_TTL_SEC } from "../config.js";
 import {
   MANGA_LAST_UPDATES_KEY,
@@ -234,10 +231,8 @@ export async function addWhitelistEntry(
   const titleKey = normalizeTitleKey(normalizedTitle);
 
   return withWhitelistLock(redisClient, async () => {
-    // Task untuk inisialisasi timestamp update dengan TTL (pindah ke dalam lock)
     const pipeline = redisClient.pipeline();
     pipeline.hset(MANGA_LAST_UPDATES_KEY, { [titleKey]: new Date().toISOString() });
-    addHexpireToPipeline(pipeline, MANGA_LAST_UPDATES_KEY, titleKey, CHAPTER_TTL_SEC * 1000, redisClient);
     const initUpdateTask = pipeline.exec();
 
     const whitelist = await loadWhitelistFn(redisClient, preloadedWhitelistRaw);

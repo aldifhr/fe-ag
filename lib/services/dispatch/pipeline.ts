@@ -5,7 +5,6 @@ import {
   RECENT_CHAPTERS_KEY,
   MANGA_LAST_CHAPTERS_KEY,
 } from "../../constants/redis.js";
-import { addHexpireToPipeline } from "../../redis.js";
 import { ATOMIC_DISPATCH_SCRIPT } from "../../redisScripts.js";
 import {
   CLAIM_STATUS,
@@ -85,14 +84,9 @@ export function addSuccessWriteCommandsToPipeline({
         String(getChapterNumber(item.chapter) || ""),
       ],
     );
-
-    if (duplicateKey) {
-      addHexpireToPipeline(pipeline, DISPATCH_HISTORY_KEY, duplicateKey, crossSourceDedupeTtl * 1000, redisClient);
-    }
   } else {
     // Legacy fallback (non-atomic)
     pipeline.hset(DISPATCH_HISTORY_KEY, { [key]: historyPayload });
-    addHexpireToPipeline(pipeline, DISPATCH_HISTORY_KEY, key, chapterTtlMs, redisClient);
 
     if (duplicateKey) {
       const dupTtlMs = crossSourceDedupeTtl * 1000;
@@ -103,11 +97,9 @@ export function addSuccessWriteCommandsToPipeline({
         e: Date.now() + dupTtlMs,
       });
       pipeline.hset(DISPATCH_HISTORY_KEY, { [duplicateKey]: dupPayload });
-      addHexpireToPipeline(pipeline, DISPATCH_HISTORY_KEY, duplicateKey, dupTtlMs, redisClient);
     }
 
     pipeline.hset(MANGA_LAST_UPDATES_KEY, { [titleKey]: nowIso });
-    addHexpireToPipeline(pipeline, MANGA_LAST_UPDATES_KEY, titleKey, chapterTtlMs, redisClient);
     pipeline.zadd(RECENT_CHAPTERS_KEY, { score: Date.now(), member: recentPayload });
     pipeline.zremrangebyrank(RECENT_CHAPTERS_KEY, 0, -(RECENT_LIST_MAX_SIZE + 1));
   }

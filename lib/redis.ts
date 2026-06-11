@@ -248,54 +248,10 @@ export async function checkRateLimit(
 }
 
 /**
- * Set hash field with TTL using HPEXPIRE/HEXPIRE (Redis 7.4+)
- * Falls back gracefully if Redis version is older.
+ * @deprecated HPEXPIRE tidak didukung Upstash. TTL hash field
+ * ditegakkan via fireAndForgetCleanup() yang membaca field `e`
+ * dari setiap entry JSON dan menghapus yang expired.
  */
-export async function hsetWithTTL(
-  redisClient: RedisClient,
-  key: string,
-  field: string,
-  value: RedisValue,
-  ttlMs: number,
-): Promise<void> {
-  await redisClient.hset(key, { [field]: value as string | number });
-  
-  if (ttlMs > 0) {
-    try {
-      // DISABLED: Native HPEXPIRE sering error di Upstash (ERR value is not an integer)
-      // await redisClient.hpexpire(key, ttlMs, "FIELDS", 1, field);
-      
-      // Fallback log instead of calling the command
-      logger.debug({ key, field, ttlMs }, "HPEXPIRE skipped (global disable)");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.debug({ err: message, key, field }, "Native HPEXPIRE failed fallback");
-    }
-  }
-}
-
-/**
- * Add HPEXPIRE command to pipeline
- */
-export function addHexpireToPipeline(
-  pipeline: RedisPipeline,
-  key: string,
-  field: string,
-  ttlMs: number,
-  _redisClient: RedisClient, // keeping for signature compatibility
-): void {
-  if (ttlMs > 0) {
-    // DISABLED: Native HPEXPIRE sering error di Upstash (ERR value is not an integer)
-    // pipeline.hpexpire(key, ttlMs, "FIELDS", 1, field);
-    
-    // We do nothing here to prevent pipeline failure
-    // Suppress unused variable warnings
-    void _redisClient;
-    void key;
-    void field;
-    void ttlMs;
-  }
-}
 
 
 

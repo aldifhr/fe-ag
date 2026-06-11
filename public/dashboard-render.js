@@ -604,12 +604,14 @@ export function createDashboardRenderer({ state, $, esc }) {
     const degraded =
       Number(data.failed ?? 0) > 0 ||
       sourceHealthEntries.some((entry) => entry?.status === "degraded");
-    healthEl.textContent = degraded
-      ? "DEGRADED"
-      : hasUnknownSource
-        ? "UNKNOWN"
-        : "HEALTHY";
-    healthEl.className = `stat-value ${degraded ? "amber" : hasUnknownSource ? "amber" : "green"}`;
+    if (healthEl) {
+      healthEl.textContent = degraded
+        ? "DEGRADED"
+        : hasUnknownSource
+          ? "UNKNOWN"
+          : "HEALTHY";
+      healthEl.className = `stat-value ${degraded ? "amber" : hasUnknownSource ? "amber" : "green"}`;
+    }
 
     // Get timestamp from data or fallback to latest source success
     let lastRunTimestamp = data.timestamp;
@@ -676,12 +678,9 @@ export function createDashboardRenderer({ state, $, esc }) {
     const bar = $("lastCronBar");
     const data = normalizeStatusData(statusData);
     if (!data) {
-      $("lastCronSent").textContent = "sent: -";
-      $("lastCronSkipped").textContent = "skipped: -";
-      $("lastCronDedupe").textContent = "dedupe: -";
-      $("lastCronFailed").textContent = "failed: -";
-      $("lastCronDuration").textContent = "last: -";
-      bar.className = "hero-card";
+      const els = ["lastCronSent","lastCronSkipped","lastCronDedupe","lastCronFailed","lastCronDuration"];
+      els.forEach(id => { const el = $(id); if (el) el.textContent = "-"; });
+      if (bar) bar.className = "hero-card";
       return;
     }
 
@@ -851,7 +850,8 @@ export function createDashboardRenderer({ state, $, esc }) {
       return true;
     });
 
-    $("whitelistCount").textContent = state.whitelistItems.length;
+    const whitelistCountEl = $("whitelistCount");
+    if (whitelistCountEl) whitelistCountEl.textContent = state.whitelistItems.length;
 
     // Pagination
     const totalPages = Math.ceil(filtered.length / state.whitelistPageSize) || 1;
@@ -988,7 +988,6 @@ export function createDashboardRenderer({ state, $, esc }) {
           <div style="display: flex; gap: 6px; align-items: center;">
             <button class="btn-mini ${isRead ? "active-red" : "active-green"}" style="min-width: 60px;" onclick="toggleMarkReadByIndex(${originalIndex})">${isRead ? "sudah ✓" : "mark"}</button>
             <button class="btn-mini" onclick="copyWhitelistUrlByIndex(${originalIndex})">copy</button>
-            <button class="btn-mini" onclick="syncMangaByIndex(${originalIndex})">🔄</button>
             <button class="btn-delete" onclick="deleteMangaByIndex(${originalIndex})">x</button>
           </div>
         </li>`;
@@ -1061,7 +1060,8 @@ export function createDashboardRenderer({ state, $, esc }) {
 
     const filteredRecent = state.recentItems;
 
-    $("recentCount").textContent = filteredRecent.length;
+    const recentCountEl = $("recentCount");
+    if (recentCountEl) recentCountEl.textContent = filteredRecent.length;
 
     renderTimelineList(
       list,
@@ -1116,7 +1116,8 @@ export function createDashboardRenderer({ state, $, esc }) {
       return true;
     });
 
-    $("logCount").textContent = `${filteredLogs.length} entries`;
+    const logCountEl = $("logCount");
+    if (logCountEl) logCountEl.textContent = `${filteredLogs.length} entries`;
 
     // Show last cron run status
     const lastRunNote = $("logLastRunNote");

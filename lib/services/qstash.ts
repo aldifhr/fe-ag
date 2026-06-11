@@ -159,7 +159,6 @@ export async function publishScrapeTaskToQStash(task: QStashScrapeTask): Promise
     apiBase = `https://${process.env.VERCEL_URL}`;
   }
   const workerUrl = `${apiBase.replace(/\/$/, "")}/api/cron-task`;
-  const failureCallback = `${apiBase.replace(/\/$/, "")}/api/admin-actions?action=qstash-dlq`;
 
   try {
     const headers: Record<string, string> = {
@@ -174,11 +173,10 @@ export async function publishScrapeTaskToQStash(task: QStashScrapeTask): Promise
       url: workerUrl,
       body: task,
       retries: 3,
-      failureCallback,
       headers
     });
 
-    logger.info({ messageId: result.messageId, source: task.source, failureCallback }, "Scrape task published to QStash");
+    logger.info({ messageId: result.messageId, source: task.source }, "Scrape task published to QStash");
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
