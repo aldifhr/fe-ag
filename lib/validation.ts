@@ -17,13 +17,44 @@ export const dateStringSchema = z
 export const urlSchema = z
   .string()
   .url("Invalid URL format")
-  .max(2048, "URL too long");
+  .max(2048, "URL too long")
+  .refine(
+    (val) => {
+      try {
+        const u = new URL(val);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    "Only http/https URLs are allowed",
+  );
 
-// Title validation
-export const titleSchema = z
+// Title validation (with HTML sanitization)
+const titleSchemaBase = z
   .string()
   .min(1, "Title required")
   .max(200, "Title too long");
+
+/**
+ * Strip HTML tags and dangerous characters from user-supplied text.
+ * Prevents stored XSS when titles are rendered in dashboards or Discord embeds.
+ */
+export function sanitizeText(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, "")           // Strip all HTML tags
+    .replace(/&/g, "&amp;")            // Escape ampersands
+    .replace(/</g, "&lt;")             // Escape remaining angle brackets
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")           // Escape double quotes
+    .replace(/'/g, "&#x27;")           // Escape single quotes
+    .replace(/javascript:/gi, "")      // Strip javascript: protocol
+    .replace(/data:/gi, "")            // Strip data: protocol
+    .trim();
+}
+
+// Title with sanitization applied
+export const titleSchema = titleSchemaBase.transform(sanitizeText);
 
 // Chapter validation
 export const chapterSchema = z

@@ -7,11 +7,18 @@ const logger = getLogger({ scope: "supabase" });
 // Ensure we have a valid URL and Key
 const rawUrl = env.SUPABASE_URL || "";
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "");
-const supabaseKey = env.SUPABASE_KEY || "";
+const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_KEY || "";
+const keyType = env.SUPABASE_SERVICE_ROLE_KEY ? "service_role" : "anon";
 
 if (!supabaseKey) {
   logger.warn("SUPABASE_KEY is missing. Supabase operations will fail.");
 }
+
+if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+  logger.warn("SUPABASE_SERVICE_ROLE_KEY not set — falling back to SUPABASE_KEY. RLS bypass requires service_role key.");
+}
+
+logger.info({ keyType }, "Supabase client initialized");
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {

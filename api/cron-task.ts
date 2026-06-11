@@ -26,7 +26,7 @@ export default async function handler(req: Request, res: Response) {
     
     if (!qstashSignature) {
       logger.warn("No QStash signature provided to cron-task");
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "No QStash signature" } });
     }
 
     try {
@@ -37,11 +37,11 @@ export default async function handler(req: Request, res: Response) {
 
       if (!isValid) {
         logger.warn("Invalid QStash signature on cron-task");
-        return res.status(401).json({ error: "Unauthorized" });
+        return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid QStash signature" } });
       }
     } catch (err) {
       logger.error({ err }, "Signature verification error on cron-task");
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Signature verification failed" } });
     }
   }
 

@@ -3,8 +3,75 @@ import { getLogger } from "./logger.js";
 import { AdaptiveRateLimiter, type RetryOptions } from "./types.js";
 import type { Agent as HttpAgent } from "http";
 import type { Agent as HttpsAgent } from "https";
+import { URL } from "url";
 
 const logger = getLogger({ scope: "httpClient" });
+
+// --- SSRF Protection ---
+/**
+ * Blocks requests to private/internal/cloud-metadata IP ranges.
+ * Covers IPv4 private, loopback, link-local, and cloud metadata endpoints.
+ */
+function ipToBytes(ip: string): [number, number, number, number] | null {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  const nums = parts.map(Number);
+  if (nums.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return null;
+  return [nums[0], nums[1], nums[2], nums[3]];
+}
+
+function isBlockedIp(ip: string): boolean {
+  const bytes = ipToBytes(ip);
+  if (!bytes) return false;
+  if (bytes[0] === 10) return true;                                    // 10.0.0.0/8
+  if (bytes[0] === 127) return true;                                   // 127.0.0.0/8
+  if (bytes[0] === 0) return true;                                     // 0.0.0.0/8
+  if (bytes[0] === 169 && bytes[1] === 254) return true;              // 169.254.0.0/16
+  if (bytes[0] === 192 && bytes[1] === 168) return true;              // 192.168.0.0/8
+  if (bytes[0] === 172 && bytes[1] >= 16 && bytes[1] <= 31) return true; // 172.16.0.0/12
+  return false;
+}
+
+/**
+ * Validate a URL for SSRF safety.
+ * Blocks private/internal IPs, non-http(s) schemes, and metadata endpoints.
+ */
+export function assertSafeUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`SSRF: Invalid URL: ${url}`);
+  }
+
+  const scheme = parsed.protocol.toLowerCase();
+  if (scheme !== "http:" && scheme !== "https:") {
+    throw new Error(`SSRF: Blocked protocol "${scheme}" — only http/https allowed`);
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block cloud metadata endpoints
+  if (
+    hostname === "metadata.google.internal" ||
+    hostname === "169.254.169.254" ||
+    hostname === "metadata.aws.internal" ||
+    hostname === "instance-data" ||
+    hostname === "169.254.169.254.nip.io"
+  ) {
+    throw new Error(`SSRF: Blocked metadata endpoint: ${hostname}`);
+  }
+
+  // Block IPv4 private ranges
+  if (isBlockedIp(hostname)) {
+    throw new Error(`SSRF: Blocked private/internal IP: ${hostname}`);
+  }
+
+  // Block IPv6 loopback and link-local
+  if (hostname === "::1" || hostname === "[::1]" || hostname.startsWith("fc") || hostname.startsWith("fd") || hostname.startsWith("fe80")) {
+    throw new Error(`SSRF: Blocked IPv6 internal address: ${hostname}`);
+  }
+}
 
 // Determine if we're in Edge Runtime
 const IS_EDGE = typeof process !== 'undefined' && process.env.NEXT_RUNTIME === 'edge';
@@ -154,6 +221,11 @@ export async function httpRequest(
   config: AxiosRequestConfig,
   retryOptions: RetryOptions = {},
 ): Promise<AxiosResponse> {
+  // SSRF protection: validate target URL before making request
+  if (config.url) {
+    assertSafeUrl(config.url);
+  }
+
   const headers = {
     "Accept-Encoding": "gzip, deflate, br",
     ...config.headers,

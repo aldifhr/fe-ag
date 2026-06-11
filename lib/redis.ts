@@ -94,6 +94,12 @@ function createRedisClient(): RedisClient {
  * Mock Redis client for graceful degradation when Redis is unavailable
  */
 function createMockRedisClient(): RedisClient {
+  if (process.env.NODE_ENV === "production") {
+    logger.error("🚨 Mock Redis activated in PRODUCTION — all rate limiting and caching disabled. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+  } else {
+    logger.warn("Mock Redis active (non-production mode) — data will not be persisted.");
+  }
+
   type MockValue = string | number | null | unknown[] | Record<string, unknown>;
   
   const mockOperation = <T extends MockValue>(operation: string, defaultValue: T) =>
@@ -248,8 +254,8 @@ export async function checkRateLimit(
     };
   } catch (err: unknown) {
     const errMessage = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: errMessage, key }, "Rate limit check failed, allowing by default");
-    return { allowed: true, remaining: limit, reset: 0 };
+    logger.error({ err: errMessage, key }, "Rate limit check failed — rejecting by default (fail-closed)");
+    return { allowed: false, remaining: 0, reset: Math.floor(Date.now() / 1000) + windowSec };
   }
 }
 

@@ -415,7 +415,7 @@ async function loginDashboard(password) {
 
 async function submitPassword() {
   const input = $("passwordInput");
-  const password = input?.value.trim() || localStorage.getItem("ikiru_dashboard_password") || "";
+  const password = input?.value.trim() || "";
   if (!password) return;
 
   const loginResult = await loginDashboard(password);
@@ -425,8 +425,8 @@ async function submitPassword() {
     return;
   }
 
-  // Save for future reloads
-  localStorage.setItem("ikiru_dashboard_password", password);
+  // Session cookie is set by the server on login — no need to persist password client-side.
+  // Previously stored plaintext password in localStorage which XSS could exfiltrate.
 
   state.isAuthenticated = true;
   if (input) input.value = "";
@@ -493,11 +493,9 @@ async function bootstrapAuth() {
     loadAll();
     startPoll();
   } else {
-    // Auto-login if password exists in localStorage
-    const storedPassword = localStorage.getItem("ikiru_dashboard_password");
-    if (storedPassword) {
-        submitPassword();
-    }
+    // Session cookie is HttpOnly — only checked via /api/auth?action=status.
+    // No client-side password fallback. User must enter password in the login form.
+    $("modalOverlay")?.classList.add("show");
   }
 }
 

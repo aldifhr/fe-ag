@@ -15,11 +15,12 @@ function constantTimeCompare(a: string, b: string): boolean {
   const lenA = a.length;
   const lenB = b.length;
   const maxLen = Math.max(lenA, lenB);
+  // Pad both strings so timing doesn't leak the shorter length
+  const paddedA = a.padEnd(maxLen, "\0");
+  const paddedB = b.padEnd(maxLen, "\0");
   let result = lenA ^ lenB;
   for (let i = 0; i < maxLen; i++) {
-    const ca = i < lenA ? a.charCodeAt(i) : 0;
-    const cb = i < lenB ? b.charCodeAt(i) : 0;
-    result |= ca ^ cb;
+    result |= paddedA.charCodeAt(i) ^ paddedB.charCodeAt(i);
   }
   return result === 0;
 }

@@ -108,6 +108,7 @@ const envSchema = z.object({
     // Supabase (Required for Hybrid storage)
     SUPABASE_URL: z.string().url(),
     SUPABASE_KEY: z.string().min(1),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });
 
 const isTest = process.env.NODE_ENV === "test" ||

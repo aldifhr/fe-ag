@@ -79,11 +79,14 @@ export function constantTimeEqual(a: string | null | undefined, b: string | null
   const left = String(a ?? "");
   const right = String(b ?? "");
 
-  if (left.length !== right.length) return false;
+  // Pad both to max length so comparison time doesn't leak the shorter length.
+  const maxLen = Math.max(left.length, right.length);
+  const paddedLeft = left.padEnd(maxLen, "\0");
+  const paddedRight = right.padEnd(maxLen, "\0");
 
-  let result = 0;
-  for (let i = 0; i < left.length; i++) {
-    result |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  let result = left.length ^ right.length;
+  for (let i = 0; i < maxLen; i++) {
+    result |= paddedLeft.charCodeAt(i) ^ paddedRight.charCodeAt(i);
   }
   return result === 0;
 }
