@@ -1,5 +1,5 @@
 export {}; // Ensure file remains a module if other imports are removed later
-import { Redis, Pipeline } from "@upstash/redis";
+import { Redis } from "@upstash/redis";
 import { getLogger } from "./logger.js";
 import { env } from "./config/env.js";
 import {

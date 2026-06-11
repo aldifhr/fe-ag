@@ -1,6 +1,5 @@
 import { redis } from "../../redis.js";
 import { getLogger } from "../../logger.js";
-import { z } from "zod";
 import { CronLogEntry, RedisClient, WhitelistEntry, MangaMetadata } from "../../types.js";
 import { normalizeCronLogEntry } from "../../utils/log-helpers.js";
 import { CronLogEntrySchema, ChapterItemSchema } from "../../schemas.js";

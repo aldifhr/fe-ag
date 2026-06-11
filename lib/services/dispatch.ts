@@ -28,7 +28,7 @@ import { getLogger } from "../logger.js";
 import { env } from "../config/env.js";
 import { chunkArray } from "../utils.js";
 import pLimit from "p-limit";
-import { scheduleDiscordSend, buildMentionChunks } from "./dispatch/sender.js";
+import { buildMentionChunks } from "./dispatch/sender.js";
 import {
   IkiruMetaCacheEntry,
   hydrateIkiruMetadataIfMissing,

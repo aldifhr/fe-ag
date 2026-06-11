@@ -6,7 +6,7 @@ export * from "./orchestrator.js";
 
 // Specialized metadata fetcher for providers
 import { fetchSecondaryFullMangaInfo, API_BASE, searchShngm } from "./api.js";
-import { normalizeText, pickSecondaryDescription } from "../shared.js";
+import { normalizeText } from "../shared.js";
 import { getLogger } from "../../logger.js";
 import { RedisClient, ScraperProvider } from "../../types.js";
 import { scrapeSecondaryUpdatesWithMeta } from "./orchestrator.js";

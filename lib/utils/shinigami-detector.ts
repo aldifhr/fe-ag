@@ -1,12 +1,3 @@
-/**
- * Shinigami Source Detector
- * Utility to detect whether a manga exists in project, mirror, or both
- * 
- * Detection strategies:
- * 1. Search-based: Search manga by keyword, then check detail for each result
- * 2. ID-based: Directly check detail with manga ID
- */
-
 import { httpGet } from "../httpClient.js";
 import { HTTP_USER_AGENT, SECONDARY_SOURCE_URL } from "../scrapers/shared.js";
 
@@ -30,49 +21,20 @@ export interface SourceDetectionResult {
   mirrorData?: unknown;
 }
 
-export interface SearchDetectionResult {
-  query: string;
-  results: SearchSourceResult[];
-}
-
-export interface SearchSourceResult {
-  mangaId: string;
-  title: string;
-  source: ShinigamiSource;
-  projectData?: unknown;
-  mirrorData?: unknown;
-}
-
 export interface SourceDetectionOptions {
   timeout?: number;
   retries?: number;
 }
 
-export interface SearchOptions extends SourceDetectionOptions {
-  pageSize?: number;
-  maxResults?: number;
-}
-
-// ============================================================================
-// ID-based Detection (existing)
-// ============================================================================
-
-/**
- * Extract manga ID from various Shinigami URL formats
- */
 export function extractShinigamiMangaId(input: string): string | null {
-  // UUID format: a1b2c3d4-e5f6-7890-abcd-ef1234567890
   const uuidMatch = input.match(/\/(?:series|manga|komik)\/([a-f0-9-]{36})/i);
   if (uuidMatch) return uuidMatch[1];
 
-  // Slug format: shingeki-no-kyojin
   const slugMatch = input.match(/\/(?:series|manga|komik)\/([^/?#]+)/i);
   if (slugMatch) return slugMatch[1];
 
-  // Raw UUID
   if (/^[a-f0-9-]{36}$/i.test(input)) return input;
 
-  // Raw slug
   if (/^[a-z0-9-]+$/i.test(input)) return input;
 
   return null;
@@ -102,28 +64,22 @@ function detectSourceFromTypes(
   types: TypeItem[] | undefined,
   taxonomy?: Record<string, TypeItem[]>
 ): { isProject: boolean; isMirror: boolean } {
-  // Check direct Type array
   if (Array.isArray(types)) {
     const isProject = types.some(t => t.slug === "project" || t.name?.toLowerCase() === "project");
     const isMirror = types.some(t => t.slug === "mirror" || t.name?.toLowerCase() === "mirror");
     if (isProject || isMirror) return { isProject, isMirror };
   }
-  
-  // Check taxonomy.Type (Shinigami API structure)
+
   if (taxonomy?.Type && Array.isArray(taxonomy.Type)) {
     const isProject = taxonomy.Type.some(t => t.slug === "project" || t.name?.toLowerCase() === "project");
     const isMirror = taxonomy.Type.some(t => t.slug === "mirror" || t.name?.toLowerCase() === "mirror");
     return { isProject, isMirror };
   }
-  
+
   return { isProject: false, isMirror: false };
 }
 
-/**
- * Fetch manga detail and detect source from "Type" field
- * Single API call to determine both
- */
-export async function fetchMangaDetailAndDetect(
+async function fetchMangaDetailAndDetect(
   mangaId: string,
   options: SourceDetectionOptions = {}
 ): Promise<{
@@ -143,7 +99,7 @@ export async function fetchMangaDetailAndDetect(
     );
 
     const data = extractMangaDetail(res?.data);
-    
+
     if (!data || (!data.title && !data.name)) {
       return { found: false, source: "none" };
     }
@@ -170,40 +126,6 @@ export async function fetchMangaDetailAndDetect(
   }
 }
 
-/**
- * Check if manga exists in the main Shinigami database
- */
-export async function checkProject(
-  mangaId: string,
-  options: SourceDetectionOptions = {}
-): Promise<{ exists: boolean; title?: string; data?: unknown }> {
-  const result = await fetchMangaDetailAndDetect(mangaId, options);
-  return {
-    exists: result.found && (result.source === "project" || result.source === "both"),
-    title: result.title,
-    data: result.rawData,
-  };
-}
-
-/**
- * Check if manga exists in the secondary Shinigami database
- */
-export async function checkMirror(
-  mangaId: string,
-  options: SourceDetectionOptions = {}
-): Promise<{ exists: boolean; title?: string; data?: unknown }> {
-  const result = await fetchMangaDetailAndDetect(mangaId, options);
-  return {
-    exists: result.found && (result.source === "mirror" || result.source === "both"),
-    title: result.title,
-    data: result.rawData,
-  };
-}
-
-/**
- * Detect source from manga ID
- * Only 1 API call with "Type" field parsing
- */
 export async function detectSource(
   mangaId: string,
   options: SourceDetectionOptions = {}
@@ -237,218 +159,3 @@ export async function detectSource(
     mirrorData: isMirror ? result.rawData : undefined,
   };
 }
-
-/**
- * Detect source from URL or input string
- */
-export async function detectSourceFromInput(
-  input: string,
-  options: SourceDetectionOptions = {}
-): Promise<SourceDetectionResult | null> {
-  const mangaId = extractShinigamiMangaId(input);
-  if (!mangaId) return null;
-
-  return detectSource(mangaId, options);
-}
-
-// ============================================================================
-// Search-based Detection (NEW)
-// ============================================================================
-
-interface SearchApiItem {
-  manga_id?: string;
-  title?: string;
-  id?: string;
-  name?: string;
-}
-
-function extractSearchResults(data: unknown): SearchApiItem[] {
-  const root = (data as any)?.data ?? (data as any)?.result ?? (data as any)?.items ?? data;
-  const rows = Array.isArray(root) ? root : (root as any)?.data;
-  if (!Array.isArray(rows)) return [];
-
-  return rows.map((r: any) => ({
-    manga_id: r?.manga_id || r?.id,
-    title: r?.title || r?.name,
-  })).filter((r: SearchApiItem) => r.manga_id && r.title);
-}
-
-/**
- * Search manga in project
- * API: /v1/manga/list?type=project&q={keyword}
- */
-export async function searchProject(
-  keyword: string,
-  options: SearchOptions = {}
-): Promise<SearchApiItem[]> {
-  const { timeout = 10000, retries = 2, pageSize = 10 } = options;
-
-  try {
-    const res = await httpGet(
-      `${API_BASE}/v1/manga/list?type=project&q=${encodeURIComponent(keyword)}&page=1&page_size=${pageSize}`,
-      { headers: JSON_HEADERS, timeout },
-      { retries, baseDelayMs: 500 }
-    );
-
-    return extractSearchResults(res?.data);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Search manga in mirror
- * API: /v1/manga/list?type=mirror&q={keyword}
- */
-export async function searchMirror(
-  keyword: string,
-  options: SearchOptions = {}
-): Promise<SearchApiItem[]> {
-  const { timeout = 10000, retries = 2, pageSize = 10 } = options;
-
-  try {
-    const res = await httpGet(
-      `${API_BASE}/v1/manga/list?type=mirror&q=${encodeURIComponent(keyword)}&page=1&page_size=${pageSize}`,
-      { headers: JSON_HEADERS, timeout },
-      { retries, baseDelayMs: 500 }
-    );
-
-    return extractSearchResults(res?.data);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Search-based detection
- * Search manga by keyword in both sources, then cross-check results
- */
-export async function detectSourceBySearch(
-  keyword: string,
-  options: SearchOptions = {}
-): Promise<SearchDetectionResult> {
-  const { maxResults = 5 } = options;
-
-  // Search in both sources in parallel
-  const [projectResults, mirrorResults] = await Promise.all([
-    searchProject(keyword, options),
-    searchMirror(keyword, options),
-  ]);
-
-  // Create map for tracking
-  const projectMap = new Map(projectResults.map(r => [r.manga_id!, r]));
-  const mirrorMap = new Map(mirrorResults.map(r => [r.manga_id!, r]));
-
-  // Collect all unique manga IDs
-  const allIds = new Set([...projectMap.keys(), ...mirrorMap.keys()]);
-
-  // Build result with cross-check
-  const results: SearchSourceResult[] = [];
-  for (const mangaId of allIds) {
-    const inProject = projectMap.has(mangaId);
-    const inMirror = mirrorMap.has(mangaId);
-
-    let source: ShinigamiSource;
-    if (inProject && inMirror) source = "both";
-    else if (inProject) source = "project";
-    else source = "mirror";
-
-    results.push({
-      mangaId,
-      title: projectMap.get(mangaId)?.title || mirrorMap.get(mangaId)?.title || "Unknown",
-      source,
-      projectData: projectMap.get(mangaId),
-      mirrorData: mirrorMap.get(mangaId),
-    });
-
-    if (results.length >= maxResults) break;
-  }
-
-  return { query: keyword, results };
-}
-
-// ============================================================================
-// Utility Class
-// ============================================================================
-
-/**
- * Utility class for batch detection
- */
-export class ShinigamiSourceDetector {
-  private options: SourceDetectionOptions;
-
-  constructor(options: SourceDetectionOptions = {}) {
-    this.options = { timeout: 10000, retries: 2, ...options };
-  }
-
-  /**
-   * Detect single manga by ID
-   */
-  async detect(mangaId: string): Promise<SourceDetectionResult> {
-    return detectSource(mangaId, this.options);
-  }
-
-  /**
-   * Detect from URL or input
-   */
-  async detectFromInput(input: string): Promise<SourceDetectionResult | null> {
-    return detectSourceFromInput(input, this.options);
-  }
-
-  /**
-   * Search-based detection
-   */
-  async searchAndDetect(keyword: string, maxResults = 5): Promise<SearchDetectionResult> {
-    return detectSourceBySearch(keyword, { ...this.options, maxResults });
-  }
-
-  /**
-   * Batch detect multiple manga IDs
-   */
-  async detectBatch(mangaIds: string[]): Promise<SourceDetectionResult[]> {
-    const results: SourceDetectionResult[] = [];
-
-    // Run sequentially to avoid rate limiting
-    for (const mangaId of mangaIds) {
-      try {
-        const result = await this.detect(mangaId);
-        results.push(result);
-      } catch {
-        results.push({ mangaId, source: "none", found: false });
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * Check if manga exists in project
-   */
-  async isInProject(mangaId: string): Promise<boolean> {
-    const result = await checkProject(mangaId, this.options);
-    return result.exists;
-  }
-
-  /**
-   * Check if manga exists in mirror
-   */
-  async isInMirror(mangaId: string): Promise<boolean> {
-    const result = await checkMirror(mangaId, this.options);
-    return result.exists;
-  }
-
-  /**
-   * Get recommended source for manga
-   * Priority: project > mirror > none
-   */
-  async getRecommendedSource(mangaId: string): Promise<"project" | "mirror" | null> {
-    const result = await this.detect(mangaId);
-
-    if (result.source === "project" || result.source === "both") return "project";
-    if (result.source === "mirror") return "mirror";
-    return null;
-  }
-}
-
-// Default instance
-export const shinigamiDetector = new ShinigamiSourceDetector();
