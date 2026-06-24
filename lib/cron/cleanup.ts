@@ -4,16 +4,28 @@
 
 import { getLogger } from "../logger.js";
 import { cleanupScrapeOptimizer } from "../scrapers/optimizer.js";
+import { supabase } from "../supabase.js";
 
 const logger = getLogger({ scope: "cron:cleanup" });
 
 /**
- * Run all cleanup tasks (fire-and-forget)
+ * Run all cleanup tasks
  */
 export function runCleanupTasks(): void {
-  // Cleanup optimizer to prevent memory leaks
   cleanupScrapeOptimizer();
+  cleanupOldDispatchClaims().catch(() => {});
+}
 
-  // Note: cleanupOldLogs and syncDailyStatsToSupabase removed.
-  // Supabase handles data retention and TTL automatically.
+async function cleanupOldDispatchClaims(): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("dispatch_claims")
+      .delete()
+      .lt("created_at", new Date(Date.now() - 2 * 86400000).toISOString());
+
+    if (error) throw error;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn({ err: msg }, "Failed to cleanup old dispatch claims");
+  }
 }
