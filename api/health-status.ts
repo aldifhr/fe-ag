@@ -148,8 +148,8 @@ export default async function handler(req: Request) {
       supabasePing,
       providerMetrics,
     ] = await Promise.all([
-      loadSourceHealthSnapshot(redis, SOURCE_KEYS),
-      readCronStatusWithHealth(redis),
+      loadSourceHealthSnapshot(SOURCE_KEYS),
+      readCronStatusWithHealth(),
       readCronDailyStats(7, new Date(), true).then(s => s || []),
       redis.get(DISCORD_GUILDS_COUNT_KEY).then(c => c ? parseInt(c as string, 10) : null),
       getRedisPing(),

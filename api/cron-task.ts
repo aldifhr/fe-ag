@@ -66,7 +66,6 @@ export default async function handler(req: Request, res: Response) {
 
     await withDistributedLock(redis, lockKey, async () => {
       taskResult = await runCronJob({
-        redisClient: redis,
         logger,
         scrapeOptions: {
           ...scrapeOptions,

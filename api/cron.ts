@@ -170,7 +170,6 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
 
           const result = await withTimeout(
             runCronJob({
-              redisClient: redis,
               logger,
               scrapeOptions,
               lifecycle,

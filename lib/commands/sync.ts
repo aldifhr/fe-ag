@@ -72,7 +72,6 @@ export default async function handleSync(payload: any, _options: any, res: any) 
           
           // Run cron with 60s timeout
           const out = await runCronJob({ 
-            redisClient: redis,
             deadlineMs: 60000, // 60 second timeout
           });
           
