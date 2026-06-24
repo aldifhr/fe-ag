@@ -8,10 +8,12 @@ import {
   getDashboardLoginWindowSeconds,
   getDashboardLoginMaxAttempts,
 } from "./config.js";
-import type { RedisClient } from "../types.js";
 import type { RequestLike } from "./http.js";
 
 const logger = getLogger({ scope: "auth:throttle" });
+
+/** In-memory store for login attempt tracking — keyed by throttle key, value is { count, resetAt } */
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 export interface ThrottleSnapshot {
   count: number;
@@ -55,72 +57,54 @@ function getDashboardLoginThrottleKey(req: RequestLike): string {
  * Read current throttle status
  */
 export async function readDashboardLoginThrottle(
-  redis: RedisClient,
   req: RequestLike,
 ): Promise<ThrottleSnapshot> {
-  if (!redis) return buildThrottleSnapshot(null, 0);
   const key = getDashboardLoginThrottleKey(req);
+  const entry = loginAttempts.get(key);
 
-  const [countRaw, ttlRaw] = await Promise.all([
-    redis.get(key),
-    redis.ttl(key),
-  ]);
-  return buildThrottleSnapshot(Number(countRaw), Number(ttlRaw));
+  if (!entry) {
+    return buildThrottleSnapshot(null, 0);
+  }
+
+  const now = Date.now();
+  if (now >= entry.resetAt) {
+    // Window expired — treat as no entry
+    loginAttempts.delete(key);
+    return buildThrottleSnapshot(null, 0);
+  }
+
+  const remainingSec = Math.ceil((entry.resetAt - now) / 1000);
+  return buildThrottleSnapshot(entry.count, remainingSec);
 }
 
 /**
  * Register a login failure (increment counter)
  */
 export async function registerDashboardLoginFailure(
-  redis: RedisClient,
   req: RequestLike,
 ): Promise<ThrottleSnapshot> {
   const windowSec = getDashboardLoginWindowSeconds();
-
-  if (!redis) {
-    return {
-      count: 1,
-      limited: false,
-      retryAfterSec: windowSec,
-    };
-  }
-
   const key = getDashboardLoginThrottleKey(req);
+  const now = Date.now();
 
-  const count = Number(
-    await redis.incr(key).catch((err: unknown) => {
-      const errMessage = err instanceof Error ? err.message : String(err);
-      logger.error({ err: errMessage }, "Redis incr failed");
-      return 0;
-    }),
-  );
+  let entry = loginAttempts.get(key);
 
-  const ttl = await redis.ttl(key).catch((err: unknown) => {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    logger.error({ err: errMessage }, "Redis ttl failed");
-    return -1;
-  });
-
-  if (ttl < 0) {
-    await redis.expire(key, windowSec).catch((err: unknown) => {
-      const errMessage = err instanceof Error ? err.message : String(err);
-      logger.error({ err: errMessage }, "Redis expire failed");
-    });
+  if (!entry || now >= entry.resetAt) {
+    // First failure or expired window — start fresh
+    entry = { count: 0, resetAt: now + windowSec * 1000 };
+    loginAttempts.set(key, entry);
   }
 
-  return buildThrottleSnapshot(count, windowSec);
+  entry.count += 1;
+
+  return buildThrottleSnapshot(entry.count, windowSec);
 }
 
 /**
  * Clear login throttle (after successful login)
  */
 export async function clearDashboardLoginThrottle(
-  redis: RedisClient,
   req: RequestLike,
 ): Promise<void> {
-  if (!redis) return;
-  await redis.del(getDashboardLoginThrottleKey(req)).catch((err: unknown) => {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    logger.error({ err: errMessage }, "Redis del failed");
-  });
+  loginAttempts.delete(getDashboardLoginThrottleKey(req));
 }

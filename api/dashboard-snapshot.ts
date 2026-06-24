@@ -27,7 +27,7 @@ async function getAnalyticsData() {
     const [recentChapters, logs, whitelist] = await Promise.all([
       readRecentChapters(redis, 0, 999),
       readCronLogs(redis, 0, 99),
-      loadWhitelist(redis),
+      loadWhitelist(),
     ]);
 
     // Top manga
@@ -252,7 +252,7 @@ export default async function handler(req: Request, res: Response) {
       },
     ];
 
-    const dailyStats = await readCronDailyStats(redis, 7, new Date(), true).catch(() => []);
+    const dailyStats = await readCronDailyStats(7, new Date(), true).catch(() => []);
 
     // Concurrently check if there are active Redis run locks indicating running background workers
     const [lockIkiru, lockShinigami] = await Promise.all([

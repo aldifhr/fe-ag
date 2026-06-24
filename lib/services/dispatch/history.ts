@@ -1,63 +1,32 @@
-import { DISPATCH_HISTORY_KEY } from "../../constants/redis.js";
-import { RedisClient } from "../../types.js";
-import { safeJsonParse } from "../../dateUtils.js";
 import { getLogger } from "../../logger.js";
 import { normalizeCronLogEntry } from "../../cronLogs.js";
 import { compactArray } from "../../utils.js";
 import { ChapterItem, CronLogEntry } from "../../types.js";
+import { supabase } from "../../supabase.js";
 
 const logger = getLogger({ scope: "dispatch" });
 export const LOG_SUMMARY_SAMPLE_LIMIT = 3;
 
 /**
  * Filter expired chapters from the history map by scanning the hash.
+ * Delegates to the `cleanup_expired_dispatch_claims` RPC which handles
+ * selection and deletion in a single transaction.
  */
 export async function scanAndCleanupExpired(
-  redisClient: RedisClient,
   nowMs: number,
 ): Promise<string[]> {
   try {
-    const toDelete: string[] = [];
-    let cursor = "0";
-    const batchSize = 500;
+    const { error } = await supabase.rpc("cleanup_expired_dispatch_claims");
 
-    do {
-      const results = await redisClient.hscan(DISPATCH_HISTORY_KEY, cursor, {
-        count: batchSize,
-      });
+    if (error) {
+      logger.warn({ err: error.message }, "cleanup_expired_dispatch_claims RPC failed");
+    }
 
-      if (!Array.isArray(results) || results.length < 2) break;
-
-      cursor = String(results[0]);
-      const entries = results[1] as string[];
-
-      if (Array.isArray(entries)) {
-        for (let i = 0; i < entries.length; i += 2) {
-          const key = entries[i];
-          const rawValue = entries[i + 1];
-          const value =
-            typeof rawValue === "string" ? safeJsonParse(rawValue, null) : rawValue;
-          
-          if (!value) {
-            // If completely unparseable, stay safe and keep it for now
-            // Wiping unparseable data can lead to duplicate notifications
-            continue;
-          }
-
-          const expiresAt = value.e || value.expiresAt;
-          
-          // CRITICAL: Only delete if we have a positive expiration timestamp in the past
-          if (expiresAt && Number(expiresAt) > 0 && expiresAt < nowMs) {
-            toDelete.push(key);
-          }
-        }
-      }
-    } while (cursor !== "0" && toDelete.length < 1000);
-
-    return toDelete;
+    // The RPC handles cleanup internally; no keys to return.
+    return [];
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: message }, "Error scanning dispatch hash");
+    logger.warn({ err: message }, "Error calling cleanup_expired_dispatch_claims");
     return [];
   }
 }

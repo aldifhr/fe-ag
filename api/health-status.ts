@@ -1,8 +1,6 @@
 import { redis } from "../lib/redis.js";
 import {
   DISCORD_GUILDS_COUNT_KEY,
-  NOTIFICATION_QUEUE_KEY,
-  NOTIFICATION_PROCESSING_QUEUE_KEY,
   SOURCE_KEYS,
 } from "../lib/constants/redis.js";
 import { loadSourceHealthSnapshot } from "../lib/services/storage.js";
@@ -15,7 +13,7 @@ import { createEdgeResponse, createErrorResponse } from "../lib/api/response.js"
 import { supabase } from "../lib/supabase.js";
 import { mangaProviderRegistry } from "../lib/providers/registry.js";
 import { initializeAllProviders } from "../lib/boot.js";
-import { getSupabasePing, getDiscordPing, getRedisPing, getQueueStats, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
+import { getSupabasePing, getDiscordPing, getRedisPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
 
 import { findCronJob, getCronNextRuns, getCronLogs, FastCronExecutionResult } from "../lib/services/fastcron.js";
 
@@ -146,17 +144,15 @@ export default async function handler(req: Request) {
       dailyStats,
       guildCount,
       redisPing,
-      queueStats,
       discordPing,
       supabasePing,
       providerMetrics,
     ] = await Promise.all([
       loadSourceHealthSnapshot(redis, SOURCE_KEYS),
       readCronStatusWithHealth(redis),
-      readCronDailyStats(redis, 7, new Date(), true).then(s => s || []),
+      readCronDailyStats(7, new Date(), true).then(s => s || []),
       redis.get(DISCORD_GUILDS_COUNT_KEY).then(c => c ? parseInt(c as string, 10) : null),
       getRedisPing(),
-      getQueueStats(),
       getDiscordPing(),
       getSupabasePing(),
       getProviderMetrics(),
@@ -280,7 +276,6 @@ export default async function handler(req: Request) {
       lastUpdated: new Date().toISOString(),
       uptime: overallUptime,
       totalIncidents: networks.reduce((acc, n) => acc + n.services.reduce((a2, s) => a2 + s.incidents.length, 0), 0),
-      queueStats,
       guildCount,
       cronStatus: cronStatus_ ? {
         lastRun: cronStatus_.lastRun || null,

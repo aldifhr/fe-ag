@@ -1,4 +1,3 @@
-import { RedisClient } from "../types.js";
 import { getLogger } from "../logger.js";
 import { sendDiscordEmbedsChannelBatch } from "../discord/messaging.js";
 import { DiscordEmbedData } from "../types.js";
@@ -6,31 +5,28 @@ import { env } from "../config/env.js";
 
 const logger = getLogger({ scope: "health-monitor" });
 
-const LAST_SOURCE_UPDATE_PREFIX = "health:last_update:";
+const sourceActivityMap = new Map<string, number>();
 const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 Hours
 const HEALTH_ALERT_CHANNEL_ID = env.HEALTH_ALERT_CHANNEL_ID || "1500721659915665549";
 
 /**
  * Record that a source just provided an update
  */
-export async function recordSourceActivity(redis: RedisClient, source: string) {
-  const key = `${LAST_SOURCE_UPDATE_PREFIX}${source}`;
-  await redis.set(key, Date.now().toString());
+export async function recordSourceActivity(source: string) {
+  sourceActivityMap.set(source, Date.now());
 }
 
 /**
  * Check if any source has become stale (no updates for a long time)
  */
-export async function checkSourceHealth(redis: RedisClient, sources: string[]) {
+export async function checkSourceHealth(sources: string[]) {
   const alerts: string[] = [];
   const now = Date.now();
 
   for (const source of sources) {
-    const key = `${LAST_SOURCE_UPDATE_PREFIX}${source}`;
-    const lastUpdateStr = await redis.get(key);
+    const lastUpdate = sourceActivityMap.get(source);
     
-    if (lastUpdateStr) {
-      const lastUpdate = parseInt(lastUpdateStr);
+    if (lastUpdate !== undefined) {
       const elapsed = now - lastUpdate;
       
       if (elapsed > STALE_THRESHOLD_MS) {
@@ -39,7 +35,7 @@ export async function checkSourceHealth(redis: RedisClient, sources: string[]) {
       }
     } else {
       // First time initialization
-      await recordSourceActivity(redis, source);
+      recordSourceActivity(source);
     }
   }
 

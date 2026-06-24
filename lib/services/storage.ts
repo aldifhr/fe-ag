@@ -9,28 +9,23 @@ import {
 } from "../types.js";
 import {
   CronStatusSchema,
-  SourceHealthSchema,
   ChannelValidationStateSchema,
 } from "../schemas.js";
 import { z } from "zod";
 import {
-  DISPATCH_HISTORY_KEY,
-  CRON_LAST_RUN_KEY,
-  SOURCES_HEALTH_KEY,
-  LIVE_EVENTS_KEY,
   CHANNEL_HASH_KEY,
   CHANNEL_VALIDATION_STATE_KEY,
 } from "../constants/redis.js";
-import { BATCH_CLAIM_SCRIPT } from "../redisScripts.js";
 import { validateData } from "../validation.js";
 import { loadWhitelist, saveWhitelist, invalidateWhitelistCache } from "./storage/whitelist.js";
 import { batchGetMangaMetadata, setMangaMetadata, deleteMangaMetadata } from "./storage/metadata.js";
-import { supabasePing, syncDailyStatsToSupabase } from "./storage/stats.js";
+import { supabasePing } from "./storage/stats.js";
 import { supabase } from "../supabase.js";
+
 
 export { loadWhitelist, saveWhitelist, invalidateWhitelistCache };
 export { batchGetMangaMetadata, setMangaMetadata, deleteMangaMetadata };
-export { supabasePing, syncDailyStatsToSupabase };
+export { supabasePing };
 export { readCronLogs, readRecentChapters, fetchDashboardSnapshot } from "./storage/dashboard.js";
 
 type ChannelValidationState = z.infer<typeof ChannelValidationStateSchema>;
@@ -66,71 +61,98 @@ export async function writeObjectCache(
   await redisClient.set(key, JSON.stringify(payload), { ex: cacheTtl });
 }
 
-export async function writeCronStatus(redisClient: RedisClient, status: CronStatus): Promise<void> {
-  const payload = JSON.stringify(status);
-  await redisClient.set(CRON_LAST_RUN_KEY, payload);
+export async function writeCronStatus(_redisClient: RedisClient, status: CronStatus): Promise<void> {
   supabase.from("cron_run_status").insert({ status }).then(({ error }: any) => {
     if (error) logger.warn({ error: error.message }, "Failed to persist cron status to Supabase");
   });
 }
 
-export async function readCronStatus(redisClient: RedisClient): Promise<CronStatus | null> {
-  const data = await redisClient.get(CRON_LAST_RUN_KEY);
-  if (data) {
-    const parsed = typeof data === "string" ? JSON.parse(data) : data;
-    return validateData(CronStatusSchema, parsed, "cron_status", logger);
-  }
+export async function readCronStatus(_redisClient: RedisClient): Promise<CronStatus | null> {
   const { data: dbRow } = await supabase.from("cron_run_status").select("status").order("id", { ascending: false }).limit(1).maybeSingle();
   if (dbRow?.status) {
-    const validated = validateData(CronStatusSchema, dbRow.status, "cron_status", logger);
-    if (validated) {
-      await redisClient.set(CRON_LAST_RUN_KEY, JSON.stringify(validated));
-      return validated;
-    }
+    return validateData(CronStatusSchema, dbRow.status, "cron_status", logger);
   }
   return null;
 }
 
 export async function loadSourceHealthSnapshot(
-  redisClient: RedisClient,
+  _redisClient: RedisClient,
   keys: string[],
 ): Promise<Record<string, SourceHealth>> {
-  const data = await redisClient.hgetall(SOURCES_HEALTH_KEY);
-  if (!data) return {};
+  if (!keys.length) return {};
+  try {
+    const { data, error } = await supabase
+      .from("source_health")
+      .select("source, status, consecutive_failures, disabled_until, last_error, last_success_at, last_checked_at, response_time_ms, failures_today, successes_today")
+      .in("source", keys);
 
-  const result: Record<string, SourceHealth> = {};
-  for (const key of keys) {
-    const raw = data[key];
-    if (raw) {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const validated = validateData(SourceHealthSchema, parsed, `source_health:${key}`, logger);
-      if (validated) result[key] = validated;
+    if (error) throw error;
+    if (!data) return {};
+
+    const result: Record<string, SourceHealth> = {};
+    for (const row of data) {
+      result[row.source] = {
+        source: row.source,
+        status: row.status as SourceHealth["status"],
+        consecutiveFailures: row.consecutive_failures,
+        disabledUntil: row.disabled_until ?? null,
+        lastError: row.last_error ?? null,
+        lastSuccessAt: row.last_success_at ?? null,
+        lastCheckedAt: row.last_checked_at ?? null,
+        responseTime: row.response_time_ms ?? null,
+        failuresToday: row.failures_today,
+        successesToday: row.successes_today,
+      };
     }
+    return result;
+  } catch (err: unknown) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "loadSourceHealthSnapshot: Supabase error");
+    return {};
   }
-  return result;
 }
 
 
 export async function readChannelValidationState(
-  redisClient: RedisClient = redis,
+  _redisClient: RedisClient = redis,
 ): Promise<ChannelValidationState | null> {
-  const data = await redisClient.get(CHANNEL_VALIDATION_STATE_KEY);
-  if (!data) return null;
-  const parsed = typeof data === "string" ? JSON.parse(data) : data;
-  return validateData(ChannelValidationStateSchema, parsed, "channel_validation_state", logger);
+  try {
+    const { data } = await supabase
+      .from("channel_validation_cache")
+      .select("channel_id, valid, expires_at")
+      .gt("expires_at", new Date().toISOString())
+      .limit(500);
+    if (!data || data.length === 0) return null;
+    // Reconstruct the validation state map
+    const state: Record<string, { valid: boolean; expiresAt: string }> = {};
+    for (const row of data) {
+      state[row.channel_id] = { valid: row.valid, expiresAt: row.expires_at };
+    }
+    return validateData(ChannelValidationStateSchema, state, "channel_validation_state", logger);
+  } catch (err: unknown) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "readChannelValidationState: Supabase error");
+    return null;
+  }
 }
 
 export async function writeChannelValidationState(
-  redisClient: RedisClient = redis,
+  _redisClient: RedisClient = redis,
   state: ChannelValidationState,
 ): Promise<void> {
-  await redisClient.set(CHANNEL_VALIDATION_STATE_KEY, JSON.stringify(state), {
-    ex: 86400 * 7,
-  });
+  try {
+    const rows = Object.entries(state as Record<string, any>).map(([channelId, val]) => ({
+      channel_id: channelId,
+      valid: val.valid ?? false,
+      expires_at: val.expiresAt ?? new Date(Date.now() + 86400 * 7 * 1000).toISOString(),
+    }));
+    if (rows.length > 0) {
+      await supabase.from("channel_validation_cache").upsert(rows, { onConflict: "channel_id" });
+    }
+  } catch (err: unknown) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "writeChannelValidationState: Supabase error");
+  }
 }
 
 export async function appendLiveEvent(
-  redisClient: RedisClient,
   event: { message: string; type?: string },
 ): Promise<boolean> {
   const payload = {
@@ -140,21 +162,9 @@ export async function appendLiveEvent(
   };
 
   try {
-    const pipeline = redisClient.pipeline();
-    pipeline.lpush(LIVE_EVENTS_KEY, JSON.stringify(payload));
-    pipeline.ltrim(LIVE_EVENTS_KEY, 0, LIVE_EVENTS_LIMIT - 1);
-    pipeline.expire(LIVE_EVENTS_KEY, 3600 * 24); // 24h TTL
-    await pipeline.exec();
-
-    // Persist to Supabase asynchronously with basic error handling
-    const supabasePromise = supabase.from('live_events').insert(payload);
-    
-    // Handle result asynchronously
-    supabasePromise.then(({ error }) => {
-       if (error) logger.warn({ error: error.message }, "Failed to persist live event to Supabase");
-    });
-
-    return true;
+    const { error } = await supabase.from('live_events').insert(payload);
+    if (error) logger.warn({ error: error.message }, "Failed to persist live event to Supabase");
+    return !error;
   } catch (err: unknown) {
     logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Failed to append live event");
     return false;
@@ -162,87 +172,72 @@ export async function appendLiveEvent(
 }
 
 // --- Channel Store ---
-export async function getNotificationChannel(guildId: string, redisClient: RedisClient = redis): Promise<string | null> {
+export async function getNotificationChannel(guildId: string, _redisClient: RedisClient = redis): Promise<string | null> {
   const field = String(guildId);
-  
-  // 1. Check Redis Cache
-  const hashVal = await redisClient.hget(CHANNEL_HASH_KEY, field);
-  if (hashVal !== null) return String(hashVal);
-
-  // 2. Check Supabase
   try {
     const { data, error } = await supabase
       .from('guild_settings')
       .select('channel_id')
       .eq('guild_id', field)
-      .single();
-    
-    if (data && !error) {
-      // Back-fill Redis
-      await redisClient.hset(CHANNEL_HASH_KEY, { [field]: data.channel_id });
-      return data.channel_id;
-    }
+      .maybeSingle();
+    if (data && !error) return data.channel_id;
   } catch (err) {
     logger.warn({ err }, "Failed to fetch guild settings from Supabase");
   }
-
   return null;
 }
 
-export async function setNotificationChannel(guildId: string, channelId: string, redisClient: RedisClient = redis): Promise<void> {
+export async function setNotificationChannel(guildId: string, channelId: string, _redisClient: RedisClient = redis): Promise<void> {
   const field = String(guildId);
   const value = String(channelId).trim();
-  
-  // 1. Write to Supabase
   try {
     const { error } = await supabase
       .from('guild_settings')
       .upsert({ guild_id: field, channel_id: value, updated_at: new Date().toISOString() });
-    
     if (error) throw error;
   } catch (err) {
     logger.error({ err }, "Failed to save guild settings to Supabase");
   }
-
-  // 2. Update Redis
-  await redisClient.hset(CHANNEL_HASH_KEY, { [field]: value });
-  
-  // Clear local cache
   channelMapCache = null;
 }
 
-export async function deleteGuildChannel(guildId: string, redisClient: RedisClient = redis): Promise<void> {
+export async function deleteGuildChannel(guildId: string, _redisClient: RedisClient = redis): Promise<void> {
   const field = String(guildId);
-  
-  // 1. Delete from Supabase
   try {
     await supabase.from('guild_settings').delete().eq('guild_id', field);
   } catch (err) {
     logger.error({ err }, "Failed to delete guild settings from Supabase");
   }
-
-  // 2. Delete from Redis
-  await redisClient.hdel(CHANNEL_HASH_KEY, field);
-  
-  // Clear local cache
   channelMapCache = null;
 }
 
 let channelMapCache: Record<string, string> | null = null;
 let channelMapCacheExpiry = 0;
 
-export async function getAllGuildChannels(redisClient: RedisClient = redis): Promise<Record<string, string>> {
+export async function getAllGuildChannels(_redisClient: RedisClient = redis): Promise<Record<string, string>> {
   const now = Date.now();
   if (channelMapCache && now < channelMapCacheExpiry) {
     return channelMapCache;
   }
 
-  const hashed = (await redisClient.hgetall(CHANNEL_HASH_KEY)) as Record<string, string>;
-  const map = hashed || {};
+  try {
+    const { data, error } = await supabase
+      .from('guild_settings')
+      .select('guild_id, channel_id');
+    if (data && !error) {
+      const map: Record<string, string> = {};
+      data.forEach(row => {
+        if (row.guild_id && row.channel_id) map[row.guild_id] = row.channel_id;
+      });
+      channelMapCache = map;
+      channelMapCacheExpiry = now + 60000; // 1 minute
+      return map;
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch all guild settings from Supabase");
+  }
 
-  channelMapCache = map;
-  channelMapCacheExpiry = now + 60000; // 1 minute
-  return map;
+  return channelMapCache || {};
 }
 
 export async function batchGetLastScrapeChecks(_redisClient: RedisClient, titleKeys: string[]): Promise<(string | null)[]> {
@@ -289,64 +284,48 @@ export async function batchSetLastScrapeChecks(
 }
 
 export async function batchClaimPendingChapters(
-  redisClient: RedisClient,
+  _redisClient: RedisClient,
   items: { key: string; duplicateKey?: string | null; nowIso: string }[],
   pendingClaimTtl: number,
 ): Promise<boolean[]> {
   if (!items?.length) return [];
 
-  const nowMs = Date.now();
-  const ttlMs = pendingClaimTtl * 1000;
+  const ttlSec = Math.floor(pendingClaimTtl);
 
-  const pipeline = redisClient.pipeline();
-  const payloads = items.map(({ key, duplicateKey, nowIso }) => {
-    const payload: ClaimState = {
-      status: "pending",
-      claimedAt: nowIso,
-      sentAt: null,
-      expiresAt: nowMs + ttlMs,
-    };
-    return {
-      key,
-      duplicateKey: duplicateKey || "",
-      json: JSON.stringify(payload),
-      nowIso
-    };
-  });
+  try {
+    // Use atomic Supabase RPC for each item (parallel)
+    const results = await Promise.all(
+      items.map(async ({ key, duplicateKey, nowIso: _nowIso }) => {
+        // Strip "chapter:" prefix — Supabase stores raw URLs
+        const chapterUrl = key.startsWith("chapter:") ? key.slice("chapter:".length) : key;
+        const dupUrl = duplicateKey
+          ? (duplicateKey.startsWith("chapter:") ? duplicateKey.slice("chapter:".length) : duplicateKey)
+          : "";
 
-  payloads.forEach(({ key, duplicateKey, json, nowIso }) => {
-    if (typeof pipeline.eval === "function") {
-      pipeline.eval(
-        BATCH_CLAIM_SCRIPT,
-        [DISPATCH_HISTORY_KEY],
-        [nowIso, "pending", String(ttlMs), key, duplicateKey || ""]
-      );
-    } else {
-      // Fallback
-      pipeline.hsetnx(DISPATCH_HISTORY_KEY, key, json);
-    }
-  });
-
-  const rawResults = await pipeline.exec();
-  const results = (Array.isArray(rawResults) ? rawResults : []).map(
-    (res: any) => Number(res) === 1,
-  );
-
-  // Persist successful claims to Supabase asynchronously
-  const successful = items.filter((_, i) => results[i]);
-  if (successful.length > 0) {
-    const rows = successful.map(({ key, duplicateKey, nowIso }) => ({
-      chapter_url: key,
-      duplicate_key: duplicateKey || null,
-      status: "pending",
-      claimed_at: nowIso,
-      expires_at: new Date(nowMs + ttlMs).toISOString(),
-    }));
-    const { error } = await supabase.from("dispatch_claims").upsert(rows, { onConflict: "chapter_url" }).then((r: any) => r);
-    if (error) logger.warn({ error: error.message }, "Failed to persist dispatch claims to Supabase");
+        try {
+          const { data, error } = await supabase.rpc("claim_dispatch_chapter", {
+            p_chapter_url: chapterUrl,
+            p_duplicate_url: dupUrl,
+            p_title_key: "",
+            p_source: "",
+            p_ttl_seconds: ttlSec,
+          });
+          if (error) {
+            logger.warn({ err: error.message, chapterUrl }, "claim_dispatch_chapter RPC error");
+            return true; // fail-open to avoid silent drops
+          }
+          return data === true;
+        } catch (err) {
+          logger.warn({ err: err instanceof Error ? err.message : String(err), chapterUrl }, "claim_dispatch_chapter failed");
+          return true; // fail-open
+        }
+      }),
+    );
+    return results;
+  } catch (dbErr) {
+    logger.error({ err: dbErr }, "batchClaimPendingChapters: Supabase batch failed, defaulting to allow");
+    return items.map(() => true);
   }
-
-  return results;
 }
 export async function batchCheckDispatchedChapters(chapterUrls: string[]): Promise<Set<string>> {
   if (!chapterUrls.length) return new Set();

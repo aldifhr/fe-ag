@@ -13,3 +13,8 @@ api/__pycache__/
 __pycache__/
 *.pyc
 .env*.local
+.slim/
+scratch/
+dry-run-*.txt
+*.dryrun.txt
+REAL-WHITELIST.txt

@@ -1,14 +1,6 @@
 import { normalizeSourceUrl, normalizeTitleKey } from "../domain.js";
 import { redis, flushWriteTasks, withDistributedLock } from "../redis.js";
-import {
-  RECENT_API_CACHE_KEY,
-  LOGS_API_CACHE_KEY,
-  NOTIFICATION_QUEUE_KEY,
-  NOTIFICATION_PROCESSING_QUEUE_KEY,
-} from "../constants/redis.js";
-import { batchClaimPendingChapters, invalidateDashboardCaches, recordDispatchToSupabase } from "./storage.js";
-import { ATOMIC_BATCH_QUEUE_MOVE_SCRIPT } from "../redisScripts.js";
-import { requeueStaleNotifications } from "./notificationQueue.js";
+import { batchClaimPendingChapters, recordDispatchToSupabase } from "./storage.js";
 import { RedisClient, CronLogEntry, ChapterItem, SendToChannelsOptions, DispatchChaptersOptions } from "../types.js";
 import { buildDispatchChapterMeta, DispatchChapterMeta } from "./dispatch/meta.js";
 import { prepareDispatchQueue, DispatchQueueState } from "./dispatch/deduplication.js";
@@ -32,7 +24,6 @@ import { buildMentionChunks } from "./dispatch/sender.js";
 import {
   IkiruMetaCacheEntry,
   hydrateIkiruMetadataIfMissing,
-  batchPreHydrateMetadata,
 } from "./dispatch/hydration.js";
 import {
   addSuccessWriteCommandsToPipeline,
@@ -44,7 +35,7 @@ const logger = getLogger({ scope: "dispatch" });
 
 
 export type { SendToChannelsOptions, DispatchChaptersOptions } from "../types.js";
-export { hydrateIkiruMetadataIfMissing, batchPreHydrateMetadata } from "./dispatch/hydration.js";
+export { hydrateIkiruMetadataIfMissing } from "./dispatch/hydration.js";
 
 // Distributed lock constants
 const BATCH_LOCK_KEY = "dispatch:batch:lock";
@@ -82,23 +73,10 @@ async function buildAndLogSummary(
       : buildCronLogSummary(sentItems, failed, nowIso);
 
   if (summaryLog) {
-    await appendCronLog(redisClient, { ...summaryLog, skipped });
+    await appendCronLog({ ...summaryLog, skipped });
   }
 
   return summaryLog;
-}
-
-async function invalidateCachesIfNeeded(
-  redisClient: RedisClient,
-  sentItems: ChapterItem[],
-  summaryLog: CronLogEntry | null,
-): Promise<void> {
-  if (sentItems.length > 0 || summaryLog) {
-    await invalidateDashboardCaches(redisClient, [
-      RECENT_API_CACHE_KEY,
-      ...(summaryLog ? [LOGS_API_CACHE_KEY] : []),
-    ]);
-  }
 }
 
 /**
@@ -232,17 +210,9 @@ export async function dispatchChapters({
     }[] = [];
     const allWriteTasks: (() => Promise<unknown>)[] = [];
 
-    // Pre-fetch metadata caches for all claimed items in one round-trip
-    await batchPreHydrateMetadata(
-      claimedMeta.map(m => m.item),
-      redisClient,
-      ikiruMetaCache
-    );
-
   // Pre-fetch all subscribers in batch to avoid N+1 query pattern
   const allTitles = claimedMeta.map((entry) => entry.item.title);
   const subscribersMap = await getSubscribersBatchWithCache(
-    redisClient,
     allTitles,
     subscriberCache,
   );
@@ -260,7 +230,7 @@ export async function dispatchChapters({
         let item = entry.item;
 
         // Hydrate metadata in background; don't block dispatch if deadline is tight
-        const hydrationPromise = hydrateIkiruMetadataIfMissing(item, redisClient, ikiruMetaCache, deadline)
+        const hydrationPromise = hydrateIkiruMetadataIfMissing(item, ikiruMetaCache, deadline)
           .then(updated => { item = updated; });
 
         // If we have time, wait for hydration; otherwise proceed with cached data
@@ -327,19 +297,7 @@ export async function dispatchChapters({
           for (const chunk of taskChunks) {
             const taskKeys = chunk.map(t => `${t.chapter.title}:${t.chapter.chapter}`);
             
-            // 1. Atomically move from pending to processing using Lua script (prevents race conditions)
-            try {
-              await redisClient.eval(
-                ATOMIC_BATCH_QUEUE_MOVE_SCRIPT,
-                [NOTIFICATION_QUEUE_KEY, NOTIFICATION_PROCESSING_QUEUE_KEY],
-                taskKeys
-              );
-            } catch (err: unknown) {
-              const message = err instanceof Error ? err.message : String(err);
-              logger.warn({ err: message, count: taskKeys.length }, "Failed to move tasks to processing queue");
-            }
-
-            // 2. Consolidate mentions for the whole chunk
+            // 1. Consolidate mentions for the whole chunk
             const combinedMentions = [...new Set(chunk.flatMap(t => t.mentions || []))].join(" ");
             const safeMentions = combinedMentions.length > 1000 ? combinedMentions.substring(0, 997) + "..." : combinedMentions;
             
@@ -395,7 +353,7 @@ export async function dispatchChapters({
                   counters.sentItems.push(task.chapter);
 
                   if (appendLiveEvent) {
-                    await appendLiveEvent(redisClient, {
+                    await appendLiveEvent({
                       message: `Sent: ${task.chapter.title} ${task.chapter.chapter}`,
                       type: "success",
                     });
@@ -407,10 +365,7 @@ export async function dispatchChapters({
               logger.error({ err: message, channelId, count: chunk.length }, "Failed to send batched Discord notification");
             }
 
-            // 4. Remove from processing queue
-            for (const taskKey of taskKeys) {
-              statusWritePipeline.lrem(NOTIFICATION_PROCESSING_QUEUE_KEY, 0, taskKey);
-            }
+
           }
         }
 
@@ -445,13 +400,10 @@ export async function dispatchChapters({
     buildSummaryLog,
   );
 
-  await invalidateCachesIfNeeded(redisClient, counters.sentItems, summaryLog);
-
   const withinDeadline = !deadline || Date.now() < deadline - FINAL_ABORT_MARGIN_MS;
   if (withinDeadline) {
     await cleanupRecentChapters(redisClient);
-    await requeueStaleNotifications(10 * 60 * 1000, redisClient);
-    fireAndForgetCleanup(redisClient);
+    fireAndForgetCleanup();
   } else {
     warn("Skipped non-essential cleanup tasks due to critical time limit (Final Abort Margin).");
   }

@@ -1,7 +1,6 @@
-import { ChapterItem, RedisClient } from "../../types.js";
+import { ChapterItem } from "../../types.js";
 import { normalizeChapterIdentity } from "../../domain.js";
 import { fetchIkiruChapters, fetchIkiruMetadata } from "../../scrapers/ikiru/index.js";
-import { MANGA_METADATA_CACHE_PREFIX } from "../../constants/redis.js";
 
 export interface IkiruMetaCacheEntry {
   byChapter: Map<string, ChapterItem>;
@@ -27,37 +26,8 @@ function isMissingDescription(description = ""): boolean {
   return !d || d === "unknown" || d === "n/a" || d.length < 10;
 }
 
-function isChapterItem(obj: unknown): obj is ChapterItem {
-  return (
-    obj !== null &&
-    typeof obj === "object" &&
-    "title" in obj &&
-    typeof (obj as { title: unknown }).title === "string" &&
-    "source" in obj &&
-    typeof (obj as { source: unknown }).source === "string"
-  );
-}
-
-function parseMetaCacheEntry(parsed: unknown): IkiruMetaCacheEntry {
-  if (!parsed || typeof parsed !== "object") {
-    return { byChapter: new Map(), fallback: null };
-  }
-  const p = parsed as { byChapter?: Record<string, unknown>; fallback?: unknown };
-  const byChapter = new Map<string, ChapterItem>();
-  if (p.byChapter && typeof p.byChapter === "object") {
-    Object.entries(p.byChapter).forEach(([key, value]) => {
-      if (isChapterItem(value)) {
-        byChapter.set(key, value);
-      }
-    });
-  }
-  const fallback = isChapterItem(p.fallback) ? p.fallback : null;
-  return { byChapter, fallback };
-}
-
 export async function hydrateIkiruMetadataIfMissing(
   item: ChapterItem,
-  redisClient: RedisClient,
   ikiruMetaCache: Map<string, IkiruMetaCacheEntry>,
   deadline?: number,
 ): Promise<ChapterItem> {
@@ -75,20 +45,6 @@ export async function hydrateIkiruMetadataIfMissing(
 
   let cached = ikiruMetaCache.get(mangaUrl);
 
-  if (!cached) {
-    try {
-      const redisKey = `${MANGA_METADATA_CACHE_PREFIX}${mangaUrl}`;
-      const saved = await redisClient.get(redisKey);
-      if (saved) {
-        const parsed = JSON.parse(saved as string);
-        cached = parseMetaCacheEntry(parsed);
-        ikiruMetaCache.set(mangaUrl, cached);
-      }
-    } catch {
-      // Redis fail safe
-    }
-  }
-
   if (!cached && deadline && Date.now() > deadline - 2000) {
     return item;
   }
@@ -96,28 +52,15 @@ export async function hydrateIkiruMetadataIfMissing(
   if (!cached) {
     const rows = await fetchIkiruChapters(mangaUrl);
     const byChapter = new Map<string, ChapterItem>();
-    const forRedis: Record<string, ChapterItem> = {};
 
     for (const row of rows) {
       const chapterKey = normalizeChapterIdentity(row?.chapter);
       if (chapterKey && !byChapter.has(chapterKey)) {
         byChapter.set(chapterKey, row);
-        forRedis[chapterKey] = row;
       }
     }
     cached = { byChapter, fallback: rows[0] || null };
     ikiruMetaCache.set(mangaUrl, cached);
-
-    try {
-      const redisKey = `${MANGA_METADATA_CACHE_PREFIX}${mangaUrl}`;
-      await redisClient.set(
-        redisKey,
-        JSON.stringify({ byChapter: forRedis, fallback: cached.fallback, cachedAt: Date.now() }),
-        { ex: 86400 },
-      );
-    } catch {
-      // Redis fail safe
-    }
   }
 
   const chapterKey = normalizeChapterIdentity(item.chapter);
@@ -150,33 +93,4 @@ export async function hydrateIkiruMetadataIfMissing(
   };
 }
 
-export async function batchPreHydrateMetadata(
-  items: ChapterItem[],
-  redisClient: RedisClient,
-  ikiruMetaCache: Map<string, IkiruMetaCacheEntry>,
-): Promise<void> {
-  const ikiruItems = items.filter(
-    (i) => isIkiruSource(i.source) && (
-      isMissingStatus(i.status || "") || 
-      isMissingRating(i.rating || "") || 
-      isMissingDescription(i.description || "")
-    ),
-  );
-  const uniqueUrls = [...new Set(ikiruItems.map((i) => i.mangaUrl).filter(Boolean))] as string[];
-  if (uniqueUrls.length === 0) return;
 
-  const pipeline = redisClient.pipeline();
-  uniqueUrls.forEach((url) => pipeline.get(`${MANGA_METADATA_CACHE_PREFIX}${url}`));
-
-  const results = await pipeline.exec();
-  results?.forEach((saved: unknown, index: number) => {
-    if (saved && index < uniqueUrls.length) {
-      const url = uniqueUrls[index];
-      let parsed = saved;
-      if (typeof saved === "string") {
-        try { parsed = JSON.parse(saved); } catch { return; }
-      }
-      ikiruMetaCache.set(url, parseMetaCacheEntry(parsed));
-    }
-  });
-}

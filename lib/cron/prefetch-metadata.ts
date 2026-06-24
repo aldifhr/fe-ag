@@ -50,7 +50,7 @@ export async function handlePrefetchMetadata(req: Request, res: Response) {
     await initializeAllProviders();
 
     // Get all whitelist items
-    const whitelist = await loadWhitelist(redis);
+    const whitelist = await loadWhitelist();
     if (!whitelist || whitelist.length === 0) {
       logger.info("No whitelist items found");
       return res.status(200).json(createSuccessResponse({ 

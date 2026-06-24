@@ -39,7 +39,6 @@ export async function loadValidatedGuilds({
 
   const channelIds = guildEntries.map(([, channelId]) => channelId);
   const validationResults = await validateDiscordChannelsBatch({
-    redis: redisClient,
     channelIds,
     botToken,
     cacheSec: 21600,

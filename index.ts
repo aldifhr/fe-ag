@@ -13,7 +13,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { getLogger } from "./lib/logger.js";
-import { rateLimitMiddleware } from "./lib/rateLimiter.js";
 
 const log = getLogger({ module: "express-dev" });
 
@@ -113,9 +112,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-
-// Rate limiting middleware
-app.use(rateLimitMiddleware.standard);
 
 
 

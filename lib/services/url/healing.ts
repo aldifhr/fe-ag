@@ -142,7 +142,7 @@ export async function proactiveHealWhitelist() {
         });
 
         const finalUrl = res.request?.res?.responseUrl || res.config.url;
-        logger.debug({ oldBase, sampleUrl, finalUrl }, "Proactive check result");
+        logger.info({ oldBase, sampleUrl, finalUrl }, "Proactive check result");
 
         if (finalUrl) {
           const newBase = extractBaseUrl(finalUrl);
@@ -152,7 +152,7 @@ export async function proactiveHealWhitelist() {
           }
         }
       } catch (err) {
-        logger.debug({ oldBase, err: err instanceof Error ? err.message : String(err) }, "Proactive check failed for base URL");
+        logger.warn({ oldBase, err: err instanceof Error ? err.message : String(err) }, "Proactive check failed for base URL");
       }
     }
   } catch (err) {

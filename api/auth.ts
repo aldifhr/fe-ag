@@ -10,7 +10,6 @@ import {
   registerDashboardLoginFailure,
   validateDashboardPassword,
 } from "../lib/auth.js";
-import { redis } from "../lib/redis.js";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -70,7 +69,7 @@ async function handleLogin(req: Request, res: Response) {
       return res.status(500).json(createErrorResponse("SERVER_ERROR", "DASHBOARD_PASSWORD not configured on server"));
     }
 
-    const throttle = await readDashboardLoginThrottle(redis, req);
+    const throttle = await readDashboardLoginThrottle(req);
     if (throttle.limited) {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Retry-After", String(throttle.retryAfterSec));
@@ -84,7 +83,7 @@ async function handleLogin(req: Request, res: Response) {
 
     const isValid = await validateDashboardPassword(password);
     if (!isValid) {
-      const failed = await registerDashboardLoginFailure(redis, req);
+      const failed = await registerDashboardLoginFailure(req);
       res.setHeader("Cache-Control", "no-store");
       if (failed.limited) {
         res.setHeader("Retry-After", String(failed.retryAfterSec));
@@ -96,7 +95,7 @@ async function handleLogin(req: Request, res: Response) {
     const token = await createDashboardSessionToken();
     if (!token) return res.status(500).json(createErrorResponse("SERVER_ERROR", "Session secret not configured"));
 
-    await clearDashboardLoginThrottle(redis, req);
+    await clearDashboardLoginThrottle(req);
     const cookie = await getSessionCookieHeader(req, token);
     res.setHeader("Set-Cookie", cookie);
     res.setHeader("Cache-Control", "no-store");

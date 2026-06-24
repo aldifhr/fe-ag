@@ -121,7 +121,7 @@ export async function writeSuccessStatus(
   const statusPayload = buildSuccessStatus(options);
 
   await Promise.all([
-    appendCronLog(options.redis, statusPayload as any).catch(
+    appendCronLog(statusPayload as any).catch(
       (err: unknown) => {
         logger.warn(
           { err: err instanceof Error ? err.message : String(err) },
@@ -145,7 +145,7 @@ export async function writeSuccessStatus(
   );
 
   // Live event
-  await appendLiveEvent(options.redis, {
+  await appendLiveEvent({
     message: `Cron finished: Sent ${statusPayload.sent} chapters to ${statusPayload.guilds} guilds in ${statusPayload.duration}s`,
     type: "success",
   });

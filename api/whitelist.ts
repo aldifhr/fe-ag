@@ -75,7 +75,7 @@ export default async function handler(req: Request) {
       const body = await req.json() as { title?: string; url?: string; source?: string };
       const { title, url, source } = body;
       if (!title) return createEdgeResponse(createErrorResponse("BAD_REQUEST", "Title is required"), 400);
-      const result = await addWhitelistEntry({ title, url, source }, { redisClient: redis });
+      const result = await addWhitelistEntry({ title, url, source });
       if (result.enrichmentPromise) {
         await result.enrichmentPromise;
       }

@@ -121,14 +121,9 @@ export async function cleanupRecentChapters(redisClient: RedisClient): Promise<v
   }
 }
 
-export function fireAndForgetCleanup(redisClient: RedisClient): void {
+export function fireAndForgetCleanup(): void {
   Promise.resolve()
-    .then(async () => {
-      const toDelete = await scanAndCleanupExpired(redisClient, Date.now());
-      if (toDelete.length > 0) {
-        await redisClient.hdel(DISPATCH_HISTORY_KEY, ...toDelete);
-      }
-    })
+    .then(() => scanAndCleanupExpired(Date.now()))
     .catch((err: unknown) => {
       logger.warn(
         { err: err instanceof Error ? err.message : String(err) },

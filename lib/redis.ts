@@ -62,6 +62,11 @@ return current
  * Create Redis client with graceful error handling
  */
 function createRedisClient(): RedisClient {
+  if (env.REDIS_DISABLED) {
+    logger.info("Redis is explicitly disabled via env (REDIS_DISABLED=true), using mock client");
+    return createMockRedisClient();
+  }
+
   const url = env.UPSTASH_REDIS_REST_URL;
   const token = env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -207,12 +212,21 @@ function createMockRedisClient(): RedisClient {
 }
 
 let activeRedisClient: RedisClient | null = null;
+let redisFailed = false;
 
 function getRedisClient(): RedisClient {
+  if (redisFailed) {
+    return createMockRedisClient();
+  }
   if (!activeRedisClient) {
     activeRedisClient = createRedisClient();
   }
   return activeRedisClient;
+}
+
+export function forceRedisFallback() {
+  logger.warn("⚠️ Explicitly falling back to Mock Redis client.");
+  redisFailed = true;
 }
 
 export const redis = new Proxy({} as RedisClient, {
@@ -220,7 +234,30 @@ export const redis = new Proxy({} as RedisClient, {
     const client = getRedisClient();
     const value = Reflect.get(client, prop, receiver);
     if (typeof value === "function") {
-      return value.bind(client);
+      return async (...args: any[]) => {
+        try {
+          const bound = value.bind(client);
+          return await bound(...args);
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          if (
+            errMsg.includes("limit exceeded") || 
+            errMsg.includes("max requests") ||
+            errMsg.includes("UpstashError") ||
+            errMsg.includes("ECONNREFUSED")
+          ) {
+            logger.error({ err: errMsg }, "🔴 Redis request failed with fatal error. Switching to Mock Redis client (Supabase mode).");
+            redisFailed = true;
+            // Execute the fallback operation on mock client
+            const mockClient = getRedisClient();
+            const mockFn = Reflect.get(mockClient, prop);
+            if (typeof mockFn === "function") {
+              return mockFn.bind(mockClient)(...args);
+            }
+          }
+          throw err;
+        }
+      };
     }
     return value;
   },

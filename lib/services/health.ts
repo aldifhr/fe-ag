@@ -1,17 +1,11 @@
-import { redis } from "../redis.js";
 import { supabase } from "../supabase.js";
-import { 
-  NOTIFICATION_QUEUE_KEY, 
-  NOTIFICATION_PROCESSING_QUEUE_KEY,
-  SOURCES_HEALTH_KEY
-} from "../constants/redis.js";
 import { mangaProviderRegistry } from "../providers/registry.js";
 import { initializeAllProviders } from "../boot.js";
 import { 
-  RedisClient, 
   SourceHealth, 
   BuildNextSourceHealthMapOptions 
 } from "../types.js";
+
 import { getLogger } from "../logger.js";
 
 const logger = getLogger({ scope: "health" });
@@ -146,38 +140,69 @@ export function applySourceOutcome(
 }
 
 /**
- * Load health map for specified sources from Redis
+ * Load health map for specified sources from Supabase
  */
-export async function loadSourceHealthMap(redisClient: RedisClient, keys: string[]): Promise<Record<string, SourceHealth>> {
-  const data = (await redisClient.hgetall(SOURCES_HEALTH_KEY)) as Record<string, string>;
-  if (!data) return {};
+export async function loadSourceHealthMap(_redisClient: unknown, keys: string[]): Promise<Record<string, SourceHealth>> {
+  if (!keys.length) return {};
+  try {
+    const { data, error } = await supabase
+      .from("source_health")
+      .select("source, status, consecutive_failures, disabled_until, last_error, last_success_at, last_checked_at, response_time_ms, failures_today, successes_today")
+      .in("source", keys);
 
-  const map: Record<string, SourceHealth> = {};
-  for (const key of keys) {
-    const raw = data[key];
-    if (raw) {
-      try {
-        map[key] = typeof raw === "string" ? JSON.parse(raw) : raw;
-      } catch {
-        map[key] = defaultSourceHealth(key);
-      }
+    if (error) throw error;
+    if (!data) return {};
+
+    const map: Record<string, SourceHealth> = {};
+    for (const row of data) {
+      map[row.source] = sanitizeSourceHealth(row.source, {
+        status: row.status,
+        consecutiveFailures: row.consecutive_failures,
+        disabledUntil: row.disabled_until,
+        lastError: row.last_error,
+        lastSuccessAt: row.last_success_at,
+        lastCheckedAt: row.last_checked_at,
+        responseTime: row.response_time_ms,
+        failuresToday: row.failures_today,
+        successesToday: row.successes_today,
+      });
     }
+    return map;
+  } catch (err: unknown) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "loadSourceHealthMap: Supabase error");
+    return {};
   }
-  return map;
 }
 
 /**
- * Save health map to Redis
+ * Save health map to Supabase via upsert_source_health RPC
  */
-export async function saveSourceHealthMap(redisClient: RedisClient, map: Record<string, SourceHealth>, keys: string[]): Promise<void> {
-  const updates: Record<string, string> = {};
-  for (const key of keys) {
-    if (map[key]) {
-      updates[key] = JSON.stringify(map[key]);
+export async function saveSourceHealthMap(_redisClient: unknown, map: Record<string, SourceHealth>, keys: string[]): Promise<void> {
+  const tasks = keys
+    .filter((k) => !!map[k])
+    .map((k) => {
+      const h = map[k];
+      return supabase.rpc("upsert_source_health", {
+        p_source: k,
+        p_status: h.status,
+        p_consecutive_failures: h.consecutiveFailures,
+        p_disabled_until: h.disabledUntil ?? null,
+        p_last_error: h.lastError ?? null,
+        p_last_success_at: h.lastSuccessAt ?? null,
+        p_last_checked_at: h.lastCheckedAt ?? null,
+        p_response_time_ms: h.responseTime ?? null,
+        p_failures_today: h.failuresToday,
+        p_successes_today: h.successesToday,
+      });
+    });
+
+  if (tasks.length > 0) {
+    const results = await Promise.allSettled(tasks);
+    for (const r of results) {
+      if (r.status === "rejected") {
+        logger.warn({ err: r.reason instanceof Error ? r.reason.message : String(r.reason) }, "saveSourceHealthMap: upsert RPC error");
+      }
     }
-  }
-  if (Object.keys(updates).length > 0) {
-    await redisClient.hset(SOURCES_HEALTH_KEY, updates);
   }
 }
 
@@ -319,20 +344,14 @@ export async function getDiscordPing(): Promise<number | null> {
 }
 
 export async function getRedisPing(): Promise<number> {
-  const s = Date.now();
-  await redis.ping().catch(() => {});
-  return Date.now() - s;
-}
-
-export async function getQueueStats() {
+  // Redis is now optional; return 0 if not configured
   try {
-    const [pending, processing] = await Promise.all([
-      redis.llen(NOTIFICATION_QUEUE_KEY).catch(() => 0),
-      redis.llen(NOTIFICATION_PROCESSING_QUEUE_KEY).catch(() => 0),
-    ]);
-    return { pending, processing };
+    const { redis } = await import("../redis.js");
+    const s = Date.now();
+    await (redis as any).ping().catch(() => {});
+    return Date.now() - s;
   } catch {
-    return { pending: 0, processing: 0 };
+    return 0;
   }
 }
 
@@ -376,11 +395,17 @@ export async function performFullHealthCheck(): Promise<string[]> {
       }
     }
 
-    // Return current broken links from Redis if any
-    const cachedBroken = await redis.get("health:broken-links");
-    if (cachedBroken) {
-      const parsed = JSON.parse(cachedBroken);
-      if (Array.isArray(parsed)) return parsed;
+    // Return current broken links from app_settings
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "health:broken-links")
+      .maybeSingle();
+    if (data?.value) {
+      try {
+        const parsed = JSON.parse(data.value);
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* ignore parse error */ }
     }
     
     return brokenLinks;

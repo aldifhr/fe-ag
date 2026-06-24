@@ -83,7 +83,7 @@ export interface DispatchChaptersOptions {
   buildSummaryLog?: (sentItems: ChapterItem[], failed: number, nowIso: string) => CronLogEntry | null;
   log?: (m: string) => void;
   warn?: (m: string) => void;
-  appendLiveEvent?: ((r: RedisClient, e: { message: string; type: string }) => Promise<unknown>) | null;
+  appendLiveEvent?: ((e: { message: string; type: string }) => Promise<unknown>) | null;
   startTime?: number;
   deadlineMs?: number;
 }

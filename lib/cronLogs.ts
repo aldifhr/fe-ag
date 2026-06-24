@@ -1,22 +1,33 @@
-import {
-  LOGS_API_CACHE_KEY,
-  CRON_LOG_LIST_KEY,
-  CRON_LOG_THROTTLE_KEY_PREFIX,
-  CRON_DAILY_STATS_MASTER_KEY,
-} from "./constants/redis.js";
-import {
-  invalidateDashboardCaches,
-} from "./services/storage.js";
-import { RedisClient, CronLogEntry } from "./types.js";
+import { CronLogEntry } from "./types.js";
 import { env } from "./config/env.js";
 import { supabase } from "./supabase.js";
 import { normalizeCronLogEntry } from "./utils/log-helpers.js";
 export { normalizeCronLogEntry };
 
+// :: In-memory throttle store :: replaces Redis SET NX EX
+const throttleMap = new Map<string, number>();
+const THROTTLE_CLEANUP_INTERVAL = 100;
+let throttleOpCounter = 0;
 
-const CRON_LOG_LIST_LIMIT = env.CRON_LOG_LIST_LIMIT;
-const CRON_LOG_LIST_TTL = env.CRON_LOG_LIST_TTL;
-const CRON_DAILY_STATS_TTL = env.CRON_DAILY_STATS_TTL;
+function isThrottled(key: string): boolean {
+  const expiresAt = throttleMap.get(key);
+  if (expiresAt === undefined) return false;
+  if (Date.now() < expiresAt) return true;
+  throttleMap.delete(key);
+  return false;
+}
+
+function setThrottle(key: string, ttlSec: number): void {
+  throttleMap.set(key, Date.now() + ttlSec * 1000);
+  throttleOpCounter++;
+  if (throttleOpCounter >= THROTTLE_CLEANUP_INTERVAL) {
+    throttleOpCounter = 0;
+    const now = Date.now();
+    for (const [k, exp] of throttleMap) {
+      if (now >= exp) throttleMap.delete(k);
+    }
+  }
+}
 
 /**
  * Appends a log entry to both Redis and Supabase.
@@ -85,16 +96,13 @@ function normalizeStatsRecord(date: string, raw: Record<string, unknown> | null 
 }
 
 /**
- * Read historical daily stats.
+ * Read historical daily stats — Supabase primary, no Redis dependency.
  */
 export async function readCronDailyStats(
-  redis: RedisClient,
   days = 30,
   endDate = new Date(),
   includeEmpty = false,
 ): Promise<CronDailyStats[]> {
-  if (!redis) return [];
-
   const safeDays = Math.max(1, Math.min(90, Math.floor(Number(days) || 30)));
   const end = new Date(endDate);
   if (Number.isNaN(end.getTime())) return [];
@@ -106,62 +114,36 @@ export async function readCronDailyStats(
     dates.push(formatDateKey(date));
   }
 
-  let masterData: Record<string, string> = {};
+  // Primary: read from Supabase
+  const rows: CronDailyStats[] = [];
   try {
-    masterData = (await redis.hgetall(CRON_DAILY_STATS_MASTER_KEY)) as Record<string, string> || {};
-  } catch (_err) {
-    masterData = {};
-  }
+    const { data: dbStats } = await supabase
+      .from('scraper_stats')
+      .select('*')
+      .in('date', dates);
 
-  const rows = dates.map((date) => {
-    const raw = (masterData as Record<string, unknown>)[date];
-    let parsed: Record<string, unknown> = {};
-    if (typeof raw === "string") {
-      try {
-        parsed = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        parsed = {};
+    const statsMap = new Map<string, NonNullable<typeof dbStats>[number]>();
+    if (dbStats) {
+      for (const row of dbStats) {
+        statsMap.set(row.date, row);
       }
-    } else if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      parsed = raw as Record<string, unknown>;
     }
-    return normalizeStatsRecord(date, parsed);
-  });
 
-  // Hybrid: If some rows are empty (because Redis expired), try to fill from Supabase
-  const missingDates = rows.filter(r => r.runs === 0).map(r => r.date);
-  if (missingDates.length > 0) {
-    try {
-      const { data: dbStats } = await supabase
-        .from('scraper_stats')
-        .select('*')
-        .in('date', missingDates);
-
-      if (dbStats && dbStats.length > 0) {
-        for (const dbRow of dbStats) {
-          const rowIndex = rows.findIndex(r => r.date === dbRow.date);
-          if (rowIndex !== -1) {
-            rows[rowIndex] = normalizeStatsRecord(dbRow.date, dbRow.raw_data);
-          }
-        }
+    for (const date of dates) {
+      const dbRow = statsMap.get(date);
+      if (dbRow && dbRow.raw_data) {
+        rows.push(normalizeStatsRecord(date, dbRow.raw_data as Record<string, unknown>));
+      } else if (includeEmpty) {
+        rows.push(normalizeStatsRecord(date));
       }
-    } catch (err) {
-      // console.error("[readCronDailyStats] Supabase fallback failed:", err);
+    }
+  } catch (err) {
+    // console.error("[readCronDailyStats] Supabase query failed:", err);
+    // Fallback: return empty rows
+    for (const date of dates) {
+      if (includeEmpty) rows.push(normalizeStatsRecord(date));
     }
   }
-
-  // Background cleanup (fallback for fields without HEXPIRE support)
-  try {
-    const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-    for (const d of Object.keys(masterData)) {
-      if (d < sevenDaysAgoStr) {
-        // Delete old fields (HEXPIRE should handle this, but cleanup as fallback)
-        await redis.hdel(CRON_DAILY_STATS_MASTER_KEY, d);
-      }
-    }
-  } catch { /* ignore cleanup errors */ }
 
   if (includeEmpty) return rows;
 
@@ -187,66 +169,59 @@ function shouldPersistRawCronLog(entry?: Record<string, unknown>): boolean {
 }
 
 /**
- * Increment daily counters for a log entry.
+ * Increment daily counters for a log entry — Supabase-only.
  */
-export async function appendCronDailyStats(redis: RedisClient, entry?: Record<string, unknown>): Promise<void> {
-  if (!redis) return;
+export async function appendCronDailyStats(entry?: Record<string, unknown>): Promise<void> {
   const payload = normalizeCronLogEntry(entry);
   const key = cronDailyStatsKey(payload.timestamp);
-  const increments: [string, number][] = [
-    ["events_total", 1],
-    [`tag:${payload.tag || "info"}`, 1],
-  ];
-
-  if (payload.code) increments.push([`code:${payload.code}`, 1]);
-  if (payload.type) increments.push([`type:${payload.type}`, 1]);
-  if (payload.source) {
-    increments.push([`source:${payload.source}`, 1]);
-    if (payload.tag) {
-      increments.push([`source:${payload.source}:tag:${payload.tag}`, 1]);
-    }
-  }
 
   const count = Number(payload.count);
-  if (Number.isFinite(count) && count > 0) {
-    increments.push(["chapters_sent", count]);
-  }
-
   const failed = Number(payload.failed);
-  if (Number.isFinite(failed) && failed > 0) {
-    increments.push(["delivery_failed", failed]);
-  }
-
   const skipped = Number((payload as Record<string, unknown>).skipped);
-  if (Number.isFinite(skipped) && skipped > 0) {
-    increments.push(["chapters_skipped", skipped]);
-  }
 
-  const currentVal: unknown = await redis.hget(CRON_DAILY_STATS_MASTER_KEY, key);
-  let next: Record<string, number> = {};
-  if (currentVal && typeof currentVal === "string") {
-    try {
-      const parsed = JSON.parse(currentVal);
-      if (parsed !== null && typeof parsed === "object") {
-        next = parsed as Record<string, number>;
-      }
-    } catch {
-      // Invalid JSON, start fresh
+  // Use Supabase RPC or direct upsert with increment
+  // We use a simple read-then-upsert pattern acceptable for single-instance
+  let existing: Record<string, unknown> = {};
+  try {
+    const { data } = await supabase
+      .from('scraper_stats')
+      .select('raw_data')
+      .eq('date', key)
+      .single();
+    if (data?.raw_data) {
+      existing = data.raw_data as Record<string, unknown>;
     }
-  } else if (currentVal && typeof currentVal === "object" && !Array.isArray(currentVal)) {
-    next = currentVal as Record<string, number>;
+  } catch {
+    // First entry for this date
   }
 
-  for (const [field, amount] of increments) {
-    next[field] = Number(next[field] || 0) + amount;
+  const next: Record<string, number> = { ...existing as Record<string, number> };
+  next.events_total = (next.events_total || 0) + 1;
+  next[`tag:${payload.tag || "info"}`] = (next[`tag:${payload.tag || "info"}`] || 0) + 1;
+
+  if (payload.code) {
+    next[`code:${payload.code}`] = (next[`code:${payload.code}`] || 0) + 1;
+  }
+  if (payload.type) {
+    next[`type:${payload.type}`] = (next[`type:${payload.type}`] || 0) + 1;
+  }
+  if (payload.source) {
+    next[`source:${payload.source}`] = (next[`source:${payload.source}`] || 0) + 1;
+    if (payload.tag) {
+      next[`source:${payload.source}:tag:${payload.tag}`] = (next[`source:${payload.source}:tag:${payload.tag}`] || 0) + 1;
+    }
   }
 
-  await redis.hset(CRON_DAILY_STATS_MASTER_KEY, {
-    [key]: JSON.stringify(next),
-  });
+  if (Number.isFinite(count) && count > 0) {
+    next.chapters_sent = (next.chapters_sent || 0) + count;
+  }
+  if (Number.isFinite(failed) && failed > 0) {
+    next.delivery_failed = (next.delivery_failed || 0) + failed;
+  }
+  if (Number.isFinite(skipped) && skipped > 0) {
+    next.chapters_skipped = (next.chapters_skipped || 0) + skipped;
+  }
 
-  // Also sync to Supabase (optimized: we do this asynchronously)
-  // In a real production app, we might throttle this or do it in the background
   try {
     const { error } = await supabase.from('scraper_stats').upsert({
       date: key,
@@ -261,36 +236,18 @@ export async function appendCronDailyStats(redis: RedisClient, entry?: Record<st
   } catch (err) {
     // console.error("[appendCronDailyStats] Supabase sync failed:", err);
   }
-
-  // Set TTL per field using HEXPIRE (Redis 7.4+)
-  try {
-    const ttl = Number(CRON_DAILY_STATS_TTL);
-    await redis.expire(CRON_DAILY_STATS_MASTER_KEY, ttl);
-  } catch {
-    // Fallback cleanup
-  }
 }
 
 /**
- * Append a permanent log entry and update daily stats.
+ * Append a permanent log entry and update daily stats — Supabase-only.
  */
-export async function appendCronLog(redis: RedisClient, entry?: Record<string, unknown>): Promise<boolean> {
-  if (!redis) return false;
+export async function appendCronLog(entry?: Record<string, unknown>): Promise<boolean> {
   const payload = normalizeCronLogEntry(entry);
-  await appendCronDailyStats(redis, payload);
-  await invalidateDashboardCaches(redis, [LOGS_API_CACHE_KEY]);
+  await appendCronDailyStats(payload);
 
   if (!shouldPersistRawCronLog(payload)) return false;
 
   try {
-    // 1. Write to Redis (for live dashboard)
-    await redis.lpush(CRON_LOG_LIST_KEY, JSON.stringify(payload));
-    await Promise.all([
-      redis.ltrim(CRON_LOG_LIST_KEY, 0, CRON_LOG_LIST_LIMIT),
-      redis.expire(CRON_LOG_LIST_KEY, CRON_LOG_LIST_TTL),
-    ]);
-
-    // 2. Persist to Supabase (for permanent history)
     await supabase.from('cron_logs').insert({
       timestamp: payload.timestamp,
       tag: payload.tag,
@@ -316,7 +273,6 @@ export async function appendCronLog(redis: RedisClient, entry?: Record<string, u
 function buildThrottleKey(entry?: Record<string, unknown>): string {
   const normalized = normalizeCronLogEntry(entry);
   return [
-    CRON_LOG_THROTTLE_KEY_PREFIX,
     normalized.source || "unknown",
     normalized.code || "no_code",
     normalized.type || "no_type",
@@ -324,35 +280,29 @@ function buildThrottleKey(entry?: Record<string, unknown>): string {
 }
 
 /**
- * Append a log entry only if it's not throttled.
+ * Append a log entry only if it's not throttled — in-memory throttle.
  */
 export async function appendCronLogThrottled(
-  redis: RedisClient,
   entry?: Record<string, unknown>,
   throttleSec = 0,
 ): Promise<boolean> {
-  if (!redis) return false;
   const normalized = normalizeCronLogEntry(entry);
   const safeThrottleSec = Math.max(0, Math.floor(Number(throttleSec) || 0));
 
   if (safeThrottleSec <= 0) {
-    return appendCronLog(redis, normalized);
+    return appendCronLog(normalized);
   }
 
   const throttleKey = buildThrottleKey(normalized);
-  const claimed = await redis.set(throttleKey, normalized.time as string, {
-    nx: true,
-    ex: safeThrottleSec,
-  });
 
-  if (!claimed) {
+  if (isThrottled(throttleKey)) {
     // If throttled, we still count the run in daily stats
-    await appendCronDailyStats(redis, normalized);
-    await invalidateDashboardCaches(redis, [LOGS_API_CACHE_KEY]);
+    await appendCronDailyStats(normalized);
     return false;
   }
 
-  return appendCronLog(redis, normalized);
+  setThrottle(throttleKey, safeThrottleSec);
+  return appendCronLog(normalized);
 }
 
 /**

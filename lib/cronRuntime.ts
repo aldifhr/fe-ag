@@ -270,7 +270,7 @@ export async function runCronJob({
     // 9. Source Health Check (Alert if stale)
     const { checkSourceHealth } = await import("./services/health-monitor.js");
     const { SOURCE_KEYS } = await import("./constants/redis.js");
-    await checkSourceHealth(redisClient, SOURCE_KEYS);
+    await checkSourceHealth(SOURCE_KEYS);
 
     return {
       statusCode: 200,

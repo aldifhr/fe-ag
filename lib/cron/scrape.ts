@@ -113,7 +113,7 @@ export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePh
   for (const source of SOURCE_KEYS) {
     const state = sourceStates?.[source];
     if (state && (state.status !== "error" || !state.error)) {
-      await recordSourceActivity(redisClient, source);
+      await recordSourceActivity(source);
     }
   }
 
@@ -132,7 +132,6 @@ export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePh
     });
     await writeCronStatus(redisClient, statusPayload);
     await appendCronLogThrottled(
-      redisClient,
       {
         tag: "info",
         code: "no_new_chapters",

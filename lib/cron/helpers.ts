@@ -1,5 +1,4 @@
 import { env } from "../config/env.js";
-import { CRON_LOG_LIST_KEY, CRON_DAILY_STATS_MASTER_KEY } from "../constants/redis.js";
 import type {
   RedisClient,
   CronStatus,
@@ -88,24 +87,10 @@ export function finalizeTimingMetrics(start: number, partial: TimingMetrics): Ti
   };
 }
 
-export async function cleanupOldLogs(redis: RedisClient): Promise<void> {
-  if (!redis) return;
-
-  try {
-    const strictLogLimit = 50;
-    const currentLen = await redis.llen(CRON_LOG_LIST_KEY);
-    if (currentLen > strictLogLimit) {
-      await redis.ltrim(CRON_LOG_LIST_KEY, 0, strictLogLimit - 1);
-    }
-
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const masterData = await redis.hgetall(CRON_DAILY_STATS_MASTER_KEY) as Record<string, string> || {};
-    const toDelete = Object.keys(masterData).filter(date => date < sevenDaysAgo);
-
-    if (toDelete.length > 0) {
-      await redis.hdel(CRON_DAILY_STATS_MASTER_KEY, ...toDelete);
-    }
-  } catch {
-    // Ignore cleanup errors - don't fail cron if cleanup fails
-  }
+/**
+ * No-op replacement — Supabase handles TTL/cleanup automatically.
+ * Previously cleaned Redis log lists and daily stats hashes.
+ */
+export async function cleanupOldLogs(_redis?: RedisClient): Promise<void> {
+  // Supabase manages data retention; no manual cleanup needed.
 }

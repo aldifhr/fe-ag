@@ -443,7 +443,7 @@ export async function prewarmMetadataCache(
 
   let whitelist;
   try {
-    whitelist = await loadWhitelist(redis || ({} as any));
+    whitelist = await loadWhitelist();
   } catch (err) {
     logger.error({ err }, "Failed to load whitelist for metadata pre-warming");
     return { checked: 0, enriched: 0, failed: 0 };

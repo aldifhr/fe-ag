@@ -10,7 +10,6 @@ import {
   RECENT_CHAPTERS_KEY,
   CRON_LOG_LIST_KEY,
   LIVE_EVENTS_KEY,
-  NOTIFICATION_QUEUE_KEY,
   HEALTH_RECOMMENDATIONS_KEY,
   HEALTH_LAST_CHECK_KEY,
 } from "../../constants/redis.js";
@@ -100,7 +99,7 @@ export async function readRecentChapters(redisClient: RedisClient, start = 0, st
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
-  let results: unknown[] = [null, {}, null, null, [], [], [], 0, []];
+  let results: unknown[] = [null, {}, null, null, [], []];
 
   try {
     const pipeline = redis.pipeline();
@@ -111,16 +110,14 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
     pipeline.zrange(RECENT_CHAPTERS_KEY, 0, 19, { rev: true });
     // pipeline.lrange(CRON_LOG_LIST_KEY, 0, 9); // Removed in favor of Supabase consistency
     pipeline.lrange(LIVE_EVENTS_KEY, 0, 49);
-    pipeline.llen(NOTIFICATION_QUEUE_KEY);
-    pipeline.lrange(NOTIFICATION_QUEUE_KEY, 0, 49);
     results = await pipeline.exec();
   } catch (err: unknown) {
     logger.error({ err: err instanceof Error ? err.message : String(err) }, "[fetchDashboardSnapshot] Pipeline execution failed");
   }
 
-  if (!Array.isArray(results) || results.length < 8) {
+  if (!Array.isArray(results) || results.length < 6) {
     logger.warn({ resultsLength: Array.isArray(results) ? results.length : 0 }, "[fetchDashboardSnapshot] Invalid results, using defaults");
-    results = [null, {}, null, null, [], [], 0, []];
+    results = [null, {}, null, null, [], []];
   }
 
   let cronStatus = results[0];
@@ -147,11 +144,6 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
   const parsedRecentLogs = await readCronLogs(redis, 0, 9);
 
   const liveEvents = ((results[5] as string[]) || [])
-    .map((v) => { try { return JSON.parse(v); } catch { return null; } })
-    .filter(Boolean);
-
-  const queueLength = (results[6] as number) || 0;
-  const queueItems = ((results[7] as string[]) || [])
     .map((v) => { try { return JSON.parse(v); } catch { return null; } })
     .filter(Boolean);
 
@@ -190,8 +182,8 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
     liveEvents,
     whitelist,
     whitelistCount: whitelist.length,
-    queueLength,
-    queueItems,
+    queueLength: 0,
+    queueItems: [],
     timestamp: new Date().toISOString(),
   };
 }

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { Receiver } from "@upstash/qstash";
 import { redis } from "../lib/redis.js";
+import { supabase } from "../lib/supabase.js";
 import { sendDiscordEmbedsChannelBatch } from "../lib/discord.js";
 import { getLogger } from "../lib/logger.js";
 import { QStashNotificationTask, isQStashEnabled } from "../lib/services/qstash.js";
@@ -84,21 +85,47 @@ export default async function handler(req: Request, res: Response) {
     // Safety check: skip if already sent (handles QStash retries)
     const keysToCheck = [task.chapter.key, task.chapter.duplicateKey].filter(Boolean) as string[];
     if (keysToCheck.length > 0) {
-      const values = await redis.hmget(DISPATCH_HISTORY_KEY, ...keysToCheck);
-      const valArray = Array.isArray(values) ? values : keysToCheck.map((k) => (values as any)?.[k] ?? null);
-      for (let i = 0; i < keysToCheck.length; i++) {
-        const raw = valArray[i];
-        if (!raw) continue;
-        try {
-          const parsed = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
-          if (parsed.s === CLAIM_STATUS.SENT || parsed.status === CLAIM_STATUS.SENT) {
-            const reason = i === 0 ? "already_sent" : "cross_source_duplicate";
-            logger.info({ chapter: task.chapter.title, reason }, "Skipping notification (safety check)");
-            return res.status(200).json({ success: true, reason });
+      let alreadySent = false;
+      let reason = "already_sent";
+
+      try {
+        const values = await redis.hmget(DISPATCH_HISTORY_KEY, ...keysToCheck);
+        const valArray = Array.isArray(values) ? values : keysToCheck.map((k) => (values as any)?.[k] ?? null);
+        for (let i = 0; i < keysToCheck.length; i++) {
+          const raw = valArray[i];
+          if (!raw) continue;
+          try {
+            const parsed = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
+            if (parsed.s === CLAIM_STATUS.SENT || parsed.status === CLAIM_STATUS.SENT) {
+              alreadySent = true;
+              reason = i === 0 ? "already_sent" : "cross_source_duplicate";
+              break;
+            }
+          } catch {
+            // Ignore parse errors
           }
-        } catch {
-          // Ignore parse errors
         }
+      } catch (err) {
+        logger.warn({ err }, "Redis error in safety check, falling back to Supabase");
+        try {
+          const { data, error } = await supabase
+            .from("dispatch_history")
+            .select("chapter_url")
+            .in("chapter_url", keysToCheck);
+          
+          if (!error && data && data.length > 0) {
+            alreadySent = true;
+            const sentUrls = data.map(d => d.chapter_url);
+            reason = sentUrls.includes(task.chapter.key || "") ? "already_sent" : "cross_source_duplicate";
+          }
+        } catch (dbErr) {
+          logger.error({ err: dbErr }, "Supabase fallback error in safety check");
+        }
+      }
+
+      if (alreadySent) {
+        logger.info({ chapter: task.chapter.title, reason }, "Skipping notification (safety check)");
+        return res.status(200).json({ success: true, reason });
       }
     }
 

@@ -198,7 +198,7 @@ async function persistWhitelistItems(
   items: WhitelistEntry[],
   { saveWhitelistFn = saveWhitelist, redisClient = redis } = {},
 ) {
-  await saveWhitelistFn(items, redisClient);
+  await saveWhitelistFn(items);
   await invalidateDashboardCaches(redisClient, [WHITELIST_API_CACHE_KEY]);
 }
 
@@ -208,12 +208,10 @@ export async function addWhitelistEntry(
     loadWhitelistFn = loadWhitelist,
     saveWhitelistFn = saveWhitelist,
     redisClient = redis,
-    preloadedWhitelistRaw = undefined,
   }: {
     loadWhitelistFn?: typeof loadWhitelist;
     saveWhitelistFn?: typeof saveWhitelist;
     redisClient?: RedisClient;
-    preloadedWhitelistRaw?: string | null;
   } = {},
 ): Promise<{ 
   status: string; 
@@ -235,7 +233,7 @@ export async function addWhitelistEntry(
     pipeline.hset(MANGA_LAST_UPDATES_KEY, { [titleKey]: new Date().toISOString() });
     const initUpdateTask = pipeline.exec();
 
-    const whitelist = await loadWhitelistFn(redisClient, preloadedWhitelistRaw);
+    const whitelist = await loadWhitelistFn();
 
     const existingIndex = findWhitelistEntryIndex(whitelist, {
       title: normalizedTitle,

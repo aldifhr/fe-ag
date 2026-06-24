@@ -34,10 +34,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 async function checkChannelValid(channelId: string) {
   return validateDiscordChannel({
-    redis,
     channelId,
     botToken: env.DISCORD_BOT_TOKEN,
-    writeCache: false,
   });
 }
 

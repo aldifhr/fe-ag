@@ -75,14 +75,10 @@ export interface FetchDiscordChannelOptions {
 /**
  * Options for validating a Discord channel
  */
-import type { RedisClient } from "./redis.js";
-
 export interface ValidateDiscordChannelOptions {
-  redis?: RedisClient | null;
   channelId: string;
   botToken: string;
   cacheSec?: number;
-  writeCache?: boolean;
   onValid?: ((channel: DiscordChannel) => void | Promise<void>) | null;
   onInvalid?: ((err: Error | DiscordApiError) => void | Promise<void>) | null;
 }
@@ -91,7 +87,6 @@ export interface ValidateDiscordChannelOptions {
  * Options for batch validating Discord channels
  */
 export interface ValidateDiscordChannelsBatchOptions {
-  redis?: RedisClient | null;
   channelIds: string[];
   botToken: string;
   cacheSec?: number;

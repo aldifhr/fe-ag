@@ -92,7 +92,6 @@ export async function handleShortCircuit(
   const logMessage = message || getShortCircuitMessage(reason);
 
   await appendCronLogThrottled(
-    redis,
     {
       tag: "info",
       code: logCode,

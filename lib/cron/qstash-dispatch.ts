@@ -5,7 +5,7 @@ import { dispatchChapters } from "../services/dispatch.js";
 import { isQStashEnabled, publishBatchToQStash, QStashNotificationTask } from "../services/qstash.js";
 import { resolvePositiveInt } from "../config.js";
 import { env } from "../config/env.js";
-import { batchPreHydrateMetadata, hydrateIkiruMetadataIfMissing, IkiruMetaCacheEntry } from "../services/dispatch/hydration.js";
+import { hydrateIkiruMetadataIfMissing, IkiruMetaCacheEntry } from "../services/dispatch/hydration.js";
 import type { ChapterItem, RedisClient, SendEmbedFn } from "../types.js";
 import type { Logger } from "pino";
 
@@ -19,7 +19,7 @@ export interface QStashDispatchOptions {
   deadlineMs: number;
   sendEmbedFn: (...args: any[]) => any;
   deleteGuildChannelFn: (guildId: string) => Promise<unknown>;
-  appendLiveEvent: (r: RedisClient, e: { message: string; type: string }) => Promise<unknown>;
+  appendLiveEvent: (e: { message: string; type: string }) => Promise<unknown>;
   log: (msg: string, obj?: Record<string, unknown>) => void;
   warn: (msg: string, obj?: Record<string, unknown>) => void;
   cronLogger: Logger;
@@ -68,17 +68,13 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
     const claimedMeta = queueState.queuedMeta.filter((_, i) => claimResults[i]);
     const claimedItems = claimedMeta.map(m => m.item);
 
-    // --- NEW: Hydrate Metadata before QStash ---
     const ikiruMetaCache = new Map<string, IkiruMetaCacheEntry>();
-    await batchPreHydrateMetadata(claimedItems, redisClient, ikiruMetaCache);
-    // -------------------------------------------
 
     const tasks: QStashNotificationTask[] = await Promise.all(
       claimedMeta.map(async (entry) => {
         // Hydrate each item using the pre-populated cache
         const chapter = await hydrateIkiruMetadataIfMissing(
           entry.item,
-          redisClient,
           ikiruMetaCache,
           deadlineMs > 0 ? start + deadlineMs : 0
         );

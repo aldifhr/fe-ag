@@ -3,8 +3,10 @@ import { z } from "zod";
 
 const envSchema = z.object({
     // Required
-    UPSTASH_REDIS_REST_URL: z.string().url(),
-    UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
+    // Required
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+    REDIS_DISABLED: z.preprocess((v) => v === "true" || v === "1", z.boolean()).default(false),
     DISCORD_BOT_TOKEN: z.string().min(1),
     DISCORD_APPLICATION_ID: z.string().optional(),
     HEALTH_ALERT_CHANNEL_ID: z.string().optional(),

@@ -12,7 +12,6 @@ import { loadSourceHealthMap } from "../services/health.js";
 import { proactiveHealWhitelist } from "../services/url/healing.js";
 import { initializeAllProviders } from "../boot.js";
 import { initializeScrapeOptimizer } from "../scrapers/optimizer.js";
-import { NOTIFICATION_QUEUE_KEY } from "../constants/redis.js";
 import { SOURCE_KEYS } from "../constants/redis.js";
 import type {
   RedisClient,
@@ -26,20 +25,12 @@ export interface CronInputs {
   whitelist: WhitelistEntry[];
   guildChannels: Record<string, string>;
   sourceHealthMap: Record<string, SourceHealth>;
-  queueHealth: QueueHealth;
-}
-
-export interface QueueHealth {
-  queueLength: number;
-  isHealthy: boolean;
-  maxLength: number;
 }
 
 export interface LoadInputsOptions {
   redis: RedisClient;
   loadWhitelistFn?: () => Promise<WhitelistEntry[]>;
   getAllGuildChannelsFn?: () => Promise<Record<string, string>>;
-  queueMaxLength?: number;
 }
 
 /**
@@ -52,7 +43,6 @@ export async function loadCronInputs(
     redis,
     loadWhitelistFn = loadWhitelist,
     getAllGuildChannelsFn = getAllGuildChannels,
-    queueMaxLength = 100,
   } = options;
 
   // Initialize providers and optimizer in parallel
@@ -67,37 +57,24 @@ export async function loadCronInputs(
   // Anti-Shutdown: Send a ping to Supabase to keep the project active
   supabasePing().catch(() => {}); // Fire and forget
 
-  // Queue health check
-  const queueHealthPromise = redis
-    .llen(NOTIFICATION_QUEUE_KEY)
-    .then((len) => ({
-      queueLength: len,
-      isHealthy: len < queueMaxLength,
-      maxLength: queueMaxLength,
-    }));
-
-  const [whitelist, guildChannels, sourceHealthMap, _, queueHealth] =
+  const [whitelist, guildChannels, sourceHealthMap, _] =
     await Promise.all([
       loadWhitelistFn(),
       getAllGuildChannelsFn(),
       loadSourceHealthMap(redis, SOURCE_KEYS),
       initPromise,
-      Promise.all([
-        proactiveHealWhitelist().catch((err: unknown) => {
-          logger.warn(
-            { err: err instanceof Error ? err.message : String(err) },
-            "proactiveHealWhitelist failed, continuing",
-          );
-        }),
-        queueHealthPromise,
-      ]).then(([_, qh]) => qh),
+      proactiveHealWhitelist().catch((err: unknown) => {
+        logger.warn(
+          { err: err instanceof Error ? err.message : String(err) },
+          "proactiveHealWhitelist failed, continuing",
+        );
+      }),
     ]);
 
   return {
     whitelist,
     guildChannels: guildChannels || {},
     sourceHealthMap,
-    queueHealth,
   };
 }
 
@@ -120,14 +97,6 @@ export function validateCronInputs(
   const activeGuilds = Object.keys(inputs.guildChannels).length;
   if (!activeGuilds) {
     return { valid: false, reason: "no_guilds" };
-  }
-
-  if (!inputs.queueHealth.isHealthy) {
-    return {
-      valid: false,
-      reason: "queue_backpressure",
-      details: `Queue has ${inputs.queueHealth.queueLength} items`,
-    };
   }
 
   return { valid: true };

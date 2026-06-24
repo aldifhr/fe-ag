@@ -2,8 +2,7 @@ import { httpGet } from "../httpClient.js";
 import pLimit from "p-limit";
 import { getLogger } from "../logger.js";
 import { env } from "../config/env.js";
-import {
-  RedisClient,
+import type {
   DiscordChannel,
   DiscordApiError,
   FetchDiscordChannelOptions,
@@ -15,8 +14,10 @@ const logger = getLogger({ scope: "channelValidation" });
 
 export const CHANNEL_VALIDATION_CACHE_SEC = env.CHANNEL_VALIDATION_CACHE_SEC;
 
-export const CHANNELS_VALIDATION_KEY = "channels:validation";
 export const CHANNEL_VALIDATION_CONCURRENCY = 5;
+
+// Module-level in-memory cache: channelId -> { valid, expiresAt }
+const validationCache = new Map<string, { valid: boolean; expiresAt: number }>();
 
 // Re-export consolidated types for backward compatibility
 export type { DiscordChannel, DiscordApiError, FetchDiscordChannelOptions, ValidateDiscordChannelOptions, ValidateDiscordChannelsBatchOptions };
@@ -25,28 +26,22 @@ export type { DiscordChannel, DiscordApiError, FetchDiscordChannelOptions, Valid
  * Runs a background cleanup of expired validation entries.
  * Does not await the results to avoid blocking the main execution.
  */
-function _runAsyncCleanup(redis: RedisClient): void {
-  // Only run cleanup with a 5% chance to minimize Redis overhead during high-concurrency cron runs
+function _runAsyncCleanup(): void {
+  // Only run cleanup with a 5% chance to minimize overhead during high-concurrency runs
   if (Math.random() > 0.05) return;
 
   // Run in background without awaiting
   (async () => {
     try {
-      const data = await redis.hgetall(CHANNELS_VALIDATION_KEY);
-      if (!data) return;
       const now = Date.now();
-      const toDelete = Object.entries(data as Record<string, string>)
-        .filter(([_key, val]) => {
-          try {
-            const parsed = typeof val === "string" ? JSON.parse(val) : val;
-            return (parsed as { expiresAt?: number }).expiresAt! < now;
-          } catch {
-            return true;
-          }
-        })
-        .map(([key]) => key);
-      if (toDelete.length > 0) {
-        await redis.hdel(CHANNELS_VALIDATION_KEY, ...toDelete);
+      const toDelete: string[] = [];
+      for (const [channelId, entry] of validationCache) {
+        if (entry.expiresAt < now) {
+          toDelete.push(channelId);
+        }
+      }
+      for (const channelId of toDelete) {
+        validationCache.delete(channelId);
       }
     } catch {
       // Cleanup errors are non-critical
@@ -73,18 +68,13 @@ export async function fetchDiscordChannel({
 }
 
 export async function getCachedChannelValidity(
-  redis: RedisClient,
   channelId: string,
 ): Promise<boolean | null> {
-  if (!redis || !channelId) return null;
+  if (!channelId) return null;
   try {
-    const cachedStr = await redis.hget(CHANNELS_VALIDATION_KEY, channelId);
-    if (cachedStr) {
-      const parsed =
-        typeof cachedStr === "string" ? JSON.parse(cachedStr) : cachedStr;
-      if (parsed && parsed.expiresAt > Date.now()) {
-        return parsed.valid;
-      }
+    const cached = validationCache.get(channelId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.valid;
     }
   } catch {
     // ignore cache read errors
@@ -93,59 +83,38 @@ export async function getCachedChannelValidity(
 }
 
 export async function validateDiscordChannel({
-  redis = null,
   channelId,
   botToken,
   cacheSec = CHANNEL_VALIDATION_CACHE_SEC,
-  writeCache = true,
   onValid = null,
   onInvalid = null,
 }: ValidateDiscordChannelOptions): Promise<boolean> {
   if (!channelId) return false;
 
-  const cached = redis ? await getCachedChannelValidity(redis, channelId) : null;
+  const cached = await getCachedChannelValidity(channelId);
   if (cached !== null) return cached;
 
   try {
     const channel = await fetchDiscordChannel({ channelId, botToken });
 
-    if (writeCache && redis) {
-      const pipeline = redis.pipeline();
-      pipeline.hset(CHANNELS_VALIDATION_KEY, {
-        [channelId]: JSON.stringify({
-          valid: true,
-          expiresAt: Date.now() + cacheSec * 1000,
-        }),
-      });
-      pipeline.eval(
-        "return redis.call('HPEXPIRE', KEYS[1], ARGV[1], 'FIELDS', 1, ARGV[2])",
-        [CHANNELS_VALIDATION_KEY],
-        [cacheSec * 1000, channelId]
-      );
-      await pipeline.exec();
-      _runAsyncCleanup(redis);
-    }
+    validationCache.set(channelId, {
+      valid: true,
+      expiresAt: Date.now() + cacheSec * 1000,
+    });
+    _runAsyncCleanup();
+
     if (channel && typeof onValid === "function") {
       await Promise.resolve(onValid(channel));
     }
     return !!channel;
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } })?.response?.status;
-    if ((status === 403 || status === 404) && writeCache && redis) {
-      const pipeline = redis.pipeline();
-      pipeline.hset(CHANNELS_VALIDATION_KEY, {
-        [channelId]: JSON.stringify({
-          valid: false,
-          expiresAt: Date.now() + cacheSec * 1000,
-        }),
+    if (status === 403 || status === 404) {
+      validationCache.set(channelId, {
+        valid: false,
+        expiresAt: Date.now() + cacheSec * 1000,
       });
-      pipeline.eval(
-        "return redis.call('HPEXPIRE', KEYS[1], ARGV[1], 'FIELDS', 1, ARGV[2])",
-        [CHANNELS_VALIDATION_KEY],
-        [cacheSec * 1000, channelId]
-      );
-      await pipeline.exec();
-      _runAsyncCleanup(redis);
+      _runAsyncCleanup();
     }
     if (typeof onInvalid === "function") {
       await Promise.resolve(onInvalid(err as Error | { message: string; response?: { status?: number } }));
@@ -205,42 +174,22 @@ export async function fetchDiscordChannelsBatch(
  * Batch check cached validity for multiple channels
  */
 export async function getCachedChannelsValidityBatch(
-  redis: RedisClient,
   channelIds: string[],
 ): Promise<Map<string, boolean | null>> {
-  if (!redis || !channelIds || channelIds.length === 0) return new Map();
+  if (!channelIds || channelIds.length === 0) return new Map();
 
   const results = new Map<string, boolean | null>();
   const now = Date.now();
 
-  try {
-    const cachedData: any = await redis.hmget(
-      CHANNELS_VALIDATION_KEY,
-      ...channelIds,
-    );
-
-    for (let i = 0; i < channelIds.length; i++) {
-      const channelId = channelIds[i];
-      const cachedStr = cachedData[i];
-
-      if (cachedStr) {
-        try {
-          const parsed =
-            typeof cachedStr === "string" ? JSON.parse(cachedStr) : cachedStr;
-          if (parsed && parsed.expiresAt > now) {
-            results.set(channelId, parsed.valid);
-          } else {
-            results.set(channelId, null);
-          }
-        } catch {
-          results.set(channelId, null);
-        }
+  for (const channelId of channelIds) {
+    try {
+      const cached = validationCache.get(channelId);
+      if (cached && cached.expiresAt > now) {
+        results.set(channelId, cached.valid);
       } else {
         results.set(channelId, null);
       }
-    }
-  } catch {
-    for (const channelId of channelIds) {
+    } catch {
       results.set(channelId, null);
     }
   }
@@ -249,7 +198,6 @@ export async function getCachedChannelsValidityBatch(
 }
 
 export async function validateDiscordChannelsBatch({
-  redis = null,
   channelIds = [],
   botToken,
   cacheSec = CHANNEL_VALIDATION_CACHE_SEC,
@@ -260,9 +208,7 @@ export async function validateDiscordChannelsBatch({
   const results = new Map<string, boolean>();
   const now = Date.now();
 
-  const cachedResults = redis
-    ? await getCachedChannelsValidityBatch(redis, channelIds)
-    : new Map(channelIds.map((id) => [id, null]));
+  const cachedResults = await getCachedChannelsValidityBatch(channelIds);
   const channelsToFetch: string[] = [];
 
   for (const [channelId, valid] of cachedResults) {
@@ -283,35 +229,17 @@ export async function validateDiscordChannelsBatch({
     concurrency,
   );
 
-  const cacheUpdates: { channelId: string; data: string }[] = [];
-
   for (const [channelId, data] of fetchedResults) {
     const isValid = data.valid;
     results.set(channelId, isValid);
 
-    if (redis) {
-      cacheUpdates.push({
-        channelId,
-        data: JSON.stringify({
-          valid: isValid,
-          expiresAt: now + cacheSec * 1000,
-        }),
-      });
-    }
+    validationCache.set(channelId, {
+      valid: isValid,
+      expiresAt: now + cacheSec * 1000,
+    });
   }
 
-  if (cacheUpdates.length > 0 && redis) {
-    try {
-      const updateMap: Record<string, string> = {};
-      for (const { channelId, data } of cacheUpdates) {
-        updateMap[channelId] = data;
-      }
-      await redis.hset(CHANNELS_VALIDATION_KEY, updateMap);
-      _runAsyncCleanup(redis);
-    } catch (err) {
-      logger.debug({ err: err instanceof Error ? err.message : String(err) }, "Cache write failed");
-    }
-  }
+  _runAsyncCleanup();
 
   return results;
 }

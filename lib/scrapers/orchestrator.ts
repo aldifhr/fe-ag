@@ -361,7 +361,7 @@ export async function orchestrateScrapeSources({
       if (res.results.length) {
         scrapedChapters.push(...res.results);
         if (redis) {
-          await appendLiveEvent(redis, {
+          await appendLiveEvent({
             message: `Scraped ${res.results.length} items from ${res.id}`,
             type: "info",
           });

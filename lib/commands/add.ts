@@ -41,7 +41,6 @@ async function handleUrlAddWithSource(
   url: string,
   source: "ikiru" | "shinigami",
   redis: RedisClient | null,
-  preloadedWhitelistRaw?: string | null,
 ) {
   try {
     await editInteractionResponse(payload, `⏳ Sedang mengambil data dari ${sourceLabel(source)}, mohon tunggu...`);
@@ -76,7 +75,7 @@ async function handleUrlAddWithSource(
     const title = result.data.title;
     logger.info({ title, url, source }, "[handleUrlAddWithSource] Adding to whitelist...");
 
-    const addResult = await addWhitelistEntry({ title, url, source }, { redisClient: redis || undefined, preloadedWhitelistRaw });
+    const addResult = await addWhitelistEntry({ title, url, source });
     logger.info({ status: addResult.status, total: addResult.whitelist.length }, "[handleUrlAddWithSource] Whitelist updated");
 
     if (addResult.enrichmentPromise) {
@@ -122,7 +121,6 @@ async function handleUrlAdd(
   payload: { data?: { options?: { name: string; options?: unknown[] }[] }; member?: { user?: { id?: string } }; user?: { id?: string }; channel_id?: string; token?: string },
   input: string,
   redis: RedisClient | null,
-  preloadedWhitelistRaw?: string | null,
 ) {
   try {
     await editInteractionResponse(payload, "⏳ Sedang memproses URL, mohon tunggu...");
@@ -182,7 +180,7 @@ async function handleUrlAdd(
       return editInteractionResponse(payload, "❌ Gagal mendeteksi judul atau sumber dari URL.\n\n**Tip:** Pastikan URL valid dari ikiru.wtf atau shinigami.id/asia");
     }
 
-    const result = await addWhitelistEntry({ title, url, source: detectedSource }, { redisClient: redis || undefined, preloadedWhitelistRaw });
+    const result = await addWhitelistEntry({ title, url, source: detectedSource });
     
     if (result.enrichmentPromise) {
       waitUntil(
@@ -295,23 +293,17 @@ export default async function handleAdd(
       // Check permission first before initializing providers (Swap checks)
       const userId = payload.member?.user?.id ?? payload.user?.id;
       let isAllowed = false;
-      let cachedWhitelistRaw: string | null = null;
 
       const isStaticAllowed = isOwner(payload) || isGuildAdmin(payload) || (userId && ADD_ALLOWED_USER_IDS.has(userId));
 
       if (isStaticAllowed) {
         isAllowed = true;
-        if (redis) {
-          cachedWhitelistRaw = await redis.get("whitelist:db_cache");
-        }
       } else if (redis && userId) {
-        // Pipeline: permission check + whitelist cache loading in 1 RTT
+        // Pipeline: permission check in single RTT
         const pipeline = redis.pipeline();
         pipeline.sismember("whitelist:allowed_users", userId);
-        pipeline.get("whitelist:db_cache");
-        const [isAllowedVal, cachedRaw] = await pipeline.exec();
+        const [isAllowedVal] = await pipeline.exec();
         isAllowed = !!isAllowedVal;
-        cachedWhitelistRaw = cachedRaw as string | null;
       } else {
         isAllowed = !redis; // Default to allow if no redis is configured
       }
@@ -372,7 +364,7 @@ export default async function handleAdd(
         if (!url) {
           return editInteractionResponse(payload, "❌ URL tidak ditemukan.");
         }
-        return handleUrlAdd(payload, url, redis, cachedWhitelistRaw);
+        return handleUrlAdd(payload, url, redis);
       }
 
       // Fallback: try to extract URL from payload
@@ -403,7 +395,7 @@ export default async function handleAdd(
       }
 
       if (url) {
-        await handleUrlAdd(payload, url, redis, cachedWhitelistRaw);
+        await handleUrlAdd(payload, url, redis);
       } else {
         await editInteractionResponse(payload, "❌ Format tidak dikenal.\n*Gunakan `/add url <link>`.*");
       }
