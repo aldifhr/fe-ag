@@ -51,17 +51,4 @@ export {
   sendDiscordEmbedsChannelBatch,
 } from "./messaging.js";
 
-// Batch operations
-export {
-  sendDiscordEmbedsBatch,
-  type BatchSendItem,
-  type BatchSendResult,
-  type BatchSendSummary,
-} from "./batch.js";
 
-// Rate limiting
-export {
-  discordLimiter,
-  discordPriorityLimiter,
-  withDiscordRateLimit,
-} from "./rate-limiter.js";

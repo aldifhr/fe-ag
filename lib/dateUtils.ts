@@ -1,14 +1,8 @@
 import {
-  differenceInDays,
-  differenceInHours,
-  differenceInMilliseconds,
-  endOfDay,
-  format,
   getTime,
   isAfter,
   isValid,
   parseISO,
-  startOfDay,
   subDays,
   subHours,
   toDate,
@@ -50,15 +44,6 @@ export function isValidDate(date: any): boolean {
 }
 
 /**
- * Format date to ISO string safely
- * Returns ISO string or null if invalid
- */
-export function toISOSafe(date: any): string | null {
-  const parsed = safeParseDate(date);
-  return parsed ? format(parsed, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : null;
-}
-
-/**
  * Calculate cutoff time for filtering
  * Returns timestamp in milliseconds
  */
@@ -74,17 +59,6 @@ export function getCutoffTime(daysBack = 30, hoursBack = 0): number {
 }
 
 /**
- * Check if date is within last N days
- */
-export function isWithinLastDays(date: any, days: number): boolean {
-  const parsed = safeParseDate(date);
-  if (!parsed) return false;
-
-  const cutoff = subDays(new Date(), days);
-  return isAfter(parsed, cutoff);
-}
-
-/**
  * Check if date is within last N hours
  */
 export function isWithinLastHours(date: any, hours: number): boolean {
@@ -94,61 +68,6 @@ export function isWithinLastHours(date: any, hours: number): boolean {
   const cutoff = subHours(new Date(), hours);
   return isAfter(parsed, cutoff);
 }
-
-/**
- * Compare two dates for sorting (descending - newest first)
- */
-export function compareDatesDesc(a: any, b: any): number {
-  const ta = getTimestampMs(a);
-  const tb = getTimestampMs(b);
-
-  if (isNaN(ta) && isNaN(tb)) return 0;
-  if (isNaN(ta)) return 1;
-  if (isNaN(tb)) return -1;
-
-  return tb - ta;
-}
-
-/**
- * Compare two dates for sorting (ascending - oldest first)
- */
-export function compareDatesAsc(a: any, b: any): number {
-  const ta = getTimestampMs(a);
-  const tb = getTimestampMs(b);
-
-  if (isNaN(ta) && isNaN(tb)) return 0;
-  if (isNaN(ta)) return 1;
-  if (isNaN(tb)) return -1;
-
-  return ta - tb;
-}
-
-/**
- * Get relative time string (e.g., "2 hours ago", "3 days ago")
- */
-export function getRelativeTime(date: any): string {
-  const parsed = safeParseDate(date);
-  if (!parsed) return "Unknown";
-
-  const now = new Date();
-  const diffMs = differenceInMilliseconds(now, parsed);
-
-  if (diffMs < 0) return "In the future";
-  if (diffMs < 60000) return "Just now";
-  if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} minutes ago`;
-  if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)} hours ago`;
-  if (diffMs < 604800000) return `${Math.floor(diffMs / 86400000)} days ago`;
-
-  const days = differenceInDays(now, parsed);
-  if (days < 30) return `${days} days ago`;
-
-  const hours = differenceInHours(now, parsed);
-  if (hours < 720) return `${Math.floor(hours / 24)} days ago`;
-
-  return format(parsed, "yyyy-MM-dd");
-}
-
-
 
 /**
  * Parse loose relative time strings (e.g., "2 hours ago", "3 days ago", "5 menit")
@@ -207,23 +126,6 @@ function batchParseTimestamps<T>(items: T[], dateField: keyof T): { item: T; tim
 }
 
 /**
- * Get cached data or fetch (in-memory cache removed; always fetches fresh)
- */
-export async function getCachedOrFetch<T>(
-  _cacheKey: string,
-  fetchFn: () => Promise<T>,
-  _ttlSeconds = 300,
-  context = "",
-): Promise<T> {
-  try {
-    return await fetchFn();
-  } catch (fetchErr: any) {
-    logger.error({ context, err: fetchErr.message }, "Fetch failed");
-    throw fetchErr;
-  }
-}
-
-/**
  * Safely parse JSON with fallback (DRY pattern)
  */
 export function safeJsonParse(jsonString: string | null | undefined, defaultValue: any = null): any {
@@ -245,12 +147,4 @@ export function sortByDateDesc<T>(items: T[], dateField = "timestamp" as keyof T
     .map(({ item }) => item);
 }
 
-/**
- * Sort array by date field (ascending - oldest first)
- */
-export function sortByDateAsc<T>(items: T[], dateField = "timestamp" as keyof T): T[] {
-  return batchParseTimestamps(items, dateField)
-    .filter(({ timestampMs }) => !isNaN(timestampMs))
-    .sort((a, b) => a.timestampMs - b.timestampMs)
-    .map(({ item }) => item);
-}
+

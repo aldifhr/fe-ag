@@ -1,7 +1,7 @@
 import { createWhitelistMatcher, getChapterNumber, normalizeTitleKey as _normalizeTitleKey } from "../domain.js";
 import { appendCronLogThrottled } from "../cronLogs.js";
 import { writeCronStatus } from "../services/storage.js";
-import { buildShortCircuitStatus, finalizeTimingMetrics, limitObjectArrays, roundTimingMs } from "./helpers.js";
+import { buildShortCircuitStatus, finalizeTimingMetrics, roundTimingMs } from "./helpers.js";
 import {
   buildPreferredIkiruPreferences,
   buildPreferredSecondaryEntries,

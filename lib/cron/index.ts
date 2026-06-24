@@ -61,12 +61,9 @@ export {
 
 // Helpers
 export {
-  limitObjectArrays,
   shouldRunChannelValidation,
-  buildShortCircuitStatus as buildShortCircuitStatusHelper,
   roundTimingMs,
   finalizeTimingMetrics,
-  cleanupOldLogs,
 } from "./helpers.js";
 
 // Status

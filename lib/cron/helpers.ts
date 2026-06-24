@@ -6,16 +6,6 @@ import type {
   SourceHealth,
 } from "../types.js";
 
-export function limitObjectArrays<T>(obj: Record<string, T[]>, limit: number): Record<string, T[]> {
-  if (!obj || typeof obj !== "object" || limit <= 0) return obj;
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key,
-      Array.isArray(value) ? value.slice(0, limit) : value,
-    ]),
-  );
-}
-
 export function shouldRunChannelValidation(
   lastValidatedAt: string | null,
   refreshSeconds = env.CHANNEL_VALIDATION_REFRESH_SECONDS,
@@ -86,10 +76,4 @@ export function finalizeTimingMetrics(start: number, partial: TimingMetrics): Ti
   };
 }
 
-/**
- * No-op replacement — Supabase handles TTL/cleanup automatically.
- * Previously cleaned Redis log lists and daily stats hashes.
- */
-export async function cleanupOldLogs(): Promise<void> {
-  // Supabase manages data retention; no manual cleanup needed.
-}
+
