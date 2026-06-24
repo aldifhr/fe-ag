@@ -6,7 +6,7 @@ A Discord bot for manga/manhwa update notifications. Scrape updates from Indones
 
 - **Runtime**: Node.js + TypeScript (ESM)
 - **Framework**: Express.js (dev) / Vercel Functions (production)
-- **Storage**: Upstash Redis
+- **Storage**: Supabase (PostgreSQL)
 - **Discord**: Discord Interactions API
 
 ## Features
@@ -33,13 +33,7 @@ A Discord bot for manga/manhwa update notifications. Scrape updates from Indones
    - Bot Permissions: `Send Messages`, `Manage Channels`, `Embed Links`
 6. Copy generated URL and invite bot to server
 
-### 2. Set Up Redis (Upstash)
-
-1. Go to [Upstash](https://upstash.com)
-2. Create new Redis database
-3. Copy REST URL and REST Token
-
-### 3. Configure Environment
+### 2. Configure Environment
 
 Copy `.env.example` to `.env`:
 
@@ -55,14 +49,15 @@ DISCORD_PUBLIC_KEY=
 DISCORD_BOT_TOKEN=
 DISCORD_APPLICATION_ID=
 
-# Redis (required)
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-
 # Security (required)
 DASHBOARD_PASSWORD=      # Password for dashboard access
 DASHBOARD_SESSION_SECRET=  # Generate random string
 CRON_SECRET=             # Generate random string
+
+# Supabase (required)
+SUPABASE_URL=https://your-supabase-project.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
 # Optional
 DISCORD_OWNER_ID=        # Your Discord user ID for owner commands
@@ -117,16 +112,12 @@ ikiru-bot/
 | `DISCORD_PUBLIC_KEY` | Discord application public key |
 | `DISCORD_BOT_TOKEN` | Discord bot token |
 | `DISCORD_APPLICATION_ID` | Discord application ID |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
-
-### Security
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DASHBOARD_PASSWORD` | Password for dashboard access | - |
-| `DASHBOARD_SESSION_SECRET` | Random string for session signing | - |
-| `CRON_SECRET` | Secret for cron API authorization | - |
+| `DASHBOARD_PASSWORD` | Password for dashboard access |
+| `DASHBOARD_SESSION_SECRET` | Random string for session signing |
+| `CRON_SECRET` | Secret for cron API authorization |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 
 ### Optional
 
@@ -224,7 +215,6 @@ vercel deploy        # Deploy to Vercel
 | `type-check` | TypeScript type checking (no emit) |
 | `track:fresh24h` | Track freshness of whitelisted mangas over 24 hours |
 | `cleanup:health` | Clean up old health monitoring metrics from database |
-| `test:hexpire` | Test Redis hash field expiry operations |
 | `test:daily` | Test daily stats calculation |
 
 ## Troubleshooting
@@ -248,11 +238,11 @@ vercel deploy        # Deploy to Vercel
 3. Check bot has permission to send messages in channel
 4. Check `/api/cron` returns data
 
-### Redis errors
+### Supabase errors
 
-1. Verify `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are correct
-2. Check Upstash console for rate limits
-3. Verify Redis database is active
+1. Verify `SUPABASE_URL` and `SUPABASE_KEY` are correct
+2. Check Supabase console for rate limits
+3. Verify Supabase database is active
 
 ### Health check failures
 
