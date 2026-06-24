@@ -1,4 +1,4 @@
-import { RedisClient, ChapterItem } from "../../types.js";
+import { ChapterItem } from "../../types.js";
 import { chunkArray } from "../../utils.js";
 import Bottleneck from "bottleneck";
 import pLimit from "p-limit";
@@ -10,20 +10,18 @@ const discordSendLimiter = new Bottleneck({
 });
 
 export async function scheduleDiscordSend(
-  sendFn: (item: ChapterItem, channelId: string, redis: RedisClient, mentions?: string) => Promise<{ success: boolean }>,
+  sendFn: (item: ChapterItem, channelId: string, mentions?: string) => Promise<{ success: boolean }>,
   item: ChapterItem,
   channelId: string,
-  redis: RedisClient,
   mentions = "",
 ): Promise<{ success: boolean }> {
-  return discordSendLimiter.schedule(() => sendFn(item, channelId, redis, mentions));
+  return discordSendLimiter.schedule(() => sendFn(item, channelId, mentions));
 }
 
 interface SendToChannelsOptionsTyped<T = ChapterItem> {
-  sendFn: (item: T, channelId: string, redis: RedisClient, mentions?: string) => Promise<{ success: boolean }>;
+  sendFn: (item: T, channelId: string, mentions?: string) => Promise<{ success: boolean }>;
   item: T;
   channelIds: string[];
-  redis?: RedisClient | null;
   mentions?: string;
   concurrency?: number;
   onError?: ((err: unknown, channelId: string) => void | Promise<void>) | null;
@@ -33,7 +31,6 @@ export async function sendToChannelsLimited({
   sendFn,
   item,
   channelIds = [],
-  redis = null,
   mentions = "",
   concurrency = env.DISCORD_CHANNEL_CONCURRENCY,
   onError = null,
@@ -45,7 +42,7 @@ export async function sendToChannelsLimited({
   if (channelIds.length === 1) {
     const channelId = channelIds[0];
     try {
-      const res = await scheduleDiscordSend(sendFn, item, channelId, redis as RedisClient, mentions);
+      const res = await scheduleDiscordSend(sendFn, item, channelId, mentions);
       if (res && res.success === false) {
         if (typeof onError === "function") {
           await Promise.resolve(onError(new Error("Send failed"), channelId));
@@ -69,7 +66,7 @@ export async function sendToChannelsLimited({
     channelIds.map((channelId) =>
       limit(async () => {
         try {
-          const res = await scheduleDiscordSend(sendFn, item, channelId, redis as RedisClient, mentions);
+          const res = await scheduleDiscordSend(sendFn, item, channelId, mentions);
           if (res && res.success === false) {
             failedCount++;
             if (typeof onError === "function") {

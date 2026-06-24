@@ -9,7 +9,6 @@ import { getLogger } from "../logger.js";
 import { CommandOption } from "../types.js";
 
 const logger = getLogger({ scope: "commands:remove" });
-import { getMockRedisWarning } from "../redis.js";
 import type { Response } from "express";
 import { discordInteractionSchema } from "../validation.js";
 import { z } from "zod";
@@ -101,7 +100,7 @@ export default function handleRemove(payload: DiscordPayload, options: CommandOp
           const count = (result as any).totalCount ?? 0;
           await editInteractionResponse(
             payload,
-            `Peringatan: "${input}" tidak ditemukan di whitelist! (Jumlah item di database: ${count})${getMockRedisWarning()}\nGunakan /list untuk melihat nomor urut manga.`,
+             `Peringatan: "${input}" tidak ditemukan di whitelist! (Jumlah item di database: ${count})\nGunakan /list untuk melihat nomor urut manga.`,
           );
           return;
         }

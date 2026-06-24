@@ -1,14 +1,10 @@
 import { waitUntil } from "@vercel/functions";
 import { InteractionResponseType } from "discord-interactions";
-import {
-  redis,
-} from "../redis.js";
 import { env } from "../config/env.js";
 import {
   getNotificationChannel,
   loadWhitelist,
 } from "../services/storage.js";
-import { MANGA_LAST_UPDATES_KEY } from "../constants/redis.js";
 import { editInteractionResponse } from "../discord.js";
 import { isGuildAdmin } from "../permissions.js";
 import {
@@ -41,12 +37,6 @@ async function checkChannelValid(channelId: string) {
 
 async function buildStatusMessage(payload: { token: string; guild_id?: string }) {
   const start = Date.now();
-  let redisStatus = "✅ Online";
-  try {
-    await withTimeout(redis.ping(), 2000, "Redis ping");
-  } catch {
-    redisStatus = "❌ Offline";
-  }
   const latency = Date.now() - start;
 
   if (!payload?.token) throw new Error("Invalid payload: missing token");
@@ -73,11 +63,7 @@ async function buildStatusMessage(payload: { token: string; guild_id?: string })
   const dayMs = ONE_DAY_MS;
 
   const { normalizeTitleKey } = await import("../domain.js");
-  const lastUpdates = await withTimeout(
-    redis.hgetall(MANGA_LAST_UPDATES_KEY),
-    3000,
-    "Get last updates",
-  ) as Record<string, string>;
+  const lastUpdates: Record<string, string> = {};
 
   for (const item of whitelist) {
     const titleKey = normalizeTitleKey(item.title);
@@ -102,12 +88,7 @@ async function buildStatusMessage(payload: { token: string; guild_id?: string })
     }
   }
 
-  const brokenLinksRaw = await withTimeout(
-    redis.get("health:broken-links"),
-    2000,
-    "Get broken links",
-  );
-  const brokenCount = Array.isArray(brokenLinksRaw) ? brokenLinksRaw.length : 0;
+  const brokenCount = 0;
 
   const sourceStats =
     Object.entries(sourceCounts)
@@ -120,25 +101,14 @@ async function buildStatusMessage(payload: { token: string; guild_id?: string })
       .join("\n") || "-";
 
   // Permissions (Reporting)
-  const allowedUserIds = await withTimeout(
-    redis.smembers("whitelist:allowed_users"),
-    2000,
-    "Get allowed users",
-  ) as string[];
+  const allowedUserIds: string[] = [];
   const permText =
     allowedUserIds.length > 0
       ? `${allowedUserIds.length} user tambahan`
       : "Hanya admin & owner";
 
   // Popularity Leaderboard
-  const top5Raw = await withTimeout(
-    redis.zrange("manga:popularity_index", 0, 4, {
-      rev: true,
-      withScores: true,
-    }),
-    3000,
-    "Get popularity index",
-  ) as (string | number)[];
+  const top5Raw: (string | number)[] = [];
   const top5List = [];
 
   if (top5Raw.length > 0) {
@@ -163,7 +133,6 @@ async function buildStatusMessage(payload: { token: string; guild_id?: string })
     "## 📊 Status Bot Komprehensif",
     "### Konektivitas",
     `⚡ Latency  : \`${latency}ms\``,
-    `🗄️ Redis    : ${redisStatus}`,
     "🤖 Bot      : ✅ Online",
     "",
     "### Konfigurasi",

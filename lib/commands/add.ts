@@ -8,9 +8,8 @@ import { mangaProviderRegistry } from "../providers/registry.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
 import { withTimeout } from "../utils.js";
-import { RedisClient, AutocompleteOption } from "../types.js";
+import { AutocompleteOption } from "../types.js";
 import { env } from "../config/env.js";
-import { getMockRedisWarning } from "../redis.js";
 import type { Response } from "express";
 import { discordInteractionSchema } from "../validation.js";
 import { z } from "zod";
@@ -40,7 +39,6 @@ async function handleUrlAddWithSource(
   payload: { data?: { options?: { name: string; options?: unknown[] }[] }; member?: { user?: { id?: string } }; user?: { id?: string }; channel_id?: string; token?: string },
   url: string,
   source: "ikiru" | "shinigami",
-  redis: RedisClient | null,
 ) {
   try {
     await editInteractionResponse(payload, `⏳ Sedang mengambil data dari ${sourceLabel(source)}, mohon tunggu...`);
@@ -107,7 +105,7 @@ async function handleUrlAddWithSource(
     return editInteractionResponse(
       payload,
       {
-        content: `✅ **${title}** sudah ditambah ke dalam whitelist.\n📊 Total: **${addResult.whitelist.length}** manga${getMockRedisWarning()}`,
+        content: `✅ **${title}** sudah ditambah ke dalam whitelist.\n📊 Total: **${addResult.whitelist.length}** manga`,
         embeds: [embed]
       }
     );
@@ -120,7 +118,6 @@ async function handleUrlAddWithSource(
 async function handleUrlAdd(
   payload: { data?: { options?: { name: string; options?: unknown[] }[] }; member?: { user?: { id?: string } }; user?: { id?: string }; channel_id?: string; token?: string },
   input: string,
-  redis: RedisClient | null,
 ) {
   try {
     await editInteractionResponse(payload, "⏳ Sedang memproses URL, mohon tunggu...");
@@ -243,7 +240,7 @@ async function handleUrlAdd(
     return editInteractionResponse(
       payload,
       {
-        content: `✅ **${title}** sudah ditambah ke dalam whitelist.\n📊 Total: **${result.whitelist.length}** manga${getMockRedisWarning()}`,
+        content: `✅ **${title}** sudah ditambah ke dalam whitelist.\n📊 Total: **${result.whitelist.length}** manga`,
         embeds: [embed],
         components: [
           {
@@ -272,7 +269,6 @@ export default async function handleAdd(
   payload: DiscordPayload,
   options: AutocompleteOption[],
   res: Response,
-  redis: RedisClient | null = null,
 ) {
   // 1. ULTRA-FAST DEFER (must be < 3s for Discord)
   // Don't wait for anything - respond immediately
@@ -298,14 +294,8 @@ export default async function handleAdd(
 
       if (isStaticAllowed) {
         isAllowed = true;
-      } else if (redis && userId) {
-        // Pipeline: permission check in single RTT
-        const pipeline = redis.pipeline();
-        pipeline.sismember("whitelist:allowed_users", userId);
-        const [isAllowedVal] = await pipeline.exec();
-        isAllowed = !!isAllowedVal;
       } else {
-        isAllowed = !redis; // Default to allow if no redis is configured
+        isAllowed = false;
       }
 
       if (!isAllowed) {
@@ -364,7 +354,7 @@ export default async function handleAdd(
         if (!url) {
           return editInteractionResponse(payload, "❌ URL tidak ditemukan.");
         }
-        return handleUrlAdd(payload, url, redis);
+        return handleUrlAdd(payload, url);
       }
 
       // Fallback: try to extract URL from payload
@@ -395,7 +385,7 @@ export default async function handleAdd(
       }
 
       if (url) {
-        await handleUrlAdd(payload, url, redis);
+        await handleUrlAdd(payload, url);
       } else {
         await editInteractionResponse(payload, "❌ Format tidak dikenal.\n*Gunakan `/add url <link>`.*");
       }

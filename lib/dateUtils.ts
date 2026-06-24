@@ -14,7 +14,6 @@ import {
   toDate,
 } from "date-fns";
 import { getLogger } from "./logger.js";
-import { RedisClient } from "./types.js";
 
 const logger = getLogger({ scope: "dateUtils" });
 
@@ -208,40 +207,16 @@ function batchParseTimestamps<T>(items: T[], dateField: keyof T): { item: T; tim
 }
 
 /**
- * Get cached data or fetch and cache (DRY pattern for Redis caching)
+ * Get cached data or fetch (in-memory cache removed; always fetches fresh)
  */
 export async function getCachedOrFetch<T>(
-  redis: RedisClient | null | undefined,
-  cacheKey: string,
+  _cacheKey: string,
   fetchFn: () => Promise<T>,
-  ttlSeconds = 300,
+  _ttlSeconds = 300,
   context = "",
 ): Promise<T> {
-  if (redis) {
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return typeof cached === "string" ? JSON.parse(cached) : cached;
-      }
-    } catch (err: any) {
-      logger.warn({ context, err: err.message }, "Redis get failed");
-    }
-  }
-
   try {
-    const fresh = await fetchFn();
-
-    if (redis && fresh !== null && fresh !== undefined) {
-      try {
-        const valueToCache =
-          typeof fresh === "string" ? fresh : JSON.stringify(fresh);
-        await redis.set(cacheKey, valueToCache, { ex: ttlSeconds });
-      } catch (cacheErr: any) {
-        logger.warn({ context, err: cacheErr.message }, "Redis set failed");
-      }
-    }
-
-    return fresh;
+    return await fetchFn();
   } catch (fetchErr: any) {
     logger.error({ context, err: fetchErr.message }, "Fetch failed");
     throw fetchErr;

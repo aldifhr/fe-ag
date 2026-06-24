@@ -1,7 +1,6 @@
 import axios from "axios";
 import { getLogger } from "../logger.js";
 import { env } from "../config/env.js";
-import { redis } from "../redis.js";
 
 const logger = getLogger({ scope: "scrapling-bridge" });
 
@@ -19,10 +18,9 @@ interface ScraplingResponse<T> {
   _cookies?: Record<string, string>;
 }
 
-const COOKIE_REDIS_KEY = "session:ikiru:cookies";
-
 /**
  * Bridge to execute Python Scrapling scraper via HTTP (Vercel compatible)
+ * Redis removed; cookie persistence is no longer available.
  */
 export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
   // Determine API base URL
@@ -36,16 +34,9 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
     apiBase = env.APP_URL;
   }
 
-  // Load cookies from Redis if it's Ikiru
+  // Redis removed; cookies no longer loaded from cache
   const isIkiru = options.baseUrl?.includes("ikiru") || (!options.baseUrl && (options.url?.includes("ikiru") || options.action === "latest"));
-  let existingCookies: string | null = null;
-  if (isIkiru) {
-    try {
-      existingCookies = await redis.get(COOKIE_REDIS_KEY) as string | null;
-    } catch (err) {
-      logger.warn({ err }, "Failed to load cookies from Redis");
-    }
-  }
+  const existingCookies: string | null = null;
 
   const isLocal = process.env.NODE_ENV === "development" || !process.env.VERCEL;
 
@@ -95,10 +86,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
       
       const parsed = JSON.parse(output) as ScraplingResponse<T>;
       
-      // Save new cookies to Redis
-      if (isIkiru && parsed._cookies) {
-        await redis.set(COOKIE_REDIS_KEY, JSON.stringify(parsed._cookies), { ex: 86400 * 7 });
-      }
+      // Redis removed; cookies no longer saved
       
       return parsed.data;
     } catch (err) {
@@ -134,10 +122,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
 
     const parsed = response.data as ScraplingResponse<T>;
     
-    // Save new cookies to Redis
-    if (isIkiru && parsed._cookies) {
-      await redis.set(COOKIE_REDIS_KEY, JSON.stringify(parsed._cookies), { ex: 86400 * 7 });
-    }
+    // Redis removed; cookies no longer saved
     
     return parsed.data;
   } catch (err: any) {

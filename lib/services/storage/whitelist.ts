@@ -21,7 +21,7 @@ function validateData<T>(schema: z.ZodSchema<T>, data: unknown, context: string)
       errors: result.error.issues.map((e) => `${e.path.join(".")}: ${e.message}`),
       sample: typeof data === "string" ? data.substring(0, 100) : "object",
     },
-    "Data validation failed for Redis object",
+    "Data validation failed for stored object",
   );
   return null;
 }

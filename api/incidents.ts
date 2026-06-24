@@ -1,10 +1,7 @@
 import { env } from "../lib/config/env.js";
 import type { Request, Response } from "express";
 import {
-  INCIDENT_CACHE_KEY,
-  DISCORD_NOTIFICATION_FAILURES_KEY,
   SOURCE_KEYS,
-  LOGS_API_CACHE_KEY,
 } from "../lib/constants/redis.js";
 import {
   daysBackQuerySchema,
@@ -29,8 +26,6 @@ import {
   readCronLogs,
   loadSourceHealthSnapshot,
 } from "../lib/services/storage.js";
-import { redis } from "../lib/redis.js";
-
 const logger = getLogger({ scope: "api" });
 
 const LAST_24H_CUTOFF_DAYS = 1;
@@ -68,9 +63,9 @@ function safeParse(data: unknown, defaultValue: Record<string, unknown> | null =
 // Incident Fetchers
 // ==========================================
 
-async function fetchCronIncidents(redisClient: typeof redis, daysBack = 30) {
+async function fetchCronIncidents(daysBack = 30) {
   try {
-    const logs = await readCronLogs(redisClient, 0, 199);
+    const logs = await readCronLogs(0, 199);
     if (!logs || !Array.isArray(logs)) return [];
 
     const cutoffTime = getCutoffTime(daysBack);
@@ -134,7 +129,7 @@ async function fetchCronIncidents(redisClient: typeof redis, daysBack = 30) {
   }
 }
 
-async function fetchHealthIncidents(redisClient: typeof redis, daysBack = 30) {
+async function fetchHealthIncidents(daysBack = 30) {
   try {
     const sourceHealth = await loadSourceHealthSnapshot(SOURCE_KEYS);
     const incidents: IncidentEntry[] = [];
@@ -181,55 +176,9 @@ async function fetchHealthIncidents(redisClient: typeof redis, daysBack = 30) {
   }
 }
 
-async function fetchDiscordIncidents(redisClient: typeof redis, daysBack = 30) {
-  try {
-    const cutoffTime = getCutoffTime(daysBack);
-    const failures: string[] = await redisClient.lrange(
-      DISCORD_NOTIFICATION_FAILURES_KEY,
-      0,
-      99,
-    );
-
-    if (!failures || !Array.isArray(failures)) return [];
-
-    const incidents: IncidentEntry[] = [];
-
-    for (const failure of failures) {
-      try {
-        const entry = safeParse(failure);
-        if (!entry) continue;
-
-        const timestamp = typeof entry.timestamp === "string" ? entry.timestamp : null;
-        if (!timestamp || getTimestampMs(timestamp) < cutoffTime) continue;
-
-        incidents.push({
-          id: `discord-${entry.channelId || "unknown"}-${timestamp}`,
-          type: "discord_failure",
-          severity: "high",
-          title: "Discord Notification Failed",
-          message: typeof entry.error === "string" ? entry.error : "Failed to send chapter notification",
-          timestamp,
-          duration: null,
-          resolved: false,
-          resolvedAt: null,
-          source: "discord",
-          details: {
-            channelId: entry.channelId || null,
-            guildId: entry.guildId || null,
-            chapterTitle: entry.chapterTitle || null,
-            error: entry.error || null,
-          },
-        });
-      } catch {
-        continue;
-      }
-    }
-
-    return incidents;
-  } catch (err) {
-    logger.error({ err }, "[incidents] Error fetching Discord incidents:");
-    return [];
-  }
+async function fetchDiscordIncidents(_daysBack = 30): Promise<IncidentEntry[]> {
+  // Discord incident fetching from Redis removed — no replacement source yet
+  return [];
 }
 
 function calculateStats(incidents: IncidentEntry[]) {
@@ -267,9 +216,9 @@ function calculateStats(incidents: IncidentEntry[]) {
 // Notices Fetchers
 // ==========================================
 
-async function fetchCronErrorLogs(redisClient: typeof redis, daysBack = 7) {
+async function fetchCronErrorLogs(daysBack = 7) {
   try {
-    const logs = await readCronLogs(redisClient, 0, 199);
+    const logs = await readCronLogs(0, 199);
     if (!logs || !Array.isArray(logs)) return [];
 
     const cutoffTime = getCutoffTime(daysBack);
@@ -321,7 +270,7 @@ async function fetchCronErrorLogs(redisClient: typeof redis, daysBack = 7) {
   }
 }
 
-async function fetchHealthCheckFailures(redisClient: typeof redis, daysBack = 7) {
+async function fetchHealthCheckFailures(daysBack = 7) {
   try {
     const sourceHealth = (await loadSourceHealthSnapshot(
       SOURCE_KEYS,
@@ -364,52 +313,9 @@ async function fetchHealthCheckFailures(redisClient: typeof redis, daysBack = 7)
   }
 }
 
-async function fetchDiscordNotificationFailures(redisClient: typeof redis, daysBack = 7) {
-  try {
-    const cutoffTime = getCutoffTime(daysBack);
-    const failures: any[] = [];
-
-    const recentFailures: string[] = await redisClient.lrange(
-      DISCORD_NOTIFICATION_FAILURES_KEY,
-      0,
-      99,
-    );
-
-    if (!recentFailures || !Array.isArray(recentFailures)) return [];
-
-    for (const failure of recentFailures) {
-      try {
-        const entry =
-          typeof failure === "string" ? JSON.parse(failure) : failure;
-        const timestamp = entry.timestamp;
-
-        if (timestamp && getTimestampMs(timestamp) < cutoffTime) continue;
-
-        failures.push({
-          id: `discord-${entry.channelId || "unknown"}-${timestamp || Date.now()}`,
-          type: "discord_notification_failure",
-          severity: "high",
-          title: "Discord Notification Failed",
-          message: entry.error || "Failed to send Discord notification",
-          timestamp: timestamp || null,
-          source: "discord",
-          details: {
-            channelId: entry.channelId,
-            error: entry.error,
-            chapterTitle: entry.chapterTitle,
-            guildId: entry.guildId,
-          },
-        });
-      } catch {
-        continue;
-      }
-    }
-
-    return failures;
-  } catch (err: unknown) {
-    logger.error({ err: err instanceof Error ? err.message : String(err) }, "[notices] Error fetching Discord failures:");
-    return [];
-  }
+async function fetchDiscordNotificationFailures(_daysBack = 7): Promise<any[]> {
+  // Discord notification failures from Redis removed — no replacement source yet
+  return [];
 }
 
 function determineStatus(notices: any[]) {
@@ -438,14 +344,13 @@ async function handleIncidents(req: Request, res: Response, reqLogger: any) {
     const { days: daysBack, resolved } = v.data;
     const includeResolved = resolved !== "false";
 
-    const cacheKey = `${INCIDENT_CACHE_KEY}:${daysBack}:${includeResolved}`;
     // Cache bypassed — Supabase is source of truth
 
     const [cronIncidents, healthIncidents, discordIncidents] =
       await Promise.all([
-        fetchCronIncidents(redis, daysBack),
-        fetchHealthIncidents(redis, daysBack),
-        fetchDiscordIncidents(redis, daysBack),
+        fetchCronIncidents(daysBack),
+        fetchHealthIncidents(daysBack),
+        fetchDiscordIncidents(daysBack),
       ]);
 
     const wrappedIncidents: { incident: IncidentEntry; timestampMs: number }[] = [];
@@ -536,9 +441,9 @@ async function handleNotices(req: Request, res: Response, reqLogger: any) {
     const { days: daysBack } = v.data;
 
     const [cronErrors, healthFailures, discordFailures] = await Promise.all([
-      fetchCronErrorLogs(redis, daysBack),
-      fetchHealthCheckFailures(redis, daysBack),
-      fetchDiscordNotificationFailures(redis, daysBack),
+      fetchCronErrorLogs(daysBack),
+      fetchHealthCheckFailures(daysBack),
+      fetchDiscordNotificationFailures(daysBack),
     ]);
 
     const sortedNotices = sortByDateDesc(

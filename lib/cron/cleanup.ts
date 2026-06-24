@@ -4,14 +4,13 @@
 
 import { getLogger } from "../logger.js";
 import { cleanupScrapeOptimizer } from "../scrapers/optimizer.js";
-import type { RedisClient } from "../types.js";
 
 const logger = getLogger({ scope: "cron:cleanup" });
 
 /**
  * Run all cleanup tasks (fire-and-forget)
  */
-export function runCleanupTasks(redis: RedisClient): void {
+export function runCleanupTasks(): void {
   // Cleanup optimizer to prevent memory leaks
   cleanupScrapeOptimizer();
 

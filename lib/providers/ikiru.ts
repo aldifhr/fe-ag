@@ -8,7 +8,6 @@ import {
 } from "../scrapers/ikiru/index.js";
 import { 
   ChapterItem, 
-  RedisClient, 
   ProviderResult, 
   MangaMetadata, 
   SourceState 
@@ -78,12 +77,12 @@ export const ikiruProvider: MangaProvider = {
   displayName: "Ikiru",
   priority: 10,
 
-  async initialize(redis: RedisClient) {
-    await metricsTracker.load(redis, "ikiru");
+  async initialize() {
+    await metricsTracker.load("ikiru");
   },
 
-  async search(query: string, redis: RedisClient | null): Promise<ProviderResult<ChapterItem[]>> {
-    return searchIkiru(query, {}, redis);
+  async search(query: string): Promise<ProviderResult<ChapterItem[]>> {
+    return searchIkiru(query, {});
   },
 
   canHandleUrl(url: string): boolean {
@@ -110,7 +109,6 @@ export const ikiruProvider: MangaProvider = {
   },
 
   async scrapeUpdates(options: {
-    redis: RedisClient | null;
     preferredMatcher?: Record<string, unknown> | null;
     logger?: Logger;
     force?: boolean;
@@ -118,13 +116,12 @@ export const ikiruProvider: MangaProvider = {
     skipExpansion?: boolean;
     deadline?: number;
   }): Promise<{ results: ChapterItem[]; state: SourceState }> {
-    const { redis, preferredMatcher, logger, ...rest } = options;
+    const { preferredMatcher, logger, ...rest } = options;
     const start = Date.now();
     try {
-      const res = await scrapeIkiruUpdatesWithMeta(redis, preferredMatcher as any, logger as any, rest);
+      const res = await scrapeIkiruUpdatesWithMeta(preferredMatcher as any, logger as any, rest);
       const duration = Date.now() - start;
       metricsTracker.record(duration, res.state.status === "ok");
-      if (redis) metricsTracker.persist(redis, "ikiru").catch(() => {});
       return res;
     } catch (err) {
       metricsTracker.record(Date.now() - start, false);
@@ -132,8 +129,8 @@ export const ikiruProvider: MangaProvider = {
     }
   },
 
-  async fetchMetadata(url: string, redis: RedisClient | null): Promise<MangaMetadata | null> {
-    const raw = await fetchIkiruMetadata(url, redis);
+  async fetchMetadata(url: string): Promise<MangaMetadata | null> {
+    const raw = await fetchIkiruMetadata(url);
     if (!raw) return null;
 
     return {

@@ -3,7 +3,6 @@ import { logApiHit, logApiOk, logApiError, getLogger } from "../lib/logger.js";
 import { createSuccessResponse, createErrorResponse } from "../lib/api/response.js";
 import { STATUS_CACHE_SEC } from "../lib/config.js";
 import { isMonitorAuthorized } from "../lib/auth.js";
-import { redis } from "../lib/redis.js";
 import { 
   readRecentChapters, 
   readCronLogs,
@@ -11,7 +10,7 @@ import {
 } from "../lib/services/storage.js";
 import { readCronDailyStats } from "../lib/cronLogs.js";
 import { SOURCE_KEYS } from "../lib/constants/redis.js";
-import { getSupabasePing, getDiscordPing, getRedisPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
+import { getSupabasePing, getDiscordPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
 import { findCronJob, getCronNextRuns, getCronLogs, FastCronExecutionResult } from "../lib/services/fastcron.js";
 import type { Request, Response } from "express";
 
@@ -25,8 +24,8 @@ const logger = getLogger({ scope: "api:dashboard" });
 async function getAnalyticsData() {
   try {
     const [recentChapters, logs, whitelist] = await Promise.all([
-      readRecentChapters(redis, 0, 999),
-      readCronLogs(redis, 0, 99),
+      readRecentChapters(0, 999),
+      readCronLogs(0, 99),
       loadWhitelist(),
     ]);
 
@@ -208,8 +207,8 @@ export default async function handler(req: Request, res: Response) {
         }
         snapshot.sourceHealth = filtered;
       }
-    } catch (redisErr: unknown) {
-      logger.error({ err: redisErr instanceof Error ? redisErr.message : String(redisErr) }, "Redis fetch failed, using empty snapshot");
+    } catch (snapshotErr: unknown) {
+      logger.error({ err: snapshotErr instanceof Error ? snapshotErr.message : String(snapshotErr) }, "Snapshot fetch failed, using empty snapshot");
       snapshot = {
         cronStatus: null,
         sourceHealth: {},
@@ -227,10 +226,9 @@ export default async function handler(req: Request, res: Response) {
     }
 
     // Fetch current system health for dashboard
-    const [supabasePing, discordPing, redisPing, providerMetrics] = await Promise.all([
+    const [supabasePing, discordPing, providerMetrics] = await Promise.all([
       getSupabasePing(),
       getDiscordPing(),
-      getRedisPing(),
       getProviderMetrics(),
     ]);
 
@@ -239,11 +237,6 @@ export default async function handler(req: Request, res: Response) {
         name: "Discord API", 
         ping: formatResponseTime(discordPing), 
         status: (discordPing !== null && discordPing < 5000) ? "healthy" : "degraded", 
-      },
-      { 
-        name: "Redis Database", 
-        ping: formatResponseTime(redisPing), 
-        status: (redisPing ?? 0) < 1000 ? "healthy" : "failed" 
       },
       {
         name: "Supabase DB",
@@ -254,14 +247,8 @@ export default async function handler(req: Request, res: Response) {
 
     const dailyStats = await readCronDailyStats(7, new Date(), true).catch(() => []);
 
-    // Concurrently check if there are active Redis run locks indicating running background workers
-    const [lockIkiru, lockShinigami] = await Promise.all([
-      redis.exists("cron:run:lock:ikiru").catch(() => 0),
-      redis.exists("cron:run:lock:shinigami").catch(() => 0)
-    ]);
+    // Active workers tracking (Redis-based lock check removed — now using Supabase locks)
     const activeWorkers: string[] = [];
-    if (lockIkiru === 1) activeWorkers.push("ikiru");
-    if (lockShinigami === 1) activeWorkers.push("shinigami");
 
     // Add FastCron, Analytics, and Active Worker status to snapshot
     const enrichedSnapshot = {

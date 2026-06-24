@@ -22,7 +22,6 @@ import {
   appendLiveEvent,
 } from "./services/storage.js";
 import { isSourceInCooldown } from "./services/health.js";
-import { redis } from "./redis.js";
 import { env } from "./config/env.js";
 import { scrapeMangaUpdatesWithMeta } from "./scrapers/orchestrator.js";
 import { syncDynamicOverrides } from "./domain.js";
@@ -70,7 +69,7 @@ export async function runCronJob({
   logger: cronLogger = getLogger({ scope: "cron" }),
   loadWhitelistFn = loadWhitelist,
   getAllGuildChannelsFn = getAllGuildChannels,
-  scrapeMangaUpdatesWithMetaFn = scrapeMangaUpdatesWithMeta,
+  scrapeMangaUpdatesWithMetaFn = scrapeMangaUpdatesWithMeta as any,
   sendEmbed,
   deleteGuildChannelFn = deleteGuildChannel,
   scrapeOptions = {},
@@ -106,7 +105,7 @@ export async function runCronJob({
 
     // 1. Acquire lock (skipped when per-source locks already handle concurrency)
     if (!skipLock) {
-      const lockResult = await acquireCronLock(redis, { skipIfLocked: true });
+      const lockResult = await acquireCronLock({ skipIfLocked: true });
       if (!lockResult.acquired) {
         return {
           statusCode: 200,
@@ -121,7 +120,6 @@ export async function runCronJob({
     lifecycle.currentStep = "loading_inputs";
     const loadInputsStart = Date.now();
     const inputs = await loadCronInputs({
-      redis,
       loadWhitelistFn,
       getAllGuildChannelsFn,
     });
@@ -131,7 +129,6 @@ export async function runCronJob({
     const validation = validateCronInputs(inputs);
     if (!validation.valid) {
       return await handleShortCircuit({
-        redis,
         start,
         reason: validation.reason!,
         whitelist: inputs.whitelist.length,
@@ -155,7 +152,6 @@ export async function runCronJob({
     // 4. Validate guild channels
     const validationStart = Date.now();
     const guildValidation = await loadValidatedGuilds({
-      redisClient: redis,
       guildEntries,
       channelValidationConcurrency,
       botToken: DISCORD_TOKEN!,
@@ -182,7 +178,6 @@ export async function runCronJob({
     // Short-circuit if no active guilds
     if (!activeGuildCount) {
       return await handleShortCircuit({
-        redis,
         start,
         reason: "no_active_guilds",
         whitelist: whitelist.length,
@@ -261,7 +256,7 @@ export async function runCronJob({
     });
 
     // 8. Cleanup (fire-and-forget)
-    runCleanupTasks(redis);
+    runCleanupTasks();
 
     // 9. Source Health Check (Alert if stale)
     const { checkSourceHealth } = await import("./services/health-monitor.js");

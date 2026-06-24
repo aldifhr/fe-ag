@@ -343,16 +343,9 @@ export async function getDiscordPing(): Promise<number | null> {
   }
 }
 
-export async function getRedisPing(): Promise<number> {
-  // Redis is now optional; return 0 if not configured
-  try {
-    const { redis } = await import("../redis.js");
-    const s = Date.now();
-    await (redis as any).ping().catch(() => {});
-    return Date.now() - s;
-  } catch {
-    return 0;
-  }
+export async function getRedisPing(): Promise<null> {
+  // Redis has been removed
+  return null;
 }
 
 export async function getProviderMetrics() {

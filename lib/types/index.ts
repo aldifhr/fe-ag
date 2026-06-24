@@ -26,17 +26,6 @@ export {
   SecondaryApiResponseSchema,
 } from "../schemas.js";
 
-// Redis types
-export type {
-  RedisClient,
-  RedisValue,
-  RedisHashFieldValue,
-  RedisSetOptions,
-  RedisZRangeOptions,
-  RedisScanOptions,
-  RedisPipeline,
-} from "./redis.js";
-
 // Discord types
 export type {
   InteractionToken,

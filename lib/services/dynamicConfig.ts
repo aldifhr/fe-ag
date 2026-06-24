@@ -1,9 +1,6 @@
-
-import { redis } from "../redis.js";
 import { getLogger } from "../logger.js";
 
 const logger = getLogger({ scope: "dynamic-config" });
-const CONFIG_KEY = "config:dynamic_overrides";
 
 export interface DynamicOverrides {
   shinigamiBase?: string;
@@ -11,45 +8,21 @@ export interface DynamicOverrides {
   lastUpdated?: string;
 }
 
-let cachedOverrides: DynamicOverrides | null = null;
-let lastFetch = 0;
-const CACHE_TTL = 300000; // 5 minutes
+// In-memory only; Redis removed
+let cachedOverrides: DynamicOverrides = {};
 
 /**
- * Get dynamic overrides from Redis
+ * Get dynamic overrides from in-memory cache
  */
 export async function getDynamicOverrides(): Promise<DynamicOverrides> {
-  const now = Date.now();
-  if (cachedOverrides && (now - lastFetch < CACHE_TTL)) {
-    return cachedOverrides;
-  }
-
-  try {
-    const raw = await redis.get(CONFIG_KEY);
-    if (raw) {
-      cachedOverrides = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      lastFetch = now;
-      return cachedOverrides || {};
-    }
-  } catch (err) {
-    logger.warn({ err }, "Failed to fetch dynamic overrides from Redis");
-  }
-
-  return {};
+  return cachedOverrides;
 }
 
 /**
- * Set dynamic overrides in Redis
+ * Set dynamic overrides in memory
  */
 export async function setDynamicOverrides(overrides: Partial<DynamicOverrides>): Promise<void> {
-  try {
-    const current = await getDynamicOverrides();
-    const next = { ...current, ...overrides, lastUpdated: new Date().toISOString() };
-    await redis.set(CONFIG_KEY, JSON.stringify(next));
-    cachedOverrides = next;
-    lastFetch = Date.now();
-    logger.info(overrides, "Updated dynamic overrides");
-  } catch (err) {
-    logger.error({ err }, "Failed to set dynamic overrides in Redis");
-  }
+  const next = { ...cachedOverrides, ...overrides, lastUpdated: new Date().toISOString() };
+  cachedOverrides = next;
+  logger.info(overrides, "Updated dynamic overrides");
 }

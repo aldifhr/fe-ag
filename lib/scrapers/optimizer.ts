@@ -3,7 +3,6 @@
  * Request deduplication, intelligent caching, and concurrent optimization
  */
 
-import { RedisClient } from "../types.js";
 import { getLogger } from "../logger.js";
 
 const logger = getLogger({ scope: "scrape-optimizer" });
@@ -111,74 +110,38 @@ class RequestDeduplicator {
  * Intelligent caching strategy with Redis backend
  */
 export class ScrapeCacheManager {
-  private redis: RedisClient | null;
   private localCache: Map<string, { data: unknown; timestamp: number }>;
   private cachePrefix: string;
   private readonly MAX_LOCAL_ITEMS = 1000;
 
-  constructor(redis: RedisClient | null, cachePrefix: string = "scrape:cache") {
-    this.redis = redis;
+  constructor(cachePrefix: string = "scrape:cache") {
     this.localCache = new Map();
     this.cachePrefix = cachePrefix;
   }
 
   /**
-   * Get cached data with fallback to local cache
+   * Get cached data from local cache
    */
   async get<T>(key: string): Promise<T | null> {
-    // Check local cache first (faster)
     const localKey = `${this.cachePrefix}:${key}`;
     const local = this.localCache.get(localKey);
     if (local) {
       return local.data as T;
     }
-
-    // Check Redis cache
-    if (this.redis) {
-      try {
-        const redisKey = `${this.cachePrefix}:${key}`;
-        const cached = await this.redis.get(redisKey);
-        if (cached) {
-          const data = typeof cached === "string" ? JSON.parse(cached) : cached;
-          // Populate local cache with capacity check
-          if (this.localCache.size >= this.MAX_LOCAL_ITEMS) {
-            const firstKey = this.localCache.keys().next().value;
-            if (firstKey !== undefined) this.localCache.delete(firstKey);
-          }
-          this.localCache.set(localKey, { data, timestamp: Date.now() });
-          return data as T;
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn({ err: message, key }, "Redis cache get failed");
-      }
-    }
-
     return null;
   }
 
   /**
-   * Set cached data in both local and Redis
+   * Set cached data in local cache
    */
-  async set<T>(key: string, data: T, ttlSeconds: number = 3600): Promise<void> {
+  async set<T>(key: string, data: T, _ttlSeconds: number = 3600): Promise<void> {
     const localKey = `${this.cachePrefix}:${key}`;
     
-    // Set local cache with capacity check
     if (this.localCache.size >= this.MAX_LOCAL_ITEMS) {
       const firstKey = this.localCache.keys().next().value;
       if (firstKey !== undefined) this.localCache.delete(firstKey);
     }
     this.localCache.set(localKey, { data, timestamp: Date.now() });
-
-    // Set Redis cache
-    if (this.redis) {
-      try {
-        const redisKey = `${this.cachePrefix}:${key}`;
-        await this.redis.set(redisKey, JSON.stringify(data), { ex: ttlSeconds });
-      } catch (err) {
-        logger.warn({ err: (err as Error).message, key }, "Redis cache set failed");
-      }
-    }
   }
 
   /**
@@ -187,15 +150,6 @@ export class ScrapeCacheManager {
   async invalidate(key: string): Promise<void> {
     const localKey = `${this.cachePrefix}:${key}`;
     this.localCache.delete(localKey);
-
-    if (this.redis) {
-      try {
-        const redisKey = `${this.cachePrefix}:${key}`;
-        await this.redis.del(redisKey);
-      } catch (err) {
-        logger.warn({ err: (err as Error).message, key }, "Redis cache delete failed");
-      }
-    }
   }
 
   /**
@@ -344,16 +298,14 @@ export class AdaptiveConcurrencyLimiter {
  * Global instances
  */
 export const globalRequestDeduplicator = new RequestDeduplicator(60000);
-export const globalScrapeCacheManager = new ScrapeCacheManager(null);
+export const globalScrapeCacheManager = new ScrapeCacheManager();
 export const globalAdaptiveLimiter = new AdaptiveConcurrencyLimiter(10, 5, 15);
 
 /**
  * Initialize with Redis client
  */
-export function initializeScrapeOptimizer(redis: RedisClient | null): void {
-  // Re-create cache manager with Redis
-  Object.assign(globalScrapeCacheManager, new ScrapeCacheManager(redis));
-  logger.info("Scrape optimizer initialized with Redis");
+export function initializeScrapeOptimizer(_redis: unknown = null): void {
+  Object.assign(globalScrapeCacheManager, new ScrapeCacheManager());
 }
 
 /**

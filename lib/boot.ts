@@ -2,7 +2,6 @@ import { mangaProviderRegistry } from "./providers/registry.js";
 import { ikiruProvider } from "./providers/ikiru.js";
 import { shinigamiProvider } from "./providers/shinigami.js";
 import { initializeScrapeOptimizer } from "./scrapers/optimizer.js";
-import { redis } from "./redis.js";
 import { getLogger } from "./logger.js";
 
 const logger = getLogger({ scope: "boot" });
@@ -23,7 +22,7 @@ export async function initializeAllProviders() {
 
   try {
     // Initialize scrape optimizer
-    initializeScrapeOptimizer(redis);
+    initializeScrapeOptimizer({} as any);
     logger.info("Scrape optimizer initialized");
 
     // Register Unified Providers
@@ -32,8 +31,8 @@ export async function initializeAllProviders() {
 
     // Initialize metrics and other provider states
     await Promise.all([
-      ikiruProvider.initialize?.(redis),
-      shinigamiProvider.initialize?.(redis),
+      ikiruProvider.initialize?.(),
+      shinigamiProvider.initialize?.(),
     ]);
 
     initialized = true;

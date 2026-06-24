@@ -1,25 +1,11 @@
-import { redis } from "../redis.js";
-import { CHAPTER_TTL_SEC } from "../config.js";
-import {
-  MANGA_LAST_UPDATES_KEY,
-  WHITELIST_API_CACHE_KEY,
-  MANGA_METADATA_KEY,
-  DISPATCH_HISTORY_KEY,
-  LAST_CHECK_HASH_PREFIX,
-} from "../constants/redis.js";
 import {
   loadWhitelist,
   saveWhitelist,
-  deleteMangaMetadata,
-  setMangaMetadata,
 } from "./storage.js";
 import { enrichSingleMangaMetadata } from "./metadata-enrichment.js";
-import { mangaProviderRegistry } from "../providers/registry.js";
-import { RedisClient } from "../types.js";
 import {
   DISCORD_COMPONENT_TYPE,
   DISCORD_BUTTON_STYLE,
-  env
 } from "../config.js";
 import {
   inferSourceFromUrl,
@@ -34,24 +20,8 @@ import {
 } from "../domain.js";
 import { getLogger } from "../logger.js";
 import { WhitelistEntry } from "../types.js";
-import { withDistributedLock } from "../redis.js";
 
 const logger = getLogger({ scope: "whitelist" });
-
-/**
- * Prevents race condition with a simple Redis lock.
- */
-async function withWhitelistLock<T>(
-  redisClient: RedisClient,
-  fn: () => Promise<T>,
-  { timeoutMs = 25000, ttlSec = 30 } = {},
-): Promise<T> {
-  return withDistributedLock(redisClient, "lock:whitelist_update", fn, {
-    ttlSec,
-    timeoutMs,
-    label: "Whitelist",
-  });
-}
 
 /** ==========================================
  * WHITELIST ENGINE AND DATA MANAGEMENT
@@ -195,7 +165,7 @@ export function resolveWhitelistSource({
 
 async function persistWhitelistItems(
   items: WhitelistEntry[],
-  { saveWhitelistFn = saveWhitelist, redisClient = redis } = {},
+  { saveWhitelistFn = saveWhitelist }: { saveWhitelistFn?: typeof saveWhitelist } = {},
 ) {
   await saveWhitelistFn(items);
 }
@@ -205,11 +175,9 @@ export async function addWhitelistEntry(
   {
     loadWhitelistFn = loadWhitelist,
     saveWhitelistFn = saveWhitelist,
-    redisClient = redis,
   }: {
     loadWhitelistFn?: typeof loadWhitelist;
     saveWhitelistFn?: typeof saveWhitelist;
-    redisClient?: RedisClient;
   } = {},
 ): Promise<{ 
   status: string; 
@@ -226,148 +194,102 @@ export async function addWhitelistEntry(
   });
   const titleKey = normalizeTitleKey(normalizedTitle);
 
-  return withWhitelistLock(redisClient, async () => {
-    const pipeline = redisClient.pipeline();
-    pipeline.hset(MANGA_LAST_UPDATES_KEY, { [titleKey]: new Date().toISOString() });
-    const initUpdateTask = pipeline.exec();
+  const whitelist = await loadWhitelistFn();
 
-    const whitelist = await loadWhitelistFn();
+  const existingIndex = findWhitelistEntryIndex(whitelist, {
+    title: normalizedTitle,
+    url: normalizedUrl,
+  });
+  let fuzzyExisting: WhitelistEntry | null = null;
 
-    const existingIndex = findWhitelistEntryIndex(whitelist, {
-      title: normalizedTitle,
-      url: normalizedUrl,
-    });
-    let fuzzyExisting: WhitelistEntry | null = null;
-
-    if (existingIndex === -1 && !normalizedUrl) {
-      for (const item of whitelist) {
-        if (fuzzyTitleSimilarity(item.title, normalizedTitle) >= 0.8) {
-          fuzzyExisting = item;
-          break;
-        }
+  if (existingIndex === -1 && !normalizedUrl) {
+    for (const item of whitelist) {
+      if (fuzzyTitleSimilarity(item.title, normalizedTitle) >= 0.8) {
+        fuzzyExisting = item;
+        break;
       }
     }
+  }
 
-    const activeIndex =
-      existingIndex !== -1
-        ? existingIndex
-        : fuzzyExisting
-          ? whitelist.indexOf(fuzzyExisting)
-          : -1;
+  const activeIndex =
+    existingIndex !== -1
+      ? existingIndex
+      : fuzzyExisting
+        ? whitelist.indexOf(fuzzyExisting)
+        : -1;
 
-    if (activeIndex !== -1) {
-      const existing = whitelist[activeIndex];
+  if (activeIndex !== -1) {
+    const existing = whitelist[activeIndex];
 
-      // Prevent duplicate URLs even if source name is different (e.g. was 'ikiru')
-      const sameUrlSource = (existing.sources || []).find(
-        (s) => normalizedUrl && normalizeSourceUrl(s.url || "") === normalizedUrl
-      );
+    // Prevent duplicate URLs even if source name is different (e.g. was 'ikiru')
+    const sameUrlSource = (existing.sources || []).find(
+      (s) => normalizedUrl && normalizeSourceUrl(s.url || "") === normalizedUrl
+    );
 
-      if (sameUrlSource) {
-        if (normalizeSource(sameUrlSource.source) === effectiveSource) {
-          return { status: "exists", whitelist, source: effectiveSource, title: normalizedTitle };
-        }
-        
-        sameUrlSource.source = effectiveSource;
-        await Promise.all([
-          persistWhitelistItems(whitelist, { saveWhitelistFn, redisClient }),
-          initUpdateTask,
-        ]);
-        return { status: "added", whitelist, source: effectiveSource, title: normalizedTitle };
+    if (sameUrlSource) {
+      if (normalizeSource(sameUrlSource.source) === effectiveSource) {
+        return { status: "exists", whitelist, source: effectiveSource, title: normalizedTitle };
       }
+      
+      sameUrlSource.source = effectiveSource;
+      await persistWhitelistItems(whitelist, { saveWhitelistFn });
+      return { status: "added", whitelist, source: effectiveSource, title: normalizedTitle };
+    }
 
-      const hasSource = (existing.sources || []).some(
-        (s) => normalizeSource(s.source) === effectiveSource && !s.url && !normalizedUrl
-      );
+    const hasSource = (existing.sources || []).some(
+      (s) => normalizeSource(s.source) === effectiveSource && !s.url && !normalizedUrl
+    );
 
-      if (hasSource) {
-        return {
-          status: "exists",
-          whitelist,
-          source: effectiveSource,
-          title: normalizedTitle,
-        };
-      }
-
-      existing.sources = existing.sources || [];
-      existing.sources.push({
-        url: url ?? null,
-        source: effectiveSource,
-        mark: null,
-      });
-
-      await Promise.all([
-        persistWhitelistItems(whitelist, { saveWhitelistFn, redisClient }),
-        initUpdateTask,
-      ]);
+    if (hasSource) {
       return {
-        status: "added",
+        status: "exists",
         whitelist,
         source: effectiveSource,
         title: normalizedTitle,
       };
     }
 
-    whitelist.push({
-      title: normalizedTitle,
-      sources: [{ url: url ?? null, source: effectiveSource, mark: null }],
+    existing.sources = existing.sources || [];
+    existing.sources.push({
+      url: url ?? null,
+      source: effectiveSource,
+      mark: null,
     });
-    await Promise.all([
-      persistWhitelistItems(whitelist, { saveWhitelistFn, redisClient }),
-      initUpdateTask,
-    ]);
 
-
-    let enrichmentPromise: Promise<any> | undefined;
-
-    // TRIGGER BACKGROUND METADATA ENRICHMENT
-    if (normalizedUrl && effectiveSource) {
-      enrichmentPromise = enrichSingleMangaMetadata(
-        titleKey,
-        normalizedTitle,
-        effectiveSource,
-        normalizedUrl,
-        redisClient
-      );
-    }
-
+    await persistWhitelistItems(whitelist, { saveWhitelistFn });
     return {
       status: "added",
       whitelist,
       source: effectiveSource,
       title: normalizedTitle,
-      enrichmentPromise
     };
-  });
-}
-
-async function cleanupMangaData(redisClient: RedisClient, titleKey: string) {
-  if (!redisClient || !titleKey) return;
-  try {
-    // 1. Get current subscribers from set-based storage
-    const nativeSubs = await redisClient.smembers(`manga:subscribers:set:${titleKey}`) as string[];
-    const subscribers = Array.isArray(nativeSubs) ? nativeSubs : [];
-
-    // 2. Clean up per-user follow sets
-    const userCleanupTasks = subscribers.map((userId) =>
-      redisClient.srem(`user:follows:set:${userId}`, titleKey),
-    );
-
-    // 3. Clean up all localized and index keys
-    await Promise.all([
-      redisClient.hdel(MANGA_METADATA_KEY, titleKey),
-      deleteMangaMetadata(redisClient, titleKey), // Delete from Supabase
-      redisClient.hdel(MANGA_LAST_UPDATES_KEY, titleKey),
-      redisClient.hdel(LAST_CHECK_HASH_PREFIX, titleKey),
-      redisClient.hdel(DISPATCH_HISTORY_KEY, titleKey),
-      redisClient.zrem("manga:popularity_index", titleKey),
-      redisClient.del(`manga:subscribers:set:${titleKey}`),
-      redisClient.del(`manga:mutes:set:${titleKey}`),
-      ...userCleanupTasks,
-    ]);
-  } catch (err: unknown) {
-    logger.error({ titleKey, err: err instanceof Error ? err.message : String(err) }, "[cleanupMangaData] Error");
   }
+
+  whitelist.push({
+    title: normalizedTitle,
+    sources: [{ url: url ?? null, source: effectiveSource, mark: null }],
+  });
+  await persistWhitelistItems(whitelist, { saveWhitelistFn });
+
+  let enrichmentPromise: Promise<any> | undefined;
+
+  // TRIGGER BACKGROUND METADATA ENRICHMENT
+  if (normalizedUrl && effectiveSource) {
+    enrichmentPromise = enrichSingleMangaMetadata(
+      titleKey,
+      normalizedTitle,
+      effectiveSource,
+      normalizedUrl
+    );
+  }
+
+  return {
+    status: "added",
+    whitelist,
+    source: effectiveSource,
+    title: normalizedTitle,
+    enrichmentPromise
+  };
 }
 
 export async function removeWhitelistEntry(
@@ -375,66 +297,57 @@ export async function removeWhitelistEntry(
   {
     loadWhitelistFn = loadWhitelist,
     saveWhitelistFn = saveWhitelist,
-    redisClient = redis,
+  }: {
+    loadWhitelistFn?: typeof loadWhitelist;
+    saveWhitelistFn?: typeof saveWhitelist;
   } = {},
 ) {
-  return withWhitelistLock(redisClient, async () => {
-    const items = await loadWhitelistFn();
-    const trimmed = String(query || "").trim();
+  const items = await loadWhitelistFn();
+  const trimmed = String(query || "").trim();
 
-    if (/^https?:\/\//i.test(trimmed)) {
-      const normUrl = normalizeSourceUrl(trimmed);
-      const index = items.findIndex((item) =>
-        item.sources?.some((s) => normalizeSourceUrl(s.url || "") === normUrl),
+  if (/^https?:\/\//i.test(trimmed)) {
+    const normUrl = normalizeSourceUrl(trimmed);
+    const index = items.findIndex((item) =>
+      item.sources?.some((s) => normalizeSourceUrl(s.url || "") === normUrl),
+    );
+
+    if (index !== -1) {
+      const item = items[index];
+      const sourceIndex = item.sources.findIndex(
+        (s) => normalizeSourceUrl(s.url || "") === normUrl,
       );
+      const removedSource = item.sources[sourceIndex];
 
-      if (index !== -1) {
-        const item = items[index];
-        const sourceIndex = item.sources.findIndex(
-          (s) => normalizeSourceUrl(s.url || "") === normUrl,
-        );
-        const removedSource = item.sources[sourceIndex];
+      item.sources.splice(sourceIndex, 1);
 
-        item.sources.splice(sourceIndex, 1);
-
-        let removedEntirely = false;
-        if (item.sources.length === 0) {
-          items.splice(index, 1);
-          removedEntirely = true;
-        }
-
-        await Promise.all([
-          persistWhitelistItems(items, { saveWhitelistFn, redisClient }),
-          removedEntirely
-            ? cleanupMangaData(redisClient, normalizeTitleKey(item.title))
-            : Promise.resolve(),
-        ]);
-        return {
-          status: "removed_source",
-          items,
-          item,
-          removedSource,
-          removedEntirely,
-        };
+      let removedEntirely = false;
+      if (item.sources.length === 0) {
+        items.splice(index, 1);
+        removedEntirely = true;
       }
+
+      await persistWhitelistItems(items, { saveWhitelistFn });
+      return {
+        status: "removed_source",
+        items,
+        item,
+        removedSource,
+        removedEntirely,
+      };
     }
+  }
 
-    const resolved = resolveWhitelistQuery(items, trimmed);
-    if (resolved.status === "ambiguous")
-      return { status: "ambiguous", items, matches: resolved.matches };
-    if (resolved.status === "not_found") return { status: "not_found", items };
+  const resolved = resolveWhitelistQuery(items, trimmed);
+  if (resolved.status === "ambiguous")
+    return { status: "ambiguous", items, matches: resolved.matches };
+  if (resolved.status === "not_found") return { status: "not_found", items };
 
-    const removedItem = items[resolved.index];
-    const titleKey = normalizeTitleKey(removedItem.title);
-    items.splice(resolved.index, 1);
+  const removedItem = items[resolved.index];
+  items.splice(resolved.index, 1);
 
-    await Promise.all([
-      persistWhitelistItems(items, { saveWhitelistFn, redisClient }),
-      cleanupMangaData(redisClient, titleKey),
-    ]);
+  await persistWhitelistItems(items, { saveWhitelistFn });
 
-    return { status: "removed", items, item: removedItem };
-  });
+  return { status: "removed", items, item: removedItem };
 }
 
 export async function removeWhitelistEntryIdentity(
@@ -442,7 +355,9 @@ export async function removeWhitelistEntryIdentity(
   {
     loadWhitelistFn = loadWhitelist,
     saveWhitelistFn = saveWhitelist,
-    redisClient = redis,
+  }: {
+    loadWhitelistFn?: typeof loadWhitelist;
+    saveWhitelistFn?: typeof saveWhitelist;
   } = {},
 ) {
   const items = await loadWhitelistFn();
@@ -472,12 +387,7 @@ export async function removeWhitelistEntryIdentity(
       removedEntirely = true;
     }
 
-    await Promise.all([
-      persistWhitelistItems(items, { saveWhitelistFn, redisClient }),
-      removedEntirely
-        ? cleanupMangaData(redisClient, normalizeTitleKey(item.title))
-        : Promise.resolve(),
-    ]);
+    await persistWhitelistItems(items, { saveWhitelistFn });
     return {
       status: "removed_source",
       items,
@@ -504,7 +414,7 @@ export async function removeWhitelistEntryIdentity(
       removedEntirely = true;
     }
 
-    await persistWhitelistItems(items, { saveWhitelistFn, redisClient });
+    await persistWhitelistItems(items, { saveWhitelistFn });
     return {
       status: "removed_source",
       items,
@@ -515,28 +425,16 @@ export async function removeWhitelistEntryIdentity(
   }
 
   const removedItem = items.splice(index, 1)[0];
-  const titleKey = normalizeTitleKey(removedItem.title);
 
-  await Promise.all([
-    persistWhitelistItems(items, { saveWhitelistFn, redisClient }),
-    cleanupMangaData(redisClient, titleKey),
-  ]);
+  await persistWhitelistItems(items, { saveWhitelistFn });
 
   return { status: "removed", items, item: removedItem };
 }
 
 export async function clearWhitelist() {
-  return withWhitelistLock(redis, async () => {
-    const items = await loadWhitelist();
-
-    const cleanupTasks = items.map((item) =>
-      cleanupMangaData(redis, normalizeTitleKey(item.title)),
-    );
-
-    await Promise.all([persistWhitelistItems([]), ...cleanupTasks]);
-
-    return { status: "cleared", count: items.length };
-  });
+  const items = await loadWhitelist();
+  await persistWhitelistItems([]);
+  return { status: "cleared", count: items.length };
 }
 
 export async function markWhitelistEntry(
@@ -545,7 +443,9 @@ export async function markWhitelistEntry(
   {
     loadWhitelistFn = loadWhitelist,
     saveWhitelistFn = saveWhitelist,
-    redisClient = redis,
+  }: {
+    loadWhitelistFn?: typeof loadWhitelist;
+    saveWhitelistFn?: typeof saveWhitelist;
   } = {},
 ) {
   const normalizedQuery = String(query || "").trim();
@@ -565,7 +465,7 @@ export async function markWhitelistEntry(
       s.mark = normalizedReason;
     });
 
-  await persistWhitelistItems(items, { saveWhitelistFn, redisClient });
+  await persistWhitelistItems(items, { saveWhitelistFn });
   return {
     status: "updated",
     items,
@@ -624,27 +524,8 @@ export async function buildWhitelistListResponse(
   const start = (safePage - 1) * pageSize;
   const slice = whitelist.slice(start, start + pageSize);
 
-  const titleKeys = slice.map((item) => normalizeTitleKey(item.title));
-  let updateTimes: (string | null)[] = [];
-  if (titleKeys.length > 0) {
-    try {
-      const updateTimesRaw = await redis.hmget(
-        MANGA_LAST_UPDATES_KEY,
-        ...titleKeys,
-      );
-      if (
-        updateTimesRaw &&
-        !Array.isArray(updateTimesRaw) &&
-        typeof updateTimesRaw === "object"
-      ) {
-        updateTimes = titleKeys.map((tk) => (updateTimesRaw as any)[tk]);
-      } else {
-        updateTimes = (updateTimesRaw as any[]) || [];
-      }
-    } catch {
-      // Redis error, proceed without update times
-    }
-  }
+  // Redis removed; update times no longer available
+  const updateTimes: (string | null)[] = slice.map(() => null);
 
   const lines = slice.map((item, i) => {
     const sourceIcons = (item.sources || [])
@@ -654,11 +535,10 @@ export async function buildWhitelistListResponse(
     return `${start + i + 1}. **${formatMarkedTitle(item)}**${isHibernating ? " 💤" : ""} ${sourceIcons}${text ? ` _(Update: ${text})_` : ""}`;
   });
 
-  const isMock = !env.UPSTASH_REDIS_REST_URL || env.UPSTASH_REDIS_REST_URL.includes("mock-redis.com");
   const content =
     whitelist.length === 0
-      ? `Whitelist kosong.${isMock ? "\n\n⚠️ **Peringatan:** Bot saat ini berjalan dalam mode **Mock Redis**. Data tidak akan tersimpan secara permanen. Silakan konfigurasi \`UPSTASH_REDIS_REST_URL\` di Environment Variables." : ""}`
-      : `📚 **Daftar Whitelist (${whitelist.length})**${search ? ` | Cari: "${search}"` : ""}${filter ? ` | Status: ${MARK_REASON_LABELS[filter] || filter}` : ""}\n*Halaman ${safePage}/${totalPage}*${isMock ? "\n⚠️ **Mode Mock Redis Aktif** (Data tidak permanen)" : ""}\n\n${lines.join("\n")}`;
+      ? `Whitelist kosong.`
+      : `📚 **Daftar Whitelist (${whitelist.length})**${search ? ` | Cari: "${search}"` : ""}${filter ? ` | Status: ${MARK_REASON_LABELS[filter] || filter}` : ""}\n*Halaman ${safePage}/${totalPage}*\n\n${lines.join("\n")}`;
 
   const components =
     whitelist.length === 0

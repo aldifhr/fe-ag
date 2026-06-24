@@ -2,7 +2,6 @@ import { getLogger } from "../../logger.js";
 import { 
   SecondaryMangaRow, 
   ScraperMetrics, 
-  RedisClient 
 } from "../../types.js";
 import { 
   DetailState, 
@@ -11,7 +10,6 @@ import {
 import { 
   parseDateWithFallback, 
   isWithinLastHours,
-  getCachedOrFetch 
 } from "../../dateUtils.js";
 import { 
   SCRAPER_LOOKBACK_HOURS 
@@ -70,42 +68,31 @@ export function releaseDetailSlot(detailState: DetailState) {
 export async function fetchSecondaryRecentChapters(
   apiBase: string, 
   mangaId: string | number, 
-  redis: RedisClient | null = null, 
+  _redis: unknown = null, 
   lookbackHours = SCRAPER_LOOKBACK_HOURS, 
   deadline = 0
 ) {
-  const cacheKey = `shinigami:chapters:${mangaId}`;
-  const cacheTtl = 300;
+  const pageSize = 24;
+  const collected: { chapter_id: string | number; chapter_number: string | number; created_at: string }[] = [];
+  const now = Date.now();
 
-  return getCachedOrFetch(
-    redis,
-    cacheKey,
-    async () => {
-      const pageSize = 24;
-      const collected: { chapter_id: string | number; chapter_number: string | number; created_at: string }[] = [];
-      const now = Date.now();
+  for (let page = 1; page <= Math.max(1, SECONDARY_CHAPTER_LIST_MAX_PAGES); page++) {
+    const rows = await fetchChapterPage(apiBase, mangaId, page, pageSize, deadline);
+    if (!rows.length) break;
 
-      for (let page = 1; page <= Math.max(1, SECONDARY_CHAPTER_LIST_MAX_PAGES); page++) {
-        const rows = await fetchChapterPage(apiBase, mangaId, page, pageSize, deadline);
-        if (!rows.length) break;
+    const freshChapters = transformChapterRows(rows as any, now, lookbackHours);
+    collected.push(...freshChapters);
 
-        const freshChapters = transformChapterRows(rows as any, now, lookbackHours);
-        collected.push(...freshChapters);
+    if (!freshChapters.length || (rows.length > 0 && rows.length < pageSize)) break;
+  }
 
-        if (!freshChapters.length || (rows.length > 0 && rows.length < pageSize)) break;
-      }
-
-      return collected;
-    },
-    cacheTtl,
-    "fetchSecondaryRecentChapters",
-  );
+  return collected;
 }
 
 export async function fetchDetailChapters(
   apiBase: string,
   mangaId: string | number,
-  redis: RedisClient | null,
+  _redis: unknown,
   metrics: ScraperMetrics,
   detailState: DetailState,
   normalized: string,
@@ -119,10 +106,8 @@ export async function fetchDetailChapters(
 
     let chapters: any[] | null = [];
     
-    // OPTIMIZATION: For Shinigami/Secondary, always prioritize the list endpoint directly
-    // since the detail endpoint often omits chapters or is throttled separately.
     try {
-      chapters = await fetchSecondaryRecentChapters(apiBase, mangaId, redis, lookbackHours, deadline);
+      chapters = await fetchSecondaryRecentChapters(apiBase, mangaId, null, lookbackHours, deadline);
       if (chapters?.length) {
         metrics.detailSuccesses = (metrics.detailSuccesses || 0) + 1;
         const duration = Date.now() - startTime;
@@ -201,22 +186,10 @@ export function buildDirectUrlFallbackRows(matcher: PreferredSecondaryMatcher | 
   return rows;
 }
 
-export async function selectRotatingDirectFallbackRows(rows: SecondaryMangaRow[], limit: number, redis: RedisClient | null, source: string) {
+export async function selectRotatingDirectFallbackRows(rows: SecondaryMangaRow[], limit: number, _redis: unknown, _source: string) {
   if (!rows.length || limit <= 0) return [];
   if (rows.length <= limit) return rows;
-  if (!redis) return rows.slice(0, limit);
-
-  const key = `secondary:direct_fallback_cursor:${source}`;
-  let start = 0;
-  try {
-    const raw = await redis.get(key);
-    if (raw) start = parseInt(raw, 10) % rows.length;
-  } catch { /* start defaults to 0 */ }
-
-  const picked = [];
-  for (let i = 0; i < limit; i++) picked.push(rows[(start + i) % rows.length]);
-  await redis.set(key, String((start + picked.length) % rows.length), { ex: 2592000 });
-  return picked;
+  return rows.slice(0, limit);
 }
 
 export function filterPriorityRows(rows: SecondaryMangaRow[], preferredMatcher: PreferredSecondaryMatcher | null) {

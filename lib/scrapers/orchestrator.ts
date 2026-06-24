@@ -1,10 +1,5 @@
 import {
-  redis,
-} from "../redis.js";
-import {
-  MANGA_LAST_UPDATES_KEY,
   SOURCE_KEYS,
-  LIVE_EVENTS_KEY,
 } from "../constants/redis.js";
 import {
   batchGetLastScrapeChecks,
@@ -17,7 +12,6 @@ import pLimit from "p-limit";
 import { fileURLToPath } from "url";
 import {
   CronLogEntry,
-  RedisClient,
   ClaimState,
   MangaMetadata,
   SourceState,
@@ -76,14 +70,12 @@ function buildDefaultSecondaryMetrics(): ScraperMetrics {
 }
 
 export interface OrchestrateScrapeSourcesParams {
-  redis?: RedisClient | null;
   options?: OrchestrateOptions;
   logger?: OrchestrateLogger;
   providers?: import("../providers/base.js").MangaProvider[];
 }
 
 export async function orchestrateScrapeSources({
-  redis = null,
   options = {},
   logger = defaultLogger,
   providers = mangaProviderRegistry.getAllProviders(),
@@ -99,9 +91,6 @@ export async function orchestrateScrapeSources({
   const scrapedChapters: ChapterItem[] = [];
 
   let currentHealthMap: Record<string, SourceHealth> = options?.currentHealthMap ?? {};
-  if (!options?.currentHealthMap && redis) {
-    currentHealthMap = await loadSourceHealthMap(redis, SOURCE_KEYS);
-  }
 
   try {
     const cooldownSources = getDisabledSources(currentHealthMap, SOURCE_KEYS);
@@ -184,9 +173,9 @@ export async function orchestrateScrapeSources({
     );
 
     const [skipTitleKeys, ikiruIncrementalFiltered, secondaryIncrementalFiltered] = await Promise.all([
-      getHibernatingTitleKeys(redis, allTitleKeys, options),
+      getHibernatingTitleKeys(null, allTitleKeys, options),
       useIncremental && preferredIkiruTitleKeys.size > 0
-        ? applyIncrementalFilter(preferredIkiruTitleKeys, redis, batchGetLastScrapeChecks)
+        ? applyIncrementalFilter(preferredIkiruTitleKeys, null, batchGetLastScrapeChecks)
         : null as unknown as Promise<Set<string>>,
       Promise.all(
         secondarySources.map(async (source) => {
@@ -199,8 +188,8 @@ export async function orchestrateScrapeSources({
           } = { source, titleKeys: null, urlKeys: null, originalCount: matcher.titleKeys.size };
           if (useIncremental) {
             [results.titleKeys, results.urlKeys] = await Promise.all([
-              matcher.titleKeys.size > 0 ? applyIncrementalFilter(matcher.titleKeys, redis, batchGetLastScrapeChecks) : null,
-              matcher.urlKeys.size > 0 ? applyIncrementalFilter(matcher.urlKeys, redis, batchGetLastScrapeChecks) : null,
+              matcher.titleKeys.size > 0 ? applyIncrementalFilter(matcher.titleKeys, null, batchGetLastScrapeChecks) : null,
+              matcher.urlKeys.size > 0 ? applyIncrementalFilter(matcher.urlKeys, null, batchGetLastScrapeChecks) : null,
             ]);
           }
           return results;
@@ -292,7 +281,6 @@ export async function orchestrateScrapeSources({
             attempts++;
             try {
               const out = await provider.scrapeUpdates({
-                redis,
                 preferredMatcher: matcher as Record<string, unknown> | null,
                 logger: logger as Logger,
                 force: options.force,
@@ -339,7 +327,7 @@ export async function orchestrateScrapeSources({
         const status = out.state?.status;
         const isSuccess = status === "ok" || status === "healthy" || status === "success";
 
-        if (isSuccess && redis) {
+        if (isSuccess) {
           const keysToMark = [];
           if (id === "ikiru") keysToMark.push(...Array.from(preferredIkiruTitleKeys));
           else if (preferredSecondaryMatchersBySource[id]) keysToMark.push(...Array.from(preferredSecondaryMatchersBySource[id].titleKeys));
@@ -360,12 +348,10 @@ export async function orchestrateScrapeSources({
     for (const res of executionResults) {
       if (res.results.length) {
         scrapedChapters.push(...res.results);
-        if (redis) {
-          await appendLiveEvent({
-            message: `Scraped ${res.results.length} items from ${res.id}`,
-            type: "info",
-          });
-        }
+        await appendLiveEvent({
+          message: `Scraped ${res.results.length} items from ${res.id}`,
+          type: "info",
+        });
       }
       sourceStates[res.id] = res.state as SourceState;
     }
@@ -424,16 +410,13 @@ export async function orchestrateScrapeSources({
       const uniqueTitleKeys = [...new Set(scrapedChapters.map((ch: ChapterItem & { titleKey?: string }) => ch.titleKey))];
       const metadataMap = new Map();
 
-      // Load cached metadata from Redis
-      if (redis) {
-        const cachedResults = await batchGetMangaMetadata(
-          redis,
-          uniqueTitleKeys.filter((tk): tk is string => !!tk),
-        );
-        cachedResults.forEach((meta, i) => {
-          if (meta) metadataMap.set(uniqueTitleKeys[i], meta);
-        });
-      }
+      // Load cached metadata from Supabase
+      const cachedResults = await batchGetMangaMetadata(
+        uniqueTitleKeys.filter((tk): tk is string => !!tk),
+      );
+      cachedResults.forEach((meta, i) => {
+        if (meta) metadataMap.set(uniqueTitleKeys[i], meta);
+      });
 
       // OPTIMIZATION: If QStash is enabled, we usually skip synchronous enrichment
       // to save time. However, for a small number of items (e.g. new manga), 
@@ -446,7 +429,6 @@ export async function orchestrateScrapeSources({
       const enrichmentStats = await enrichChaptersMetadata(
         scrapedChapters,
         metadataMap,
-        redis,
         {
           maxFetches: maxSyncFetches,
           deadline: deadline,
@@ -484,9 +466,7 @@ export async function orchestrateScrapeSources({
         failureThreshold: options?.healthFailureThreshold,
         cooldownSeconds: options?.healthCooldownSeconds,
       });
-      if (redis) {
-        await saveSourceHealthMap(redis, nextSourceHealth, SOURCE_KEYS);
-      }
+      await saveSourceHealthMap(null, nextSourceHealth, SOURCE_KEYS);
     } catch (healthErr: unknown) {
       const err = healthErr instanceof Error ? healthErr : new Error(String(healthErr));
       logger.warn({ err: err.message }, "failed to update source health map");
@@ -525,9 +505,8 @@ export async function orchestrateScrapeSources({
   }
 }
 
-export async function scrapeMangaUpdatesWithMeta(redis: RedisClient | null = null, options: OrchestrateOptions = {}) {
+export async function scrapeMangaUpdatesWithMeta(options: OrchestrateOptions = {}) {
   return orchestrateScrapeSources({
-    redis,
     options,
     logger: defaultLogger,
   });

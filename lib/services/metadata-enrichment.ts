@@ -3,7 +3,7 @@
  * Optimized batch metadata fetching to reduce API calls and improve performance
  */
 
-import { RedisClient, ChapterItem, MangaMetadata } from "../types.js";
+import { ChapterItem, MangaMetadata } from "../types.js";
 import { normalizeSource, normalizeText } from "../scrapers/shared.js";
 import { mangaProviderRegistry } from "../providers/registry.js";
 import { setMangaMetadata, loadWhitelist, batchGetMangaMetadata } from "./storage.js";
@@ -109,20 +109,20 @@ function groupChaptersBySource(chapters: ChapterItem[]): Map<string, EnrichmentT
 /**
  * Attempt to find metadata from a fallback source (Ikiru) if the primary source (Shinigami) fails
  */
-async function fetchFallbackMetadata(title: string, redis: RedisClient | null): Promise<MangaMetadata | null> {
+async function fetchFallbackMetadata(title: string): Promise<MangaMetadata | null> {
   try {
     const ikiru = mangaProviderRegistry.getProvider("ikiru");
     if (!ikiru || !ikiru.search || !ikiru.fetchMetadata) return null;
 
     logger.info({ title }, "Attempting fallback metadata search on Ikiru...");
-    const searchResults = await ikiru.search(title, redis);
+    const searchResults = await ikiru.search(title);
     
     if (searchResults.success && searchResults.data && searchResults.data.length > 0) {
       // Find the best match
       const bestMatch = searchResults.data[0]; // Assuming first result is best for now
       if (bestMatch.mangaUrl) {
         logger.info({ title, ikiruUrl: bestMatch.mangaUrl }, "Found fallback match on Ikiru, fetching details...");
-        return await ikiru.fetchMetadata(bestMatch.mangaUrl, redis);
+        return await ikiru.fetchMetadata(bestMatch.mangaUrl);
       }
     }
   } catch (err) {
@@ -137,7 +137,6 @@ async function fetchFallbackMetadata(title: string, redis: RedisClient | null): 
  */
 async function batchFetchMetadataForSource(
   tasks: EnrichmentTask[],
-  redis: RedisClient | null,
   deadline?: number
 ): Promise<EnrichmentResult[]> {
   const results: EnrichmentResult[] = [];
@@ -160,11 +159,11 @@ async function batchFetchMetadataForSource(
       }
 
       try {
-        let meta = await provider.fetchMetadata!(task.mangaUrl, redis);
+        let meta = await provider.fetchMetadata!(task.mangaUrl);
         
         // CROSS-SOURCE FALLBACK: If Shinigami metadata is empty/zero rating, try Ikiru
         if (source === "shinigami" && isMetadataEmpty(meta)) {
-          const fallbackMeta = await fetchFallbackMetadata(task.chapter.title || "", redis);
+          const fallbackMeta = await fetchFallbackMetadata(task.chapter.title || "");
           if (fallbackMeta && !isMetadataEmpty(fallbackMeta)) {
             logger.info({ title: task.chapter.title }, "Successfully used Ikiru fallback for Shinigami title");
             meta = {
@@ -193,7 +192,6 @@ async function batchFetchMetadataForSource(
 export async function enrichChaptersMetadata(
   chapters: ChapterItem[],
   metadataMap: Map<string, MangaMetadata>,
-  redis: RedisClient | null,
   options: {
     maxFetches?: number;
     deadline?: number;
@@ -284,7 +282,7 @@ export async function enrichChaptersMetadata(
     }
 
     try {
-      const results = await batchFetchMetadataForSource(tasksToFetch, redis, deadline);
+      const results = await batchFetchMetadataForSource(tasksToFetch, deadline);
       allResults.push(...results);
       remainingFetches -= tasksToFetch.length;
     } catch (err: unknown) {
@@ -313,8 +311,8 @@ export async function enrichChaptersMetadata(
 
       metadataMap.set(result.titleKey, newMeta as MangaMetadata);
       
-      // Save to Supabase (and Redis cache via setMangaMetadata)
-      await setMangaMetadata(redis || ({} as any), result.titleKey, newMeta);
+      // Save to Supabase via setMangaMetadata
+      await setMangaMetadata(result.titleKey, newMeta);
       hasUpdates = true;
       stats.fetched++;
     } else if (result.error) {
@@ -375,8 +373,7 @@ export async function enrichSingleMangaMetadata(
   titleKey: string,
   title: string,
   source: string,
-  mangaUrl: string,
-  redis: RedisClient | null
+  mangaUrl: string
 ): Promise<MangaMetadata | null> {
   try {
     const provider = mangaProviderRegistry.getProvider(source);
@@ -387,11 +384,11 @@ export async function enrichSingleMangaMetadata(
 
     logger.info({ title, source }, "Enriching single manga metadata");
     logger.info({ title, source, url: mangaUrl }, "Starting single manga metadata enrichment...");
-    let meta = await provider.fetchMetadata(mangaUrl, redis);
+    let meta = await provider.fetchMetadata(mangaUrl);
 
     // CROSS-SOURCE FALLBACK
     if (source === "shinigami" && isMetadataEmpty(meta)) {
-      const fallbackMeta = await fetchFallbackMetadata(title, redis);
+      const fallbackMeta = await fetchFallbackMetadata(title);
       if (fallbackMeta && !isMetadataEmpty(fallbackMeta)) {
         logger.info({ title }, "Successfully used Ikiru fallback for Shinigami title (on-demand)");
         meta = {
@@ -414,7 +411,7 @@ export async function enrichSingleMangaMetadata(
 
       // Don't save if it's still effectively empty (unless we have nothing else)
       if (!isMetadataEmpty(meta)) {
-        await setMangaMetadata(redis || ({} as any), titleKey, meta);
+        await setMangaMetadata(titleKey, meta);
         logger.info({ title: meta.title, titleKey }, "Metadata successfully enriched and saved to Supabase");
       } else {
         logger.warn({ title, titleKey }, "Enrichment returned empty or invalid metadata, skipping save");
@@ -435,7 +432,6 @@ export async function enrichSingleMangaMetadata(
  * Fetches up to a specified maximum number of entries to prevent rate-limiting or long execution.
  */
 export async function prewarmMetadataCache(
-  redis: RedisClient | null,
   maxFetches = 10
 ): Promise<{ checked: number; enriched: number; failed: number }> {
   const startTime = Date.now();
@@ -467,7 +463,7 @@ export async function prewarmMetadataCache(
   const titleKeys = Array.from(whitelistMap.keys());
   let cachedMetadataList: (MangaMetadata | null)[];
   try {
-    cachedMetadataList = await batchGetMangaMetadata(redis || ({} as any), titleKeys);
+    cachedMetadataList = await batchGetMangaMetadata(titleKeys);
   } catch (err) {
     logger.error({ err }, "Failed to batch get existing metadata for pre-warming");
     return { checked: titleKeys.length, enriched: 0, failed: 0 };
@@ -518,8 +514,7 @@ export async function prewarmMetadataCache(
           task.titleKey,
           task.title,
           task.source,
-          task.url,
-          redis
+          task.url
         );
         if (meta && !isMetadataEmpty(meta)) {
           enrichedCount++;

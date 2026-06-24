@@ -8,12 +8,12 @@ export * from "./orchestrator.js";
 import { fetchSecondaryFullMangaInfo, API_BASE, searchShngm } from "./api.js";
 import { normalizeText } from "../shared.js";
 import { getLogger } from "../../logger.js";
-import { RedisClient, ScraperProvider } from "../../types.js";
+import { ScraperProvider } from "../../types.js";
 import { scrapeSecondaryUpdatesWithMeta } from "./orchestrator.js";
 
 const logger = getLogger({ scope: "secondary:index" });
 
-export async function fetchSecondaryMetadata(_source: string, mangaId: string | number, _redis: RedisClient | null = null) {
+export async function fetchSecondaryMetadata(_source: string, mangaId: string | number) {
   if (!mangaId) return null;
   try {
     const { raw: data } = await fetchSecondaryFullMangaInfo(API_BASE, mangaId, 0);
@@ -56,7 +56,6 @@ export const SecondaryProvider: ScraperProvider = {
     return scrapeSecondaryUpdatesWithMeta(
       options.source || "shinigami",
       {
-        redis: options.redis,
         preferredMatcher: options.preferred,
         options,
         deadline: options.deadline,
@@ -72,7 +71,6 @@ export const SecondaryProvider: ScraperProvider = {
     return fetchSecondaryMetadata(
       "shinigami",
       options.mangaId || "",
-      options.redis
     );
   }
 };

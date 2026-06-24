@@ -1,5 +1,5 @@
 import { MangaProvider } from "./base.js";
-import { ChapterItem, RedisClient, ProviderResult } from "../types.js";
+import { ChapterItem, ProviderResult } from "../types.js";
 import { getLogger } from "../logger.js";
 
 const logger = getLogger({ scope: "provider-registry" });
@@ -38,10 +38,10 @@ class ProviderRegistry {
   /**
    * Search across all providers simultaneously
    */
-  async searchAll(query: string, redis: RedisClient | null): Promise<ChapterItem[]> {
+  async searchAll(query: string): Promise<ChapterItem[]> {
     const providers = this.getAllProviders();
     const results = await Promise.allSettled(
-      providers.map(p => p.search(query, redis))
+      providers.map(p => p.search(query))
     );
 
     const items: ChapterItem[] = [];

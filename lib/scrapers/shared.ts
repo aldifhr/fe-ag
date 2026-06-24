@@ -15,10 +15,8 @@ import { detectAndHealRedirect } from "../services/url/healing.js";
 import { getLogger } from "../logger.js";
 import { IKIRU_CONFIG, SECONDARY_CONFIG } from "../config.js";
 import { env } from "../config/env.js";
-import { FINGERPRINT_HASH_KEY } from "../constants/redis.js";
 import { AppError } from "../errors.js";
-import { RedisClient, ProviderErrorCode, HttpScrapeOptions, RetryOptions } from "../types.js";
-import { redis } from "../redis.js";
+import { ProviderErrorCode, HttpScrapeOptions, RetryOptions } from "../types.js";
 
 const logger = getLogger({ scope: "cookie" });
 const IKIRU_BASE_DEFAULT = "https://05.ikiru.wtf";
@@ -156,13 +154,8 @@ export function getFingerprintForSource(source = "generic"): { userAgent: string
 }
 
 export const HTTP_USER_AGENT = USER_AGENTS[0];
-export const IKIRU_COOKIE_CACHE_KEY = "ikiru:cookie";
-export const IKIRU_COOKIE_REFRESHED_AT_KEY = "ikiru:cookie:refreshed_at";
 export const IKIRU_COOKIE_MAX_AGE_SEC = env.IKIRU_COOKIE_MAX_AGE_SEC;
 export const IKIRU_COOKIE_REFRESH_BACKOFF_MS = env.IKIRU_COOKIE_REFRESH_BACKOFF_MS;
-
-const COOKIE_LOCK_KEY = "ikiru:cookie:refresh:lock";
-const COOKIE_LOCK_TTL = 30; // seconds
 
 /**
  * Maps a raw error (like from Axios) to a structured ProviderErrorCode.
@@ -228,98 +221,9 @@ export function shouldBackoffCookieRefresh(
   return Number.isFinite(backoffUntilMs) && backoffUntilMs > nowMs;
 }
 
-async function acquireCookieLock(redis: RedisClient): Promise<string | null> {
-  const token = Date.now() + ":" + Math.random().toString(36).slice(2);
-  const acquired = await redis.set(COOKIE_LOCK_KEY, token, {
-    nx: true,
-    ex: COOKIE_LOCK_TTL,
-  });
-  return acquired === "OK" ? token : null;
-}
-
-async function releaseCookieLock(redis: RedisClient, token: string | null): Promise<void> {
-  if (!token) return;
-
-  if (typeof redis.eval === "function") {
-    try {
-      await redis.eval(
-        "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
-        [COOKIE_LOCK_KEY],
-        [token],
-      );
-      return;
-    } catch (err: unknown) {
-      logger.debug({ err: err instanceof Error ? err.message : String(err) }, "Atomic lock release unavailable");
-    }
-  }
-}
-
-export async function getCookie(redis: RedisClient | null = null): Promise<string> {
-  if (!redis) {
-    return env.IKIRU_COOKIE || "";
-  }
-
-  try {
-    const [cached, refreshedAt, backoffUntil] = await Promise.all([
-      redis.get(IKIRU_COOKIE_CACHE_KEY),
-      redis.get(IKIRU_COOKIE_REFRESHED_AT_KEY),
-      redis.get(IKIRU_COOKIE_CACHE_KEY + ":backoff"),
-    ]);
-
-    if (cached && shouldReuseCachedCookie(refreshedAt)) {
-      return cached;
-    }
-
-    if (backoffUntil && shouldBackoffCookieRefresh(backoffUntil)) {
-      return cached || env.IKIRU_COOKIE || "";
-    }
-
-    const lockToken = await acquireCookieLock(redis);
-    if (!lockToken) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const fallback = await redis.get(IKIRU_COOKIE_CACHE_KEY);
-      return fallback || env.IKIRU_COOKIE || "";
-    }
-
-    try {
-      const fresh = await refreshCookie();
-      if (fresh) {
-        const now = Date.now();
-        await Promise.all([
-          redis.set(IKIRU_COOKIE_CACHE_KEY, fresh, {
-            ex: IKIRU_COOKIE_MAX_AGE_SEC,
-          }),
-          redis.set(IKIRU_COOKIE_REFRESHED_AT_KEY, String(now), {
-            ex: IKIRU_COOKIE_MAX_AGE_SEC,
-          }),
-          redis.del(IKIRU_COOKIE_CACHE_KEY + ":backoff"),
-        ]);
-        return fresh;
-      } else {
-        const backoffTime = Date.now() + IKIRU_COOKIE_REFRESH_BACKOFF_MS;
-        await redis.set(
-          IKIRU_COOKIE_CACHE_KEY + ":backoff",
-          String(backoffTime),
-          { ex: Math.ceil(IKIRU_COOKIE_REFRESH_BACKOFF_MS / 1000) },
-        );
-        return cached || env.IKIRU_COOKIE || ""
-      }
-    } catch (err: unknown) {
-      const errMessage = err instanceof Error ? err.message : String(err);
-      logger.error({ err: errMessage }, "[getCookie] refreshCookie failed");
-      const backoffTime = Date.now() + IKIRU_COOKIE_REFRESH_BACKOFF_MS;
-      await redis.set(IKIRU_COOKIE_CACHE_KEY + ":backoff", String(backoffTime), {
-        ex: Math.ceil(IKIRU_COOKIE_REFRESH_BACKOFF_MS / 1000),
-      });
-      return cached || env.IKIRU_COOKIE || "";
-    } finally {
-      await releaseCookieLock(redis, lockToken);
-    }
-  } catch (err: unknown) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: errMessage }, "[getCookie] Redis operation failed");
-    return env.IKIRU_COOKIE || "";
-  }
+export async function getCookie(): Promise<string> {
+  // Redis removed; return env cookie directly
+  return env.IKIRU_COOKIE || "";
 }
 
 export const toAbsoluteUrl = (url: string | null | undefined, base = SITE_URL): string | null => {
@@ -445,11 +349,10 @@ export function resolveChapterUrl(href: string | null | undefined, mangaUrl: str
 }
 
 export async function baseHeaders(
-  redis: RedisClient | null = null,
   extra: Record<string, string> = {},
   source = "generic"
 ): Promise<Record<string, string>> {
-  const cookie = await getCookie(redis);
+  const cookie = await getCookie();
   const fingerprint = getFingerprintForSource(source);
   return {
     "User-Agent": fingerprint.userAgent,
@@ -461,11 +364,10 @@ export async function baseHeaders(
 
 export async function scrapeWithHeaders(
   url: string,
-  redis: RedisClient | null = null,
   options: HttpScrapeOptions = {},
 ): Promise<{ data: string; status: number; headers: Record<string, string> }> {
   const source = options.source || "external-site";
-  const headers = await baseHeaders(redis, options.extraHeaders || {}, source);
+  const headers = await baseHeaders(options.extraHeaders || {}, source);
 
   try {
     const res = await withRetry(
@@ -497,49 +399,13 @@ export async function scrapeWithHeaders(
   }
 }
 
-export async function getFingerprintHeaders(redis: RedisClient | null, url: string): Promise<Record<string, string>> {
-  if (!redis || !url) return {};
-  try {
-    const raw = await redis.hget(FINGERPRINT_HASH_KEY, url);
-    if (!raw) return {};
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    const headers: Record<string, string> = {};
-    if (parsed.etag) headers["If-None-Match"] = parsed.etag;
-    if (parsed.lastModified) headers["If-Modified-Since"] = parsed.lastModified;
-    return headers;
-  } catch (err) {
-    logger.debug({ err: (err as Error).message, url }, "Fingerprint headers fetch failed");
-    return {};
-  }
+export async function getFingerprintHeaders(_url: string): Promise<Record<string, string>> {
+  // Redis removed; fingerprint caching no longer available
+  return {};
 }
 
-export async function saveFingerprint(redis: RedisClient | null, url: string, response: any): Promise<void> {
-  if (!redis || !url || !response?.headers) return;
-
-  const etag = response.headers["etag"];
-  const lastModified = response.headers["last-modified"];
-
-  if (!etag && !lastModified) return;
-
-  try {
-    const pipeline = redis.pipeline();
-    pipeline.hset(FINGERPRINT_HASH_KEY, {
-      [url]: JSON.stringify({
-        etag: etag || null,
-        lastModified: lastModified || null,
-        capturedAt: new Date().toISOString()
-      })
-    });
-    pipeline.eval(
-      "return redis.call('HPEXPIRE', KEYS[1], ARGV[1], 'FIELDS', 1, ARGV[2])",
-      [FINGERPRINT_HASH_KEY],
-      [7 * 24 * 3600 * 1000, url]
-    );
-    await pipeline.exec();
-  } catch (err: unknown) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    logger.debug({ err: errMessage, url }, "Fingerprint save failed");
-  }
+export async function saveFingerprint(_url: string, _response: any): Promise<void> {
+  // Redis removed; fingerprint caching no longer available
 }
 
 export const getStatusColor = (status: string | null | undefined): number =>

@@ -1,13 +1,11 @@
 import { InteractionResponseType } from "discord-interactions";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
-import { RedisClient } from "../types.js";
 import { Response } from "express";
 
 export type CommandHandler = (
   payload: any,
   options: any,
   res: Response,
-  redis: RedisClient
 ) => Promise<any> | any;
 
 const commands: Record<string, () => Promise<CommandHandler>> = {

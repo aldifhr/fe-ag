@@ -10,7 +10,6 @@ import {
 } from "../scrapers/secondary/index.js";
 import { 
   ChapterItem, 
-  RedisClient, 
   ProviderResult, 
   MangaMetadata, 
   SourceState 
@@ -53,11 +52,11 @@ export const shinigamiProvider: MangaProvider = {
   displayName: "Shinigami",
   priority: 25,
 
-  async initialize(redis: RedisClient) {
-    await shinigamiMetrics.load(redis, "shinigami");
+  async initialize() {
+    await shinigamiMetrics.load("shinigami");
   },
 
-  async search(query: string, redis: RedisClient | null): Promise<ProviderResult<ChapterItem[]>> {
+  async search(query: string): Promise<ProviderResult<ChapterItem[]>> {
     return searchShngm(query, "shinigami");
   },
 
@@ -121,7 +120,6 @@ export const shinigamiProvider: MangaProvider = {
   },
 
   async scrapeUpdates(options: {
-    redis: RedisClient | null;
     preferredMatcher?: Record<string, unknown> | null;
     logger?: Logger;
     force?: boolean;
@@ -129,20 +127,18 @@ export const shinigamiProvider: MangaProvider = {
     skipExpansion?: boolean;
     deadline?: number;
   }): Promise<{ results: ChapterItem[]; state: SourceState }> {
-    const { redis, preferredMatcher, logger, ...rest } = options;
+    const { preferredMatcher, logger, ...rest } = options;
     const start = Date.now();
 
     try {
       const { results, state: catchState } = await scrapeSecondaryUpdatesWithMeta("shinigami", {
         preferredMatcher: preferredMatcher as any,
-        redis,
         options: rest,
         deadline: rest.deadline
       });
 
       const duration = Date.now() - start;
       shinigamiMetrics.record(duration, catchState.status === "healthy");
-      if (redis) shinigamiMetrics.persist(redis, "shinigami").catch(() => {});
 
       return { results, state: catchState };
     } catch (err) {
@@ -151,11 +147,11 @@ export const shinigamiProvider: MangaProvider = {
     }
   },
 
-  async fetchMetadata(url: string, redis: RedisClient | null): Promise<MangaMetadata | null> {
+  async fetchMetadata(url: string): Promise<MangaMetadata | null> {
     const match = url.match(/\/(?:series|manga|komik)\/([^/?#]+)/i);
     const mangaId = match ? match[1] : url;
     
-    const raw = await fetchSecondaryMetadata("shinigami", mangaId, redis);
+    const raw = await fetchSecondaryMetadata("shinigami", mangaId);
     if (!raw) return null;
 
     return {

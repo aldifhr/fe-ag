@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { InteractionType, InteractionResponseType, verifyKey } from "discord-interactions";
 import { waitUntil } from "@vercel/functions";
-import { redis } from "../lib/redis.js";
 import { env } from "../lib/config/env.js";
 import {
   editInteractionResponse,
@@ -239,7 +238,6 @@ export default async function handler(req: Request, res: Response) {
               payload,
               [{ name: "button", value: customId }, { name: "page", value: page }],
               res,
-              redis,
             ),
           );
           return;
@@ -331,7 +329,7 @@ export default async function handler(req: Request, res: Response) {
       });
 
       const cmdHandler = await handlerGetter();
-      return cmdHandler(payload, commandOptions || [], res, redis);
+      return cmdHandler(payload, commandOptions || [], res);
     }
 
     logApiError(reqLogger, new Error("Unknown interaction type"), {

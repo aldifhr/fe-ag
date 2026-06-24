@@ -299,7 +299,6 @@ export async function dispatchChapters({
                   : await sendDiscordEmbedsChannelBatch(
                     chunk.map(t => t.chapter),
                     channelId,
-                    null,
                     safeMentions
                   )
                 );

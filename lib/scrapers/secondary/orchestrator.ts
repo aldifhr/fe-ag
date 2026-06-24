@@ -2,7 +2,6 @@ import { getLogger } from "../../logger.js";
 import pLimit from "p-limit";
 import { 
   SecondaryMangaRow, 
-  RedisClient, 
   ScraperMetrics, 
   SourceState,
   ChapterItem 
@@ -67,7 +66,7 @@ export function createInitialMetrics(): ScraperMetrics {
 async function processRow(
   row: SecondaryMangaRow,
   apiBase: string,
-  redis: RedisClient | null,
+  _redis: unknown,
   metrics: ScraperMetrics,
   detailState: DetailState,
   seen: Set<string>,
@@ -89,7 +88,7 @@ async function processRow(
 
   if (row?.__directFallback) {
     let resRow = row;
-    const chs: any[] = await fetchSecondaryRecentChapters(apiBase, row.manga_id, redis, lookbackHours, deadline);
+    const chs: any[] = await fetchSecondaryRecentChapters(apiBase, row.manga_id, null, lookbackHours, deadline);
     if (!chs.length) return [];
 
     if (!resRow.title || /^unknown title$/i.test(resRow.title) || resRow.status === null) {
@@ -107,7 +106,7 @@ async function processRow(
   const useDetail = shouldFetchDetail(row, isPriority, detailState.count, detailState.circuitOpen, now);
   let chapters: any[] | null = null;
   if (useDetail && claimDetailSlot(detailState)) {
-    chapters = await fetchDetailChapters(apiBase, row.manga_id, redis, metrics, detailState, normalized, lookbackHours, deadline);
+    chapters = await fetchDetailChapters(apiBase, row.manga_id, null, metrics, detailState, normalized, lookbackHours, deadline);
     releaseDetailSlot(detailState);
   }
 
@@ -118,14 +117,13 @@ async function processRow(
 
 export interface ScrapeSecondaryOptions {
   preferredMatcher?: PreferredSecondaryMatcher | null;
-  redis?: RedisClient | null;
   options?: { force?: boolean; fullRefresh?: boolean; skipExpansion?: boolean; [key: string]: unknown };
   deadline?: number;
 }
 
 export async function scrapeSecondaryUpdatesWithMeta(
   source = "shinigami",
-  { preferredMatcher = null, redis = null, options = {}, deadline = 0 }: ScrapeSecondaryOptions = {},
+  { preferredMatcher = null, options = {}, deadline = 0 }: ScrapeSecondaryOptions = {},
 ) {
   if (!API_BASE) return { 
     results: [], 
@@ -148,7 +146,7 @@ export async function scrapeSecondaryUpdatesWithMeta(
     }
 
     const existingIds = new Set(updateRows.map(r => String(r?.manga_id || "")).filter(Boolean));
-    const directFallbackRows = await selectRotatingDirectFallbackRows(buildDirectUrlFallbackRows(preferredMatcher, existingIds), 50, redis, normalized);
+    const directFallbackRows = await selectRotatingDirectFallbackRows(buildDirectUrlFallbackRows(preferredMatcher, existingIds), 50, null, normalized);
 
     const allRowsToProcess = [...updateRows, ...directFallbackRows] as SecondaryMangaRow[];
     
@@ -176,7 +174,7 @@ export async function scrapeSecondaryUpdatesWithMeta(
     const concurrency = globalAdaptiveLimiter.getConcurrency();
     const limit = pLimit(concurrency);
     
-    const tasks = cappedRows.map((row: SecondaryMangaRow) => limit(() => processRow(row, API_BASE, redis, metrics, detailState, seen, preferredMatcher, normalized, lookbackHours, deadline)));
+    const tasks = cappedRows.map((row: SecondaryMangaRow) => limit(() => processRow(row, API_BASE, null, metrics, detailState, seen, preferredMatcher, normalized, lookbackHours, deadline)));
 
     const results = (await Promise.all(tasks)).flat();
 
@@ -192,7 +190,7 @@ export async function scrapeSecondaryUpdatesWithMeta(
             return processRow(
               { manga_id: parseSeriesIdFromUrl(s.data[0].mangaUrl ?? null)!, title: s.data[0].title, __directFallback: true } as any,
               API_BASE,
-              redis,
+              null,
               metrics,
               detailState,
               seen,

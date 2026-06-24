@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { Receiver } from "@upstash/qstash";
-import { redis, withDistributedLock } from "../lib/redis.js";
 import { runCronJob } from "../lib/cronRuntime.js";
+import { withSupabaseLock } from "../lib/lock.js";
 import { isQStashEnabled } from "../lib/services/qstash.js";
 import { getLogger } from "../lib/logger.js";
 import {
@@ -64,7 +64,7 @@ export default async function handler(req: Request, res: Response) {
 
     let taskResult: any = null;
 
-    await withDistributedLock(redis, lockKey, async () => {
+    await withSupabaseLock(lockKey, async () => {
       taskResult = await runCronJob({
         logger,
         scrapeOptions: {
@@ -72,9 +72,9 @@ export default async function handler(req: Request, res: Response) {
           skipExpansion: false,
         },
         skipLock: true,
-        scrapeMangaUpdatesWithMetaFn: async (redisClient, opts) => {
+        scrapeMangaUpdatesWithMetaFn: async (_redis: null, opts) => {
           const { scrapeMangaUpdatesWithMeta } = await import("../lib/scrapers/orchestrator.js");
-          return scrapeMangaUpdatesWithMeta(redisClient || redis, {
+          return scrapeMangaUpdatesWithMeta({
             ...opts,
             disabledSources,
           });
@@ -83,7 +83,7 @@ export default async function handler(req: Request, res: Response) {
       });
 
       logger.info({ source, status: taskResult?.statusCode }, "Provider scrape task finished successfully");
-    }, { ttlSec: 45, timeoutMs: 0, label: `Scrape:${source}`, autoRenew: true });
+    }, { ttlSec: 45, timeoutMs: 0, label: `Scrape:${source}` });
 
     return res.status(200).json({ 
       success: true, 

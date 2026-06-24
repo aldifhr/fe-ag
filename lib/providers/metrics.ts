@@ -1,5 +1,3 @@
-import { RedisClient } from "../types.js";
-
 export interface ProviderMetrics {
   avgResponseTimeMs: number;
   lastSuccessAt: string | null;
@@ -7,6 +5,9 @@ export interface ProviderMetrics {
   successRate: number;
   history: number[]; // Last 20 response times
 }
+
+// In-memory storage for provider metrics (replaces Redis)
+const metricsStore = new Map<string, ProviderMetrics>();
 
 export class MetricsTracker {
   private metrics: ProviderMetrics = {
@@ -46,25 +47,18 @@ export class MetricsTracker {
     return { ...this.metrics };
   }
 
-  async persist(redis: RedisClient, providerId: string) {
-    const key = `metrics:provider:${providerId}`;
-    await redis.set(key, JSON.stringify(this.getMetrics()), { ex: 86400 * 7 }); // 7 days
+  async persist(_providerId: string) {
+    const key = `metrics:provider:${_providerId}`;
+    metricsStore.set(key, this.getMetrics());
   }
 
-  async load(redis: RedisClient, providerId: string) {
-    const key = `metrics:provider:${providerId}`;
-    const data = await redis.get(key);
+  async load(_providerId: string) {
+    const key = `metrics:provider:${_providerId}`;
+    const data = metricsStore.get(key);
     if (data) {
-      try {
-        const parsed = typeof data === "string" ? JSON.parse(data) : data;
-        if (parsed && typeof parsed === "object") {
-          this.metrics = { ...this.metrics, ...(parsed as Partial<ProviderMetrics>) };
-          this.successes = Math.round((this.metrics.successRate / 100) * this.metrics.totalScrapes);
-          this.failures = this.metrics.totalScrapes - this.successes;
-        }
-      } catch {
-        // Ignore parse error
-      }
+      this.metrics = { ...this.metrics, ...data };
+      this.successes = Math.round((this.metrics.successRate / 100) * this.metrics.totalScrapes);
+      this.failures = this.metrics.totalScrapes - this.successes;
     }
   }
 }

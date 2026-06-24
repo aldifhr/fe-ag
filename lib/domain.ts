@@ -5,7 +5,6 @@ import {
   WhitelistSource,
 } from "./types.js";
 import { env } from "./config/env.js";
-import { redis } from "./redis.js";
 import { getDynamicOverrides } from "./services/dynamicConfig.js";
 
 // Global cache for dynamic overrides to keep lookups fast and sync
@@ -21,7 +20,7 @@ export async function syncDynamicOverrides() {
   try {
     dynamicOverridesCache = await getDynamicOverrides();
   } catch (err: unknown) {
-    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Failed to sync dynamic overrides from Redis");
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Failed to sync dynamic overrides");
   }
 }
 

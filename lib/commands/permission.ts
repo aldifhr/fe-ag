@@ -2,11 +2,13 @@ import { InteractionResponseType } from "discord-interactions";
 import { isGuildAdmin, isOwner } from "../permissions.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
-import { RedisClient, SubcommandOption } from "../types.js";
+import { SubcommandOption } from "../types.js";
 
 const logger = getLogger({ scope: "commands:permission" });
 
-export default async function handlePermission(payload: any, options: SubcommandOption[], res: any, redis: RedisClient) {
+const allowedUsers = new Set<string>();
+
+export default async function handlePermission(payload: any, options: SubcommandOption[], res: any) {
   // Only Admin or Owner can manage permissions
   if (!isGuildAdmin(payload) && !isOwner(payload)) {
     return res.json({
@@ -27,7 +29,7 @@ export default async function handlePermission(payload: any, options: Subcommand
   const action = subcommand; // use subcommand name as action
 
   if (action === "list") {
-    const allowed = await redis.smembers("whitelist:allowed_users");
+    const allowed = [...allowedUsers];
     if (!allowed || allowed.length === 0) {
       return res.json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -61,7 +63,7 @@ export default async function handlePermission(payload: any, options: Subcommand
 
   try {
     if (action === "grant" || action === "add") {
-      await redis.sadd("whitelist:allowed_users", userOption);
+      allowedUsers.add(userOption);
       return res.json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
@@ -72,7 +74,7 @@ export default async function handlePermission(payload: any, options: Subcommand
     }
 
     if (action === "revoke" || action === "remove") {
-      await redis.srem("whitelist:allowed_users", userOption);
+      allowedUsers.delete(userOption);
       return res.json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {

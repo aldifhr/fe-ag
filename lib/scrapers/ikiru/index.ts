@@ -4,7 +4,8 @@ import {
 } from "../shared.js";
 import { parseDateWithFallback, parseLooseRelativeTime } from "../../dateUtils.js";
 import { IKIRU_CONFIG } from "../../config.js";
-import { RedisClient, ChapterItem, ScraperMetrics, SourceState, ScraperProvider } from "../../types.js";
+import { ChapterItem, ScraperMetrics, SourceState, ScraperProvider } from "../../types.js";
+
 import { getLogger } from "../../logger.js";
 import { runScrapling } from "../../utils/scrapling-bridge.js";
 
@@ -12,7 +13,7 @@ const logger = getLogger({ scope: "ikiru:scraper" });
 
 // --- Scraper Logic ---
 
-export async function fetchIkiruMetadata(mangaUrl: string, _redis: RedisClient | null = null) {
+export async function fetchIkiruMetadata(mangaUrl: string) {
   try {
     const raw = await runScrapling<any>({
       action: "metadata",
@@ -38,7 +39,6 @@ export async function fetchIkiruMetadata(mangaUrl: string, _redis: RedisClient |
 }
 
 export async function scrapeIkiruUpdatesWithMeta(
-  _redis: RedisClient | null = null,
   _preferredIkiru: { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> = new Set(),
   _logger: any = null,
   options: { skipExpansion?: boolean; maxPages?: number } = {},
@@ -93,7 +93,6 @@ export async function scrapeIkiruUpdatesWithMeta(
 export async function searchIkiru(
   query: string,
   _options: Record<string, unknown> = {},
-  _redis: RedisClient | null = null,
 ): Promise<{ success: boolean; data: ChapterItem[] }> {
   const keyword = String(query ?? "").trim();
   if (!keyword) return { success: true, data: [] };
@@ -145,7 +144,6 @@ export const IkiruProvider: ScraperProvider = {
 
   async scrapeLatest(options: any) {
     return scrapeIkiruUpdatesWithMeta(
-      options.redis,
       options.preferred,
       logger as any,
       options
@@ -153,10 +151,10 @@ export const IkiruProvider: ScraperProvider = {
   },
 
   async search(query: string, options: any = {}) {
-    return searchIkiru(query, {}, options.redis);
+    return searchIkiru(query, {});
   },
 
-  async fetchMetadata(mangaUrl: string, options: any = {}) {
-    return fetchIkiruMetadata(mangaUrl, options.redis);
+  async fetchMetadata(mangaUrl: string, _options: any = {}) {
+    return fetchIkiruMetadata(mangaUrl);
   }
 };

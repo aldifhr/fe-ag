@@ -1,7 +1,6 @@
 import { InteractionResponseType } from "discord-interactions";
 import { getLogger } from "./logger.js";
 import { DISCORD_EPHEMERAL_FLAG } from "./config.js";
-import { RedisClient } from "./types.js";
 import { env } from "./config/env.js";
 
 const logger = getLogger({ scope: "permissions" });
@@ -52,7 +51,7 @@ export function ensureGuildAdminResponse(payload: any) {
   };
 }
 
-export async function isAddAllowedUser(payload: any, redis: RedisClient | null = null): Promise<boolean> {
+export async function isAddAllowedUser(payload: any): Promise<boolean> {
   // 1. Bot Owner is always allowed
   if (isOwner(payload)) return true;
   
@@ -61,21 +60,8 @@ export async function isAddAllowedUser(payload: any, redis: RedisClient | null =
 
   const userId = payload.member?.user?.id ?? payload.user?.id;
 
-  // 3. Hardcoded allowlist (always effective regardless of Redis)
+  // 3. Hardcoded allowlist
   if (userId && ADD_ALLOWED_USER_IDS.has(userId)) return true;
-  
-  // 4. Check Redis dynamic whitelist
-  if (redis && userId) {
-    try {
-      const isAllowed = await redis.sismember("whitelist:allowed_users", userId);
-      return !!isAllowed;
-    } catch (err) {
-      logger.error({ err }, "Failed to check permission in Redis");
-    }
-  }
-
-  // 5. Deny when Redis unavailable (prevent open access)
-  if (!redis) return false;
 
   return false;
 }

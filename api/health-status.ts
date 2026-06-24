@@ -1,6 +1,4 @@
-import { redis } from "../lib/redis.js";
 import {
-  DISCORD_GUILDS_COUNT_KEY,
   SOURCE_KEYS,
 } from "../lib/constants/redis.js";
 import { loadSourceHealthSnapshot } from "../lib/services/storage.js";
@@ -13,7 +11,7 @@ import { createEdgeResponse, createErrorResponse } from "../lib/api/response.js"
 import { supabase } from "../lib/supabase.js";
 import { mangaProviderRegistry } from "../lib/providers/registry.js";
 import { initializeAllProviders } from "../lib/boot.js";
-import { getSupabasePing, getDiscordPing, getRedisPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
+import { getSupabasePing, getDiscordPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
 
 import { findCronJob, getCronNextRuns, getCronLogs, FastCronExecutionResult } from "../lib/services/fastcron.js";
 
@@ -77,7 +75,7 @@ function calculateUptime(stats: CronDailyStats[], fallbackRuns: number = 0, fall
   return `${pct.toFixed(2)}%`;
 }
 
-const CACHE_KEY = "api:health-status:cache:v1";
+// Redis cache key removed — Supabase is source of truth
 
 export default async function handler(req: Request) {
   const reqLogger = logApiHit("health-status", req);
@@ -102,14 +100,7 @@ export default async function handler(req: Request) {
       return createEdgeResponse(createErrorResponse("UNAUTHORIZED", "Unauthorized"), 401);
     }
 
-    if (!realtime) {
-      const cached = await redis.get(CACHE_KEY);
-      if (cached) {
-        const parsed = typeof cached === "string" ? JSON.parse(cached) : cached;
-        logApiOk(reqLogger, { status: 200, cached: true });
-        return createEdgeResponse({ ...parsed, cached: true });
-      }
-    }
+    // Redis cache read removed — Supabase is source of truth
 
     // Fetch FastCron data
     let fastCronStatus: Record<string, unknown> | null = null;
@@ -142,8 +133,6 @@ export default async function handler(req: Request) {
       sourceHealth,
       cronStatus,
       dailyStats,
-      guildCount,
-      redisPing,
       discordPing,
       supabasePing,
       providerMetrics,
@@ -151,12 +140,11 @@ export default async function handler(req: Request) {
       loadSourceHealthSnapshot(SOURCE_KEYS),
       readCronStatusWithHealth(),
       readCronDailyStats(7, new Date(), true).then(s => s || []),
-      redis.get(DISCORD_GUILDS_COUNT_KEY).then(c => c ? parseInt(c as string, 10) : null),
-      getRedisPing(),
       getDiscordPing(),
       getSupabasePing(),
       getProviderMetrics(),
     ]);
+    const guildCount = null;
 
     // Get current run data for fallback when historical stats not yet available
     const cronStatus_ = cronStatus as Record<string, unknown> | null;
@@ -170,10 +158,9 @@ export default async function handler(req: Request) {
       const h = sourceHealth[source];
       const failures = h?.consecutiveFailures || 0;
       
-      // Fetch last update time from health monitor keys
-      const lastUpdateKey = `health:last_update:${source}`;
-      const lastUpdateStr = await redis.get(lastUpdateKey);
-      const lastUpdateAt = lastUpdateStr ? parseInt(lastUpdateStr as string, 10) : null;
+      // Fetch last update time — Redis-based health monitor removed, using null fallback
+      const lastUpdateStr = null;
+      const lastUpdateAt = null;
       
       const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
       const isStale = lastUpdateAt ? (Date.now() - lastUpdateAt > STALE_THRESHOLD_MS) : true;
@@ -232,13 +219,6 @@ export default async function handler(req: Request) {
         note: "Verified via gateway"
       },
       {
-        name: "Redis Database",
-        uptime: (redisPing ?? 0) < 1000 ? overallUptime : "0.00%",
-        ping: formatResponseTime(redisPing),
-        incidents: [],
-        status: (redisPing ?? 0) < 1000 ? "healthy" : "failed"
-      },
-      {
         name: "Cron Scheduler",
         uptime: overallUptime,
         ping: (fastCronStatus?.latestExecution as { responseTimeMs?: number })?.responseTimeMs
@@ -289,9 +269,7 @@ export default async function handler(req: Request) {
       providerMetrics,
     };
 
-    if (!realtime) {
-      await redis.set(CACHE_KEY, JSON.stringify(payload), { ex: Math.floor(HEALTH_CACHE_TTL_MS / 1000) });
-    }
+    // Redis cache write removed — Supabase is source of truth
 
     logApiOk(reqLogger, { status: 200, cached: false });
     return createEdgeResponse(payload);

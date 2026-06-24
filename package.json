@@ -37,7 +37,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
     "@upstash/qstash": "^2.10.1",
-    "@upstash/redis": "^1.36.2",
     "@vercel/functions": "^3.4.3",
     "axios": "1.13.5",
     "bottleneck": "^2.19.5",

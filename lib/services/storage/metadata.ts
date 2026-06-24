@@ -1,6 +1,6 @@
 import { getLogger } from "../../logger.js";
 import { supabase, withSupabaseTimeout } from "../../supabase.js";
-import { MangaMetadata, RedisClient } from "../../types.js";
+import { MangaMetadata } from "../../types.js";
 import { MangaMetadataSchema } from "../../schemas.js";
 import { z } from "zod";
 
@@ -16,13 +16,12 @@ function validateData<T>(schema: z.ZodSchema<T>, data: unknown, context: string)
       errors: result.error.issues.map((e) => `${e.path.join(".")}: ${e.message}`),
       sample: typeof data === "string" ? data.substring(0, 100) : "object",
     },
-    "Data validation failed for Redis object",
+    "Data validation failed for stored object",
   );
   return null;
 }
 
 export async function batchGetMangaMetadata(
-  _redisClient: RedisClient,
   titleKeys: string[],
   maxAgeHours = 168,
 ): Promise<(MangaMetadata | null)[]> {
@@ -74,10 +73,8 @@ export async function batchGetMangaMetadata(
 }
 
 export async function setMangaMetadata(
-  _redisClient: RedisClient,
   titleKey: string,
   data: Partial<MangaMetadata>,
-  _ttlSec = 3600 * 24 * 30,
 ): Promise<boolean> {
   try {
     const { error } = await withSupabaseTimeout(() =>
@@ -102,7 +99,6 @@ export async function setMangaMetadata(
 }
 
 export async function deleteMangaMetadata(
-  _redisClient: RedisClient,
   titleKey: string,
 ): Promise<boolean> {
   try {

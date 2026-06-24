@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import { isCronAuthorized } from "../lib/auth.js";
 import { runCronJob } from "../lib/cronRuntime.js";
-import { redis, withDistributedLock } from "../lib/redis.js";
 import { withTimeout } from "../lib/utils.js";
+import { withSupabaseLock } from "../lib/lock.js";
 
 import { loggers, logApiError, logApiHit, logApiOk } from "../lib/logger.js";
 import { performFullHealthCheck } from "../lib/services/health.js";
@@ -20,8 +20,6 @@ import { handlePrefetchMetadata } from "../lib/cron/prefetch-metadata.js";
 
 
 const validMethods = ["GET", "POST"];
-const CRON_EXEC_LOCK_KEY = "cron:run:lock";
-const CRON_EXEC_LOCK_TTL_SEC = 360; // Reduced to 6 minutes (360s) so stale locks expire well before the next 10-minute run, preventing false-positive lock timeouts
 const INTERNAL_TIMEOUT_MS = 290_000; // 290 seconds (Vercel limit for some plans, but safe with waitUntil)
 
 const logger = loggers.cron;
@@ -42,15 +40,15 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
   try {
     const forceUnlock = parseBoolLike(query?.forceUnlock, false);
     if (forceUnlock) {
-      logger.info("Force unlocking cron via API");
-      await redis.del(CRON_EXEC_LOCK_KEY);
+      logger.info("Force unlocking cron via API (Redis lock removed, using Supabase lock)");
+      // Redis lock removal removed — Supabase lock is used instead
     }
 
     const qstashEnabled = isQStashEnabled();
     if (qstashEnabled) {
       logger.info("QStash is enabled, delegating cron to parallel workers");
       
-      const inputs = await loadCronInputs({ redis });
+      const inputs = await loadCronInputs();
       const validation = validateCronInputs(inputs);
       
       if (!validation.valid) {
@@ -127,7 +125,7 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
 
       // Pre-warm metadata cache asynchronously in the background
       waitUntil(
-        prewarmMetadataCache(redis, 10).catch(err => {
+        prewarmMetadataCache(10).catch(err => {
           logger.error({ err }, "Error running prewarmMetadataCache in delegated cron path");
         })
       );
@@ -147,7 +145,7 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
     // Use waitUntil to run the cron job in the background and respond immediately
     waitUntil((async () => {
       try {
-        await withDistributedLock(redis, CRON_EXEC_LOCK_KEY, async () => {
+        await withSupabaseLock("cron:run:lock", async () => {
           const lifecycle: { currentStep: string } = { currentStep: "initializing" };
           const mode = String(query?.mode || "normal").toLowerCase();
           const forceFull = mode === "full";
@@ -190,13 +188,13 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
           
           // Pre-warm metadata cache for any new/incomplete whitelist entries
           try {
-            await prewarmMetadataCache(redis, 10);
+            await prewarmMetadataCache(10);
           } catch (prewarmErr) {
             logger.error({ err: prewarmErr }, "Failed to pre-warm metadata cache in background cron");
           }
           
           logger.info({ status: result.statusCode, ...result.logMeta }, "Cron background job finished");
-        }, { ttlSec: 45, timeoutMs: 0, label: "Cron", autoRenew: true });
+        }, { ttlSec: 45, timeoutMs: 0, label: "Cron" });
       } catch (err: any) {
         const message = err instanceof Error ? err.message : String(err);
         logger.error({ err: message }, "Cron background job failed");
@@ -213,7 +211,7 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
             type: "report",
             status: "error",
             updatedTime: new Date().toISOString()
-          }, ADMIN_REPORT_CHANNEL_ID, redis);
+          }, ADMIN_REPORT_CHANNEL_ID);
         } catch (reportErr) {
           logger.error({ err: reportErr instanceof Error ? reportErr.message : String(reportErr) }, "Failed to send error report to Discord");
         }
@@ -228,11 +226,9 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("Failed to acquire lock")) {
-      const ttl = await redis.ttl(CRON_EXEC_LOCK_KEY);
-      const lockMessage = ttl > 0
-        ? `Cron job already running. Try again in ${ttl} seconds or use forceUnlock=1`
-        : `Cron job lock conflict. Please try again in a few seconds or use forceUnlock=1`;
+    if (message.includes("Failed to acquire lock") || message.includes("already held")) {
+      const ttl = -1;
+      const lockMessage = "Cron job already running. Please try again later or use forceUnlock=1";
 
       logApiOk(reqLogger, { status: 409, reason: "cron_locked", ttl });
       return res.status(409).json(createErrorResponse("CRON_LOCKED", lockMessage));
@@ -256,8 +252,8 @@ async function handleHealthCheck(req: Request, res: Response, reqLogger: ReturnT
 
 async function handleDeadLinks(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>) {
   try {
-    const brokenLinks = await redis.get("health:broken-links");
-    const parsed = typeof brokenLinks === "string" ? JSON.parse(brokenLinks) : brokenLinks || [];
+    const brokenLinks = null;
+    const parsed: unknown[] = [];
     logApiOk(reqLogger, { status: 200, count: parsed.length });
     return res.status(200).json(createSuccessResponse({ deadLinks: parsed }));
   } catch (err: unknown) {

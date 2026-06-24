@@ -1,33 +1,27 @@
 import { waitUntil } from "@vercel/functions";
 import { InteractionResponseType } from "discord-interactions";
-import { redis } from "../redis.js";
-import { RedisClient } from "../types.js";
 import { editInteractionResponse } from "../discord.js";
 import { runCronJob } from "../cronRuntime.js";
 import { isGuildAdmin } from "../permissions.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
-import { withDistributedLock } from "../redis.js";
+import { withSupabaseLock } from "../lock.js";
 
 const logger = getLogger({ scope: "commands:sync" });
 
 const SYNC_COOLDOWN_SECONDS = 60; // 1 minute cooldown between manual syncs
 
-async function checkSyncCooldown(redisClient: RedisClient, userId: string) {
-  const cooldownKey = `sync:cooldown:${userId}`;
-  const lastSync = await redisClient.get(cooldownKey);
-  if (lastSync) {
-    const lastSyncMs = parseInt(lastSync, 10);
-    if (Number.isNaN(lastSyncMs)) return { onCooldown: false };
-    const remaining = Math.ceil((lastSyncMs + SYNC_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000);
-    return { onCooldown: true, remaining: Math.max(0, remaining) };
-  }
-  return { onCooldown: false };
+const syncCooldowns = new Map<string, number>();
+
+async function checkSyncCooldown(userId: string) {
+  const lastSync = syncCooldowns.get(userId);
+  if (!lastSync) return { onCooldown: false };
+  const remaining = Math.ceil((lastSync + SYNC_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000);
+  return { onCooldown: true, remaining: Math.max(0, remaining) };
 }
 
-async function setSyncCooldown(redisClient: RedisClient, userId: string) {
-  const cooldownKey = `sync:cooldown:${userId}`;
-  await redisClient.set(cooldownKey, Date.now().toString(), { ex: SYNC_COOLDOWN_SECONDS });
+async function setSyncCooldown(userId: string) {
+  syncCooldowns.set(userId, Date.now());
 }
 
 export default async function handleSync(payload: any, _options: any, res: any) {
@@ -42,7 +36,7 @@ export default async function handleSync(payload: any, _options: any, res: any) 
   }
 
   const userId = payload.member?.user?.id ?? payload.user?.id;
-  const cooldown = await checkSyncCooldown(redis, userId);
+  const cooldown = await checkSyncCooldown(userId);
   if (cooldown.onCooldown) {
     return res.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -53,7 +47,7 @@ export default async function handleSync(payload: any, _options: any, res: any) 
     });
   }
 
-  await setSyncCooldown(redis, userId);
+  await setSyncCooldown(userId);
 
   res.json({
     type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
@@ -64,7 +58,7 @@ export default async function handleSync(payload: any, _options: any, res: any) 
     (async () => {
       const lockKey = "cron:run:lock";
       try {
-        await withDistributedLock(redis, lockKey, async () => {
+        await withSupabaseLock(lockKey, async () => {
           // Immediate feedback
           await editInteractionResponse(payload, "⏳ Memulai sinkronisasi, mohon tunggu...");
           

@@ -1,16 +1,13 @@
 import { readChannelValidationState, writeChannelValidationState } from "../services/storage.js";
 import { shouldRunChannelValidation, buildGuildChannelMap } from "./helpers.js";
-import type { RedisClient } from "../types.js";
 
 export async function loadValidatedGuilds({
-  redisClient,
   guildEntries,
   channelValidationConcurrency,
   botToken,
   log,
   warn,
 }: {
-  redisClient: RedisClient;
   guildEntries: [string, string][];
   channelValidationConcurrency: number;
   botToken: string;

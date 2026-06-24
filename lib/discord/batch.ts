@@ -4,7 +4,7 @@
 
 import pLimit from "p-limit";
 import { BoundedInFlightMap } from "../utils/bounded-map.js";
-import type { RedisClient, DiscordEmbedData } from "../types.js";
+import type { DiscordEmbedData } from "../types.js";
 import { sendDiscordEmbed } from "./messaging.js";
 
 // In-flight request tracking for Discord deduplication (bounded to prevent memory leaks)
@@ -51,7 +51,6 @@ export async function sendDiscordEmbedsBatch(
   options: {
     concurrency?: number;
     deduplicate?: boolean;
-    redis?: RedisClient | null;
   } = {},
 ): Promise<BatchSendSummary> {
   if (!items || items.length === 0) {
@@ -60,7 +59,6 @@ export async function sendDiscordEmbedsBatch(
 
   const concurrency = options.concurrency || 5;
   const deduplicate = options.deduplicate !== false;
-  const redisClient = options.redis || null;
   const limit = pLimit(concurrency);
 
   const sendTasks = items.map((item, index) =>
@@ -85,7 +83,6 @@ export async function sendDiscordEmbedsBatch(
         const promise = sendDiscordEmbed(
           data,
           channelId,
-          redisClient,
           mentions,
         ).finally(() => {
           setTimeout(
@@ -105,7 +102,7 @@ export async function sendDiscordEmbedsBatch(
           delivery: res,
         };
       } else {
-        const res = await sendDiscordEmbed(data, channelId, redisClient, mentions);
+        const res = await sendDiscordEmbed(data, channelId, mentions);
         return {
           index,
           status: "sent" as const,

@@ -1,9 +1,4 @@
 import type { Request, Response } from "express";
-import { redis } from "../lib/redis.js";
-import {
-  LOGS_API_CACHE_KEY,
-  RECENT_API_CACHE_KEY,
-} from "../lib/constants/redis.js";
 import {
   readCronLogs,
   readRecentChapters,
@@ -56,7 +51,7 @@ async function handleRecent(req: Request, res: Response, reqLogger: any) {
   const { cacheTtl } = prepared;
 
   try {
-    const raw = await readRecentChapters(redis, 0, RECENT_FETCH_LIMIT - 1);
+    const raw = await readRecentChapters(0, RECENT_FETCH_LIMIT - 1);
     const validItems = (raw as DiscordEmbedData[]).filter(item => item?.sentAt || item?.enqueuedAt);
     const sorted = sortRecentItems(validItems).slice(0, RECENT_DISPLAY_LIMIT);
 
@@ -79,7 +74,7 @@ async function handleLogs(req: Request, res: Response, reqLogger: any) {
   const { cacheTtl } = prepared;
 
   try {
-    const raw = await readCronLogs(redis, 0, LOGS_FETCH_LIMIT - 1);
+    const raw = await readCronLogs(0, LOGS_FETCH_LIMIT - 1);
     const dailyStats = await readCronDailyStats(30);
 
     const logs = (raw as CronLogEntry[])

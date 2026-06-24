@@ -119,7 +119,7 @@ export default async function handler(req: Request, res: Response) {
           const provider = mangaProviderRegistry.getProvider(source);
           if (provider && provider.fetchMetadata) {
             logger.info({ titleKey, source }, "Worker: Fetching missing metadata");
-            const meta = await provider.fetchMetadata(mangaUrl, null);
+            const meta = await provider.fetchMetadata(mangaUrl);
             
             if (meta && !isMetadataEmpty(meta as any)) {
               // Update task object so the embed uses the new data
@@ -130,7 +130,7 @@ export default async function handler(req: Request, res: Response) {
               (task.chapter as any).status = meta.status || (task.chapter as any).status;
               
               // Cache for future use
-              await setMangaMetadata(null as any, titleKey, meta as MangaMetadata);
+              await setMangaMetadata(titleKey, meta as MangaMetadata);
               logger.info({ titleKey }, "Worker: Metadata enriched and cached");
             }
           }
@@ -149,7 +149,6 @@ export default async function handler(req: Request, res: Response) {
         await sendDiscordEmbedsChannelBatch(
           [task.chapter as any],
           channelId,
-          null,
           task.mentions?.join(" ")
         );
         successCount++;

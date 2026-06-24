@@ -7,7 +7,6 @@ import { loadWhitelist } from "../lib/services/storage.js";
 import { logApiHit, logApiOk, logApiError, getLogger } from "../lib/logger.js";
 import { isMonitorAuthorized } from "../lib/auth.js";
 import { createEdgeResponse, createErrorResponse } from "../lib/api/response.js";
-import { redis } from "../lib/redis.js";
 
 const logger = getLogger({ scope: "api:whitelist" });
 
@@ -32,7 +31,7 @@ export default async function handler(req: Request) {
       
       const { batchGetMangaMetadata } = await import("../lib/services/storage.js");
       const titles = items.map(it => typeof it === "string" ? it : it.title);
-      const metadataArray = await batchGetMangaMetadata(redis, titles);
+      const metadataArray = await batchGetMangaMetadata(titles);
       const metadataMap: Record<string, any> = {};
       titles.forEach((title, index) => {
         if (metadataArray[index]) {
@@ -86,7 +85,7 @@ export default async function handler(req: Request) {
       const body = await req.json() as { title?: string; source?: string; url?: string };
       const { title, source, url } = body;
       if (!title) return createEdgeResponse(createErrorResponse("BAD_REQUEST", "Title is required"), 400);
-      const result = await removeWhitelistEntryIdentity({ title, source, url }, { redisClient: redis });
+      const result = await removeWhitelistEntryIdentity({ title, source, url });
       return createEdgeResponse(result);
     }
 
@@ -94,7 +93,7 @@ export default async function handler(req: Request) {
       const body = await req.json() as { title?: string; mark?: string };
       const { title, mark } = body;
       if (!title) return createEdgeResponse(createErrorResponse("BAD_REQUEST", "Title is required"), 400);
-      const result = await markWhitelistEntry(title, mark ?? null, { redisClient: redis });
+      const result = await markWhitelistEntry(title, mark ?? null);
       return createEdgeResponse(result);
     }
 

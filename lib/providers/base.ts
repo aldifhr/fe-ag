@@ -1,6 +1,5 @@
 import { 
   ChapterItem, 
-  RedisClient, 
   ProviderResult, 
   MangaMetadata,
   SourceState,
@@ -22,14 +21,14 @@ export interface MangaProvider {
   priority: number;
 
   /**
-   * Initialize the provider (e.g., load metrics from Redis)
+   * Initialize the provider
    */
-  initialize?(redis: RedisClient): Promise<void>;
+  initialize?(): Promise<void>;
 
   /**
    * Search for manga by title query
    */
-  search(query: string, redis: RedisClient | null): Promise<ProviderResult<ChapterItem[]>>;
+  search(query: string): Promise<ProviderResult<ChapterItem[]>>;
 
   /**
    * Check if this provider can handle a specific URL
@@ -45,7 +44,6 @@ export interface MangaProvider {
    * Scrape recent updates from the provider
    */
   scrapeUpdates(options: {
-    redis: RedisClient | null;
     preferredMatcher?: Record<string, unknown> | null;
     logger?: Logger;
     force?: boolean;
@@ -57,7 +55,7 @@ export interface MangaProvider {
   /**
    * Optional: Fetch detailed metadata for a specific manga
    */
-  fetchMetadata?(url: string, redis: RedisClient | null): Promise<MangaMetadata | null>;
+  fetchMetadata?(url: string): Promise<MangaMetadata | null>;
 
   /**
    * Get latest performance metrics for this provider

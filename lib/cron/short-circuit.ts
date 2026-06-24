@@ -5,13 +5,12 @@
 import { getLogger } from "../logger.js";
 import { writeCronStatus } from "../services/storage.js";
 import { appendCronLogThrottled } from "../cronLogs.js";
-import type { RedisClient, CronStatus, SourceHealth, TimingMetrics } from "../types.js";
+import type { CronStatus, SourceHealth, TimingMetrics } from "../types.js";
 import { finalizeTimingMetrics } from "./helpers.js";
 
 const logger = getLogger({ scope: "cron:short-circuit" });
 
 export interface ShortCircuitOptions {
-  redis: RedisClient;
   start: number;
   reason: string;
   whitelist: number;
@@ -65,7 +64,6 @@ export async function handleShortCircuit(
   options: ShortCircuitOptions,
 ): Promise<ShortCircuitResult> {
   const {
-    redis,
     start,
     reason,
     whitelist,

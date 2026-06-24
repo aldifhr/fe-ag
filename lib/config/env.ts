@@ -4,9 +4,6 @@ import { z } from "zod";
 const envSchema = z.object({
     // Required
     // Required
-    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
-    UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
-    REDIS_DISABLED: z.preprocess((v) => v === "true" || v === "1", z.boolean()).default(false),
     DISCORD_BOT_TOKEN: z.string().min(1),
     DISCORD_APPLICATION_ID: z.string().optional(),
     HEALTH_ALERT_CHANNEL_ID: z.string().optional(),
@@ -120,8 +117,6 @@ const isTest = process.env.NODE_ENV === "test" ||
 // Inject dummy values in test mode to satisfy Zod validation
 const envToParse = { ...process.env };
 if (isTest) {
-    envToParse.UPSTASH_REDIS_REST_URL = envToParse.UPSTASH_REDIS_REST_URL || "https://mock-redis.com";
-    envToParse.UPSTASH_REDIS_REST_TOKEN = envToParse.UPSTASH_REDIS_REST_TOKEN || "mock-token";
     envToParse.DISCORD_BOT_TOKEN = envToParse.DISCORD_BOT_TOKEN || "mock-bot-token";
     envToParse.QSTASH_ENABLED = "false";
     envToParse.QSTASH_CURRENT_SIGNING_KEY = envToParse.QSTASH_CURRENT_SIGNING_KEY || "mock-key";
@@ -151,8 +146,6 @@ export const env: any = isTest
         get(_, prop: string) {
             const envToParse = { ...process.env };
             // Inject dummy values for tests if missing
-            envToParse.UPSTASH_REDIS_REST_URL = envToParse.UPSTASH_REDIS_REST_URL || "https://mock-redis.com";
-            envToParse.UPSTASH_REDIS_REST_TOKEN = envToParse.UPSTASH_REDIS_REST_TOKEN || "mock-token";
             envToParse.DISCORD_BOT_TOKEN = envToParse.DISCORD_BOT_TOKEN || "mock-bot-token";
             envToParse.SUPABASE_URL = envToParse.SUPABASE_URL || "https://mock.supabase.co";
             envToParse.SUPABASE_KEY = envToParse.SUPABASE_KEY || "mock-supabase-key";

@@ -8,13 +8,10 @@ import {
   getAllGuildChannels,
   supabasePing,
 } from "../services/storage.js";
-import { loadSourceHealthMap } from "../services/health.js";
 import { proactiveHealWhitelist } from "../services/url/healing.js";
 import { initializeAllProviders } from "../boot.js";
 import { initializeScrapeOptimizer } from "../scrapers/optimizer.js";
-import { SOURCE_KEYS } from "../constants/redis.js";
 import type {
-  RedisClient,
   WhitelistEntry,
   SourceHealth,
 } from "../types.js";
@@ -28,7 +25,6 @@ export interface CronInputs {
 }
 
 export interface LoadInputsOptions {
-  redis: RedisClient;
   loadWhitelistFn?: () => Promise<WhitelistEntry[]>;
   getAllGuildChannelsFn?: () => Promise<Record<string, string>>;
 }
@@ -37,10 +33,9 @@ export interface LoadInputsOptions {
  * Load all cron inputs concurrently
  */
 export async function loadCronInputs(
-  options: LoadInputsOptions,
+  options: LoadInputsOptions = {},
 ): Promise<CronInputs> {
   const {
-    redis,
     loadWhitelistFn = loadWhitelist,
     getAllGuildChannelsFn = getAllGuildChannels,
   } = options;
@@ -52,16 +47,15 @@ export async function loadCronInputs(
       "Provider initialization failed, continuing with registered providers",
     );
   });
-  initializeScrapeOptimizer(redis);
+  initializeScrapeOptimizer();
 
   // Anti-Shutdown: Send a ping to Supabase to keep the project active
   supabasePing().catch(() => {}); // Fire and forget
 
-  const [whitelist, guildChannels, sourceHealthMap, _] =
+  const [whitelist, guildChannels, _] =
     await Promise.all([
       loadWhitelistFn(),
       getAllGuildChannelsFn(),
-      loadSourceHealthMap(redis, SOURCE_KEYS),
       initPromise,
       proactiveHealWhitelist().catch((err: unknown) => {
         logger.warn(
@@ -70,6 +64,7 @@ export async function loadCronInputs(
         );
       }),
     ]);
+  const sourceHealthMap: Record<string, SourceHealth> = {};
 
   return {
     whitelist,

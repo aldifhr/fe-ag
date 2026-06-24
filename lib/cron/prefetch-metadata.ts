@@ -4,7 +4,6 @@
  */
 
 import type { Request, Response } from "express";
-import { redis } from "../redis.js";
 import { loadWhitelist } from "../services/storage.js";
 import { mangaProviderRegistry } from "../providers/registry.js";
 import { setMangaMetadata, batchGetMangaMetadata } from "../services/storage.js";
@@ -122,7 +121,7 @@ export async function handlePrefetchMetadata(req: Request, res: Response) {
     // Check which already have cached metadata
     const cachedMetadata = forceRefresh
       ? titleKeys.map(() => null) // treat all as uncached
-      : await batchGetMangaMetadata(redis, titleKeys);
+      : await batchGetMangaMetadata(titleKeys);
     
     const needsFetch: Array<{ titleKey: string; source: string; url: string }> = [];
     
@@ -187,10 +186,10 @@ export async function handlePrefetchMetadata(req: Request, res: Response) {
             return null;
           }
 
-          const metadata = await provider.fetchMetadata(url, redis);
+          const metadata = await provider.fetchMetadata(url);
           
           if (metadata) {
-            await setMangaMetadata(redis, titleKey, metadata);
+            await setMangaMetadata(titleKey, metadata);
             stats.fetched++;
             logger.debug({ titleKey, source }, "Metadata fetched and cached");
             return { titleKey, metadata };

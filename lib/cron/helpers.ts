@@ -1,6 +1,5 @@
 import { env } from "../config/env.js";
 import type {
-  RedisClient,
   CronStatus,
   TimingMetrics,
   ScraperMetrics,
@@ -91,6 +90,6 @@ export function finalizeTimingMetrics(start: number, partial: TimingMetrics): Ti
  * No-op replacement — Supabase handles TTL/cleanup automatically.
  * Previously cleaned Redis log lists and daily stats hashes.
  */
-export async function cleanupOldLogs(_redis?: RedisClient): Promise<void> {
+export async function cleanupOldLogs(): Promise<void> {
   // Supabase manages data retention; no manual cleanup needed.
 }

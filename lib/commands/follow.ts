@@ -1,6 +1,4 @@
 import { InteractionResponseType } from "discord-interactions";
-import { redis } from "../redis.js";
-import { RedisClient } from "../types.js";
 import { unfollowManga, getUserFollowsMembers } from "../services/notifications.js";
 import {
   editInteractionResponse,
@@ -22,7 +20,6 @@ export default async function handleFollow(
   payload: any,
   options: SubcommandOption[],
   res: any,
-  redisClient: RedisClient = redis,
 ) {
   const userId = payload.member?.user?.id ?? payload.user?.id;
   const subcommand = options?.[0]?.name;
@@ -61,10 +58,7 @@ export default async function handleFollow(
             );
           }
 
-          const whitelistDataRaw = await redisClient.hmget(
-            "whitelist:data",
-            ...titleKeys,
-          );
+          const whitelistDataRaw = null;
 
           let whitelistData: any[] = [];
           if (Array.isArray(whitelistDataRaw)) {
