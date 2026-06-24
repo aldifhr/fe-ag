@@ -1,32 +1,19 @@
 import type { Request, Response } from "express";
 import { Receiver } from "@upstash/qstash";
-import { redis } from "../lib/redis.js";
 import { supabase } from "../lib/supabase.js";
 import { sendDiscordEmbedsChannelBatch } from "../lib/discord.js";
 import { getLogger } from "../lib/logger.js";
 import { QStashNotificationTask, isQStashEnabled } from "../lib/services/qstash.js";
 import { mangaProviderRegistry } from "../lib/providers/registry.js";
-import { setMangaMetadata } from "../lib/services/storage.js";
+import { setMangaMetadata, recordDispatchToSupabase } from "../lib/services/storage.js";
 import { isMetadataEmpty } from "../lib/services/metadata-enrichment.js";
 import { normalizeSource } from "../lib/scrapers/shared.js";
 import { MangaMetadata } from "../lib/types.js";
+import { getChapterNumber } from "../lib/domain.js";
 import {
   QSTASH_CURRENT_SIGNING_KEY,
   QSTASH_NEXT_SIGNING_KEY,
-  CLAIM_STATUS,
-  CHAPTER_TTL_SEC,
-  RECENT_LIST_TTL_SEC,
-  RECENT_LIST_MAX_SIZE,
-  CROSS_SOURCE_DEDUPE_TTL_SEC,
 } from "../lib/config.js";
-import {
-  DISPATCH_HISTORY_KEY,
-  MANGA_LAST_UPDATES_KEY,
-  RECENT_CHAPTERS_KEY,
-  MANGA_LAST_CHAPTERS_KEY,
-} from "../lib/constants/redis.js";
-import { ATOMIC_DISPATCH_SCRIPT } from "../lib/redisScripts.js";
-import { getChapterNumber } from "../lib/domain.js";
 
 const logger = getLogger({ scope: "qstash-worker" });
 
@@ -89,38 +76,18 @@ export default async function handler(req: Request, res: Response) {
       let reason = "already_sent";
 
       try {
-        const values = await redis.hmget(DISPATCH_HISTORY_KEY, ...keysToCheck);
-        const valArray = Array.isArray(values) ? values : keysToCheck.map((k) => (values as any)?.[k] ?? null);
-        for (let i = 0; i < keysToCheck.length; i++) {
-          const raw = valArray[i];
-          if (!raw) continue;
-          try {
-            const parsed = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
-            if (parsed.s === CLAIM_STATUS.SENT || parsed.status === CLAIM_STATUS.SENT) {
-              alreadySent = true;
-              reason = i === 0 ? "already_sent" : "cross_source_duplicate";
-              break;
-            }
-          } catch {
-            // Ignore parse errors
-          }
+        const { data, error } = await supabase
+          .from("dispatch_history")
+          .select("chapter_url")
+          .in("chapter_url", keysToCheck);
+        
+        if (!error && data && data.length > 0) {
+          alreadySent = true;
+          const sentUrls = data.map(d => d.chapter_url);
+          reason = sentUrls.includes(task.chapter.key || "") ? "already_sent" : "cross_source_duplicate";
         }
       } catch (err) {
-        logger.warn({ err }, "Redis error in safety check, falling back to Supabase");
-        try {
-          const { data, error } = await supabase
-            .from("dispatch_history")
-            .select("chapter_url")
-            .in("chapter_url", keysToCheck);
-          
-          if (!error && data && data.length > 0) {
-            alreadySent = true;
-            const sentUrls = data.map(d => d.chapter_url);
-            reason = sentUrls.includes(task.chapter.key || "") ? "already_sent" : "cross_source_duplicate";
-          }
-        } catch (dbErr) {
-          logger.error({ err: dbErr }, "Supabase fallback error in safety check");
-        }
+        logger.error({ err }, "Supabase error in safety check");
       }
 
       if (alreadySent) {
@@ -152,7 +119,7 @@ export default async function handler(req: Request, res: Response) {
           const provider = mangaProviderRegistry.getProvider(source);
           if (provider && provider.fetchMetadata) {
             logger.info({ titleKey, source }, "Worker: Fetching missing metadata");
-            const meta = await provider.fetchMetadata(mangaUrl, redis);
+            const meta = await provider.fetchMetadata(mangaUrl, null);
             
             if (meta && !isMetadataEmpty(meta as any)) {
               // Update task object so the embed uses the new data
@@ -163,7 +130,7 @@ export default async function handler(req: Request, res: Response) {
               (task.chapter as any).status = meta.status || (task.chapter as any).status;
               
               // Cache for future use
-              await setMangaMetadata(redis, titleKey, meta as MangaMetadata);
+              await setMangaMetadata(null as any, titleKey, meta as MangaMetadata);
               logger.info({ titleKey }, "Worker: Metadata enriched and cached");
             }
           }
@@ -182,7 +149,7 @@ export default async function handler(req: Request, res: Response) {
         await sendDiscordEmbedsChannelBatch(
           [task.chapter as any],
           channelId,
-          redis,
+          null,
           task.mentions?.join(" ")
         );
         successCount++;
@@ -193,68 +160,41 @@ export default async function handler(req: Request, res: Response) {
       }
     }
 
-    // Mark as SENT in Redis history
+    // Mark as SENT in Supabase
     if (successCount > 0 && task.chapter.key) {
       try {
-        const nowIso = new Date().toISOString();
-        const chapterTtlMs = CHAPTER_TTL_SEC * 1000;
-        const crossTtlMs = CROSS_SOURCE_DEDUPE_TTL_SEC * 1000;
-        
-        const historyPayload = JSON.stringify({
-          s: CLAIM_STATUS.SENT,
-          ca: nowIso,
-          ea: nowIso,
-          e: Date.now() + chapterTtlMs,
+        const chapterUrl = task.chapter.key.startsWith("chapter:") ? task.chapter.key.slice("chapter:".length) : task.chapter.key;
+        const dupUrl = task.chapter.duplicateKey
+          ? (task.chapter.duplicateKey.startsWith("chapter:") ? task.chapter.duplicateKey.slice("chapter:".length) : task.chapter.duplicateKey)
+          : "";
+
+        // Mark claim as sent
+        await supabase.rpc("complete_dispatch_claim", { 
+          p_chapter_url: chapterUrl, 
+          p_duplicate_url: dupUrl || "" 
         });
 
-        const recentPayload = JSON.stringify({
-          t: task.chapter.title,
-          c: task.chapter.chapter,
-          u: task.chapter.url,
-          cv: task.chapter.cover ?? null,
-          s: task.chapter.source,
-          ut: task.chapter.updatedTime ?? null,
-          sa: nowIso,
-          ea: nowIso,
-          so: 0, 
-          e: Date.now() + RECENT_LIST_TTL_SEC * 1000,
-        });
-
-        const dupPayload = task.chapter.duplicateKey ? JSON.stringify({
-          s: CLAIM_STATUS.SENT,
-          ca: nowIso,
-          ea: nowIso,
-          e: Date.now() + crossTtlMs,
-        }) : "";
-
-        await redis.eval(
-          ATOMIC_DISPATCH_SCRIPT,
-          [DISPATCH_HISTORY_KEY, MANGA_LAST_UPDATES_KEY, RECENT_CHAPTERS_KEY, MANGA_LAST_CHAPTERS_KEY],
-          [
-            task.chapter.key,
-            task.chapter.titleKey || "",
-            nowIso,
-            historyPayload,
-            recentPayload,
-            String(chapterTtlMs),
-            String(RECENT_LIST_MAX_SIZE),
-            task.chapter.duplicateKey || "",
-            dupPayload,
-            String(getChapterNumber(task.chapter.chapter) || "")
-          ]
-        );
-        logger.info({ chapter: task.chapter.title }, "Updated Redis history");
+        // Update title last chapter
+        const chapterNum = getChapterNumber(task.chapter.chapter);
+        if (chapterNum && task.chapter.titleKey) {
+          try {
+            await supabase.rpc("upsert_title_last_chapter", {
+              p_title_key: task.chapter.titleKey,
+              p_chapter_number: chapterNum,
+            });
+          } catch (_) {}
+        }
         
-        // 5. RECORD TO SUPABASE (New: for Winner/Source stats)
+        logger.info({ chapter: task.chapter.title }, "Marked as sent in Supabase");
+        
+        // Record to dispatch_history
         const titleKey = task.chapter.titleKey || "";
         if (titleKey) {
-          import("../lib/services/storage.js").then(({ recordDispatchToSupabase }) => {
-             recordDispatchToSupabase(task.chapter as any, titleKey).catch(() => {});
-          });
+          recordDispatchToSupabase(task.chapter as any, titleKey).catch(() => {});
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        logger.error({ err: message, chapter: task.chapter.title }, "Failed to update Redis history in worker");
+        logger.error({ err: message, chapter: task.chapter.title }, "Failed to mark as sent in Supabase");
       }
     }
 
