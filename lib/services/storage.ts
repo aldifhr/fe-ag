@@ -1,7 +1,5 @@
-import { redis } from "../redis.js";
 import { getLogger } from "../logger.js";
 import {
-  RedisClient,
   CronStatus,
   ClaimState,
   SourceHealth,
@@ -12,10 +10,6 @@ import {
   ChannelValidationStateSchema,
 } from "../schemas.js";
 import { z } from "zod";
-import {
-  CHANNEL_HASH_KEY,
-  CHANNEL_VALIDATION_STATE_KEY,
-} from "../constants/redis.js";
 import { validateData } from "../validation.js";
 import { loadWhitelist, saveWhitelist, invalidateWhitelistCache } from "./storage/whitelist.js";
 import { batchGetMangaMetadata, setMangaMetadata, deleteMangaMetadata } from "./storage/metadata.js";
@@ -28,6 +22,18 @@ export { batchGetMangaMetadata, setMangaMetadata, deleteMangaMetadata };
 export { supabasePing };
 export { readCronLogs, readRecentChapters, fetchDashboardSnapshot } from "./storage/dashboard.js";
 
+export async function readObjectCache<T>(_key: string): Promise<T | null> {
+  return null as T | null;
+}
+
+export async function writeObjectCache(
+  _key: string,
+  _payload: unknown,
+  _cacheTtl: number,
+): Promise<void> {
+  // In-memory cache removed — Supabase is source of truth
+}
+
 type ChannelValidationState = z.infer<typeof ChannelValidationStateSchema>;
 
 const logger = getLogger({ scope: "storage" });
@@ -35,39 +41,13 @@ const logger = getLogger({ scope: "storage" });
 const LIVE_EVENTS_LIMIT = 50;
 
 
-export async function invalidateDashboardCaches(
-  redisClient: RedisClient,
-  keys: string[] = [],
-): Promise<void> {
-  if (!redisClient || !Array.isArray(keys) || keys.length === 0) return;
-  await Promise.all(
-    [...new Set(keys)].map((key) => redisClient.del(key)),
-  );
-}
-
-
-export async function readObjectCache<T>(redisClient: RedisClient, key: string): Promise<T | null> {
-  const cached = await redisClient.get(key);
-  if (!cached) return null;
-  return typeof cached === "string" ? JSON.parse(cached) : (cached as T);
-}
-
-export async function writeObjectCache(
-  redisClient: RedisClient,
-  key: string,
-  payload: unknown,
-  cacheTtl: number,
-): Promise<void> {
-  await redisClient.set(key, JSON.stringify(payload), { ex: cacheTtl });
-}
-
-export async function writeCronStatus(_redisClient: RedisClient, status: CronStatus): Promise<void> {
+export async function writeCronStatus(status: CronStatus): Promise<void> {
   supabase.from("cron_run_status").insert({ status }).then(({ error }: any) => {
     if (error) logger.warn({ error: error.message }, "Failed to persist cron status to Supabase");
   });
 }
 
-export async function readCronStatus(_redisClient: RedisClient): Promise<CronStatus | null> {
+export async function readCronStatus(): Promise<CronStatus | null> {
   const { data: dbRow } = await supabase.from("cron_run_status").select("status").order("id", { ascending: false }).limit(1).maybeSingle();
   if (dbRow?.status) {
     return validateData(CronStatusSchema, dbRow.status, "cron_status", logger);
@@ -76,7 +56,6 @@ export async function readCronStatus(_redisClient: RedisClient): Promise<CronSta
 }
 
 export async function loadSourceHealthSnapshot(
-  _redisClient: RedisClient,
   keys: string[],
 ): Promise<Record<string, SourceHealth>> {
   if (!keys.length) return {};
@@ -112,9 +91,7 @@ export async function loadSourceHealthSnapshot(
 }
 
 
-export async function readChannelValidationState(
-  _redisClient: RedisClient = redis,
-): Promise<ChannelValidationState | null> {
+export async function readChannelValidationState(): Promise<ChannelValidationState | null> {
   try {
     const { data } = await supabase
       .from("channel_validation_cache")
@@ -135,7 +112,6 @@ export async function readChannelValidationState(
 }
 
 export async function writeChannelValidationState(
-  _redisClient: RedisClient = redis,
   state: ChannelValidationState,
 ): Promise<void> {
   try {
@@ -172,7 +148,7 @@ export async function appendLiveEvent(
 }
 
 // --- Channel Store ---
-export async function getNotificationChannel(guildId: string, _redisClient: RedisClient = redis): Promise<string | null> {
+export async function getNotificationChannel(guildId: string): Promise<string | null> {
   const field = String(guildId);
   try {
     const { data, error } = await supabase
@@ -187,7 +163,7 @@ export async function getNotificationChannel(guildId: string, _redisClient: Redi
   return null;
 }
 
-export async function setNotificationChannel(guildId: string, channelId: string, _redisClient: RedisClient = redis): Promise<void> {
+export async function setNotificationChannel(guildId: string, channelId: string): Promise<void> {
   const field = String(guildId);
   const value = String(channelId).trim();
   try {
@@ -201,7 +177,7 @@ export async function setNotificationChannel(guildId: string, channelId: string,
   channelMapCache = null;
 }
 
-export async function deleteGuildChannel(guildId: string, _redisClient: RedisClient = redis): Promise<void> {
+export async function deleteGuildChannel(guildId: string): Promise<void> {
   const field = String(guildId);
   try {
     await supabase.from('guild_settings').delete().eq('guild_id', field);
@@ -214,7 +190,7 @@ export async function deleteGuildChannel(guildId: string, _redisClient: RedisCli
 let channelMapCache: Record<string, string> | null = null;
 let channelMapCacheExpiry = 0;
 
-export async function getAllGuildChannels(_redisClient: RedisClient = redis): Promise<Record<string, string>> {
+export async function getAllGuildChannels(): Promise<Record<string, string>> {
   const now = Date.now();
   if (channelMapCache && now < channelMapCacheExpiry) {
     return channelMapCache;
@@ -240,7 +216,7 @@ export async function getAllGuildChannels(_redisClient: RedisClient = redis): Pr
   return channelMapCache || {};
 }
 
-export async function batchGetLastScrapeChecks(_redisClient: RedisClient, titleKeys: string[]): Promise<(string | null)[]> {
+export async function batchGetLastScrapeChecks(titleKeys: string[]): Promise<(string | null)[]> {
   if (!titleKeys?.length) return [];
 
   try {
@@ -260,7 +236,6 @@ export async function batchGetLastScrapeChecks(_redisClient: RedisClient, titleK
 }
 
 export async function batchSetLastScrapeChecks(
-  _redisClient: RedisClient,
   titleKeys: string[],
   timestamp: string | number = Date.now(),
 ): Promise<void> {
@@ -284,7 +259,6 @@ export async function batchSetLastScrapeChecks(
 }
 
 export async function batchClaimPendingChapters(
-  _redisClient: RedisClient,
   items: { key: string; duplicateKey?: string | null; nowIso: string }[],
   pendingClaimTtl: number,
 ): Promise<boolean[]> {

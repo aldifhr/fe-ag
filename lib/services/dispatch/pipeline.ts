@@ -1,126 +1,59 @@
-import { ChapterItem, RedisClient, RedisPipeline } from "../../types.js";
-import {
-  DISPATCH_HISTORY_KEY,
-  MANGA_LAST_UPDATES_KEY,
-  RECENT_CHAPTERS_KEY,
-  MANGA_LAST_CHAPTERS_KEY,
-} from "../../constants/redis.js";
-import { ATOMIC_DISPATCH_SCRIPT } from "../../redisScripts.js";
-import {
-  CLAIM_STATUS,
-  RECENT_LIST_TTL_SEC,
-  RECENT_LIST_MAX_SIZE,
-} from "../../config.js";
+import { ChapterItem } from "../../types.js";
+import { supabase } from "../../supabase.js";
+import { getChapterNumber } from "../../domain.js";
 import { scanAndCleanupExpired } from "./history.js";
 import { getLogger } from "../../logger.js";
-import { getChapterNumber } from "../../domain.js";
 
 const logger = getLogger({ scope: "dispatch" });
 
-export function addSuccessWriteCommandsToPipeline({
-  pipeline,
+/**
+ * Mark a chapter as sent in Supabase after successful Discord notification.
+ * Calls Supabase RPCs to update dispatch_claims, title_last_chapters, and manga_last_updates.
+ */
+export async function markChapterSent({
   item,
   key,
   duplicateKey,
   titleKey,
-  index,
   nowIso,
-  chapterTtl,
-  crossSourceDedupeTtl,
-  redisClient,
 }: {
-  pipeline: RedisPipeline;
   item: ChapterItem;
   key: string;
   duplicateKey: string | null;
   titleKey: string;
-  index: number;
   nowIso: string;
-  chapterTtl: number;
-  crossSourceDedupeTtl: number;
-  redisClient: RedisClient;
-}): void {
-  const chapterTtlMs = chapterTtl * 1000;
-
-  const historyPayload = JSON.stringify({
-    s: CLAIM_STATUS.SENT,
-    ca: nowIso,
-    ea: nowIso,
-    e: Date.now() + chapterTtlMs,
-  });
-
-  const recentPayload = JSON.stringify({
-    t: item.title,
-    c: item.chapter,
-    u: item.url,
-    cv: item.cover ?? null,
-    s: item.source ?? "ikiru",
-    ut: item.updatedTime ?? null,
-    sa: nowIso,
-    ea: nowIso,
-    so: index,
-    e: Date.now() + RECENT_LIST_TTL_SEC * 1000,
-  });
-
-  if (typeof pipeline.eval === "function") {
-    const dupTtlMs = crossSourceDedupeTtl * 1000;
-    const dupPayload = duplicateKey
-      ? JSON.stringify({ s: CLAIM_STATUS.SENT, ca: nowIso, ea: nowIso, e: Date.now() + dupTtlMs })
-      : "";
-
-    pipeline.eval(
-      ATOMIC_DISPATCH_SCRIPT,
-      [DISPATCH_HISTORY_KEY, MANGA_LAST_UPDATES_KEY, RECENT_CHAPTERS_KEY, MANGA_LAST_CHAPTERS_KEY],
-      [
-        key,
-        titleKey,
-        nowIso,
-        historyPayload,
-        recentPayload,
-        String(chapterTtlMs),
-        String(RECENT_LIST_MAX_SIZE),
-        duplicateKey || "",
-        dupPayload,
-        String(getChapterNumber(item.chapter) || ""),
-      ],
-    );
-  } else {
-    // Legacy fallback (non-atomic)
-    pipeline.hset(DISPATCH_HISTORY_KEY, { [key]: historyPayload });
-
-    if (duplicateKey) {
-      const dupTtlMs = crossSourceDedupeTtl * 1000;
-      const dupPayload = JSON.stringify({
-        s: CLAIM_STATUS.SENT,
-        ca: nowIso,
-        ea: nowIso,
-        e: Date.now() + dupTtlMs,
-      });
-      pipeline.hset(DISPATCH_HISTORY_KEY, { [duplicateKey]: dupPayload });
-    }
-
-    pipeline.hset(MANGA_LAST_UPDATES_KEY, { [titleKey]: nowIso });
-    pipeline.zadd(RECENT_CHAPTERS_KEY, { score: Date.now(), member: recentPayload });
-    pipeline.zremrangebyrank(RECENT_CHAPTERS_KEY, 0, -(RECENT_LIST_MAX_SIZE + 1));
-  }
-}
-
-export async function cleanupRecentChapters(redisClient: RedisClient): Promise<void> {
-  const now = Date.now();
-  const maxEntries = 50;
-  const expiryThreshold = now - RECENT_LIST_TTL_SEC * 1000;
+}): Promise<void> {
+  const chapterUrl = key.startsWith("chapter:") ? key.slice("chapter:".length) : key;
+  const dupUrl = duplicateKey
+    ? (duplicateKey.startsWith("chapter:") ? duplicateKey.slice("chapter:".length) : duplicateKey)
+    : "";
 
   try {
-    await redisClient.zremrangebyscore(RECENT_CHAPTERS_KEY, 0, expiryThreshold);
-    const count = await redisClient.zcard(RECENT_CHAPTERS_KEY);
-    if (count > maxEntries) {
-      await redisClient.zremrangebyrank(RECENT_CHAPTERS_KEY, 0, count - maxEntries - 1);
-    }
-  } catch (err: unknown) {
-    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "[cleanupRecentChapters] Error");
+    await Promise.all([
+      supabase.rpc("complete_dispatch_claim", {
+        p_chapter_url: chapterUrl,
+        p_duplicate_url: dupUrl,
+      }),
+      supabase.rpc("upsert_title_last_chapter", {
+        p_title_key: titleKey,
+        p_chapter_number: getChapterNumber(item.chapter) || 0,
+      }),
+      supabase.rpc("upsert_manga_last_update", {
+        p_title_key: titleKey,
+        p_updated_at: nowIso,
+      }),
+    ]);
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), url: chapterUrl },
+      "Failed to mark chapter as sent in Supabase",
+    );
   }
 }
 
+/**
+ * Fire-and-forget cleanup of expired dispatch claims via Supabase RPC.
+ */
 export function fireAndForgetCleanup(): void {
   Promise.resolve()
     .then(() => scanAndCleanupExpired(Date.now()))

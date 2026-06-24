@@ -10,7 +10,6 @@ import {
 import {
   loadWhitelist,
   saveWhitelist,
-  invalidateDashboardCaches,
   deleteMangaMetadata,
   setMangaMetadata,
 } from "./storage.js";
@@ -199,7 +198,6 @@ async function persistWhitelistItems(
   { saveWhitelistFn = saveWhitelist, redisClient = redis } = {},
 ) {
   await saveWhitelistFn(items);
-  await invalidateDashboardCaches(redisClient, [WHITELIST_API_CACHE_KEY]);
 }
 
 export async function addWhitelistEntry(

@@ -4,12 +4,11 @@ import {
   ENQUEUED_EXPIRY_MS,
 } from "../../config.js";
 import { env } from "../../config/env.js";
-import { safeJsonParse } from "../../dateUtils.js";
-import { DISPATCH_HISTORY_KEY, MANGA_LAST_CHAPTERS_KEY, MANGA_LAST_UPDATES_KEY } from "../../constants/redis.js";
 import { getChapterNumber } from "../../domain.js";
-import { RedisClient, DispatchChapterMeta, DispatchQueueState, ClaimState, ChapterItem } from "../../types.js";
+import { DispatchChapterMeta, DispatchQueueState, ClaimState, ChapterItem } from "../../types.js";
 import { supabase } from "../../supabase.js";
 import { getLogger } from "../../logger.js";
+import { safeJsonParse } from "../../dateUtils.js";
 import {
   buildDispatchChapterMeta,
   preferDuplicateMeta,
@@ -105,24 +104,94 @@ export function classifyBlockingClaim(
 }
 
 /**
- * Fetch existing flags from Redis for a list of keys
+ * Map a Supabase dispatch_claims row to a format parseClaimState understands
  */
-export async function fetchExistingFlags(
-  redisClient: RedisClient,
-  keys: string[],
-): Promise<(ClaimState | string | null)[]> {
-  if (!keys.length) return [];
+function claimRowToValue(row: { status: string; expires_at?: string | null; claimed_at?: string | null; sent_at?: string | null }): Record<string, unknown> {
+  return {
+    s: row.status,
+    ca: row.claimed_at,
+    sa: row.sent_at,
+    e: row.expires_at,
+    status: row.status,
+    claimedAt: row.claimed_at,
+    sentAt: row.sent_at,
+    expiresAt: row.expires_at,
+  };
+}
 
-  let results = await redisClient.hmget(DISPATCH_HISTORY_KEY, ...keys);
+/**
+ * Fetch claim statuses from Supabase for a list of chapter URLs
+ */
+async function fetchClaimStatuses(urls: string[]): Promise<Map<string, Record<string, unknown>>> {
+  const map = new Map<string, Record<string, unknown>>();
+  if (!urls.length) return map;
 
-  if (results && typeof results === "object" && !Array.isArray(results)) {
-    results = keys.map((k) => (results as any)[k]);
+  try {
+    const { data } = await supabase
+      .from("dispatch_claims")
+      .select("chapter_url, status, expires_at, claimed_at, sent_at")
+      .in("chapter_url", urls);
+
+    if (data) {
+      for (const row of data) {
+        map.set(row.chapter_url, claimRowToValue(row));
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch claim statuses from Supabase");
   }
 
-  return (results || []).map((j: unknown) => {
-    if (typeof j === "string") return safeJsonParse(j, j);
-    return j;
-  }) as (ClaimState | string | null)[];
+  return map;
+}
+
+/**
+ * Query title_last_chapters from Supabase for a set of title keys
+ */
+async function fetchLastChapters(titleKeys: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (!titleKeys.length) return map;
+
+  try {
+    const { data } = await supabase
+      .from("title_last_chapters")
+      .select("title_key, chapter_number")
+      .in("title_key", titleKeys);
+
+    if (data) {
+      for (const row of data) {
+        map.set(row.title_key, row.chapter_number);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch last chapters from Supabase");
+  }
+
+  return map;
+}
+
+/**
+ * Query manga_last_updates from Supabase for a set of title keys
+ */
+async function fetchLastUpdates(titleKeys: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!titleKeys.length) return map;
+
+  try {
+    const { data } = await supabase
+      .from("manga_last_updates")
+      .select("title_key, updated_at")
+      .in("title_key", titleKeys);
+
+    if (data) {
+      for (const row of data) {
+        map.set(row.title_key, row.updated_at);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch last updates from Supabase");
+  }
+
+  return map;
 }
 
 /**
@@ -262,7 +331,6 @@ function parseHmgetPipelineResult(
  * ```
  */
 export async function prepareDispatchQueue(
-  redisClient: RedisClient,
   matched: ChapterItem[] = [],
   maxItems = Infinity,
   pendingStaleMs = CHAPTER_PENDING_TTL_SEC * 1000,
@@ -280,50 +348,33 @@ export async function prepareDispatchQueue(
   ];
 
   const titleKeys = [...new Set(validChapterMeta.map((e) => e.item.titleKey).filter(Boolean) as string[])];
-  const pipeline = redisClient.pipeline();
-  if (keys.length > 0) pipeline.hmget(DISPATCH_HISTORY_KEY, ...keys);
-  if (duplicateKeys.length > 0) pipeline.hmget(DISPATCH_HISTORY_KEY, ...duplicateKeys);
-  if (titleKeys.length > 0) pipeline.hmget(MANGA_LAST_CHAPTERS_KEY, ...titleKeys);
-  if (titleKeys.length > 0) pipeline.hmget(MANGA_LAST_UPDATES_KEY, ...titleKeys);
 
-  const results = (await pipeline.exec() || []) as unknown[][];
-  let resIdx = 0;
-  const rawFlags = keys.length > 0 ? results[resIdx++] : [];
-  const rawDups = duplicateKeys.length > 0 ? results[resIdx++] : [];
-  const rawLastChapters = titleKeys.length > 0 ? results[resIdx++] : [];
-  const rawLastUpdates = titleKeys.length > 0 ? results[resIdx++] : [];
-  
-  const existingFlags = parseHmgetPipelineResult(keys, rawFlags);
-  const duplicateValues = parseHmgetPipelineResult(duplicateKeys, rawDups);
+  // Build the set of all URLs to look up in dispatch_claims
+  const allClaimUrls = [
+    ...new Set([
+      ...keys.map(k => k.startsWith("chapter:") ? k.slice("chapter:".length) : k),
+      ...duplicateKeys.map(k => k.startsWith("chapter:") ? k.slice("chapter:".length) : k),
+    ]),
+  ];
 
-  // Map titleKey to last dispatched chapter number
-  const lastChapterMap = new Map<string, number>();
-  if (titleKeys.length > 0 && rawLastChapters) {
-    const lastChapterArray = Array.isArray(rawLastChapters) 
-      ? rawLastChapters 
-      : titleKeys.map(k => (rawLastChapters as any)[k]);
-      
-    titleKeys.forEach((tk, i) => {
-      const val = lastChapterArray[i];
-      if (val) {
-        const num = getChapterNumber(String(val));
-        if (num !== null) lastChapterMap.set(tk, num);
-      }
-    });
-  }
+  // Fetch all data from Supabase in parallel
+  const [claimsMap, lastChapterMap, lastUpdateMap] = await Promise.all([
+    fetchClaimStatuses(allClaimUrls),
+    fetchLastChapters(titleKeys),
+    fetchLastUpdates(titleKeys),
+  ]);
 
-  // Map titleKey to whitelist addition time
-  const lastUpdateMap = new Map<string, string>();
-  if (titleKeys.length > 0 && rawLastUpdates) {
-    const lastUpdateArray = Array.isArray(rawLastUpdates)
-      ? rawLastUpdates
-      : titleKeys.map(k => (rawLastUpdates as any)[k]);
-      
-    titleKeys.forEach((tk, i) => {
-      const val = lastUpdateArray[i];
-      if (val) lastUpdateMap.set(tk, String(val));
-    });
-  }
+  // Build existingFlags array matching the old Redis format
+  const existingFlags = validChapterMeta.map((entry) => {
+    const rawKey = entry.key?.startsWith("chapter:") ? entry.key.slice("chapter:".length) : entry.key;
+    return rawKey ? (claimsMap.get(rawKey) ?? null) : null;
+  });
+
+  // Build duplicateValues array
+  const duplicateValues = duplicateKeys.map((key) => {
+    const rawKey = key.startsWith("chapter:") ? key.slice("chapter:".length) : key;
+    return claimsMap.get(rawKey) ?? null;
+  }) as unknown as (ClaimState | string | null)[];
 
   const duplicateFlagMap = buildDuplicateFlagMap(
     duplicateKeys,

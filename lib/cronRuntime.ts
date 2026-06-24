@@ -33,7 +33,6 @@ import {
   CronStatus,
   TimingMetrics,
   LifecycleState,
-  RedisClient,
 } from "./types.js";
 import {
   shouldRunChannelValidation,
@@ -68,7 +67,6 @@ const SOURCE_FAILURE_THRESHOLD = env.SOURCE_FAIL_THRESHOLD;
 const SOURCE_COOLDOWN_SECONDS = env.SOURCE_COOLDOWN_SECONDS;
 
 export async function runCronJob({
-  redisClient = redis,
   logger: cronLogger = getLogger({ scope: "cron" }),
   loadWhitelistFn = loadWhitelist,
   getAllGuildChannelsFn = getAllGuildChannels,
@@ -108,7 +106,7 @@ export async function runCronJob({
 
     // 1. Acquire lock (skipped when per-source locks already handle concurrency)
     if (!skipLock) {
-      const lockResult = await acquireCronLock(redisClient, { skipIfLocked: true });
+      const lockResult = await acquireCronLock(redis, { skipIfLocked: true });
       if (!lockResult.acquired) {
         return {
           statusCode: 200,
@@ -123,7 +121,7 @@ export async function runCronJob({
     lifecycle.currentStep = "loading_inputs";
     const loadInputsStart = Date.now();
     const inputs = await loadCronInputs({
-      redis: redisClient,
+      redis,
       loadWhitelistFn,
       getAllGuildChannelsFn,
     });
@@ -133,7 +131,7 @@ export async function runCronJob({
     const validation = validateCronInputs(inputs);
     if (!validation.valid) {
       return await handleShortCircuit({
-        redis: redisClient,
+        redis,
         start,
         reason: validation.reason!,
         whitelist: inputs.whitelist.length,
@@ -157,7 +155,7 @@ export async function runCronJob({
     // 4. Validate guild channels
     const validationStart = Date.now();
     const guildValidation = await loadValidatedGuilds({
-      redisClient,
+      redisClient: redis,
       guildEntries,
       channelValidationConcurrency,
       botToken: DISCORD_TOKEN!,
@@ -184,7 +182,7 @@ export async function runCronJob({
     // Short-circuit if no active guilds
     if (!activeGuildCount) {
       return await handleShortCircuit({
-        redis: redisClient,
+        redis,
         start,
         reason: "no_active_guilds",
         whitelist: whitelist.length,
@@ -197,7 +195,7 @@ export async function runCronJob({
 
     // 5. Scrape phase
     const scrapeResult = await runScrapePhase({
-      redisClient,
+      redisClient: null,
       whitelist,
       activeGuildCount,
       disabledSources: Object.entries(sourceHealthMap)
@@ -229,7 +227,6 @@ export async function runCronJob({
     lifecycle.currentStep = "dispatching_notifications";
 
     const { sent, skipped, failed, enqueued, skipBreakdown } = await runDispatch({
-      redisClient,
       matched,
       activeChannelIds,
       channelToGuild,
@@ -248,7 +245,6 @@ export async function runCronJob({
 
     // 7. Write success status
     await writeSuccessStatus({
-      redis: redisClient,
       start,
       sent,
       skipped,
@@ -265,7 +261,7 @@ export async function runCronJob({
     });
 
     // 8. Cleanup (fire-and-forget)
-    runCleanupTasks(redisClient);
+    runCleanupTasks(redis);
 
     // 9. Source Health Check (Alert if stale)
     const { checkSourceHealth } = await import("./services/health-monitor.js");
@@ -305,7 +301,6 @@ export async function runCronJob({
 
 
     await writeErrorStatus({
-      redis: redisClient,
       start,
       error: err.message,
       step,

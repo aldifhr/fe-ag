@@ -6,11 +6,10 @@ import { isQStashEnabled, publishBatchToQStash, QStashNotificationTask } from ".
 import { resolvePositiveInt } from "../config.js";
 import { env } from "../config/env.js";
 import { hydrateIkiruMetadataIfMissing, IkiruMetaCacheEntry } from "../services/dispatch/hydration.js";
-import type { ChapterItem, RedisClient, SendEmbedFn } from "../types.js";
+import type { ChapterItem, SendEmbedFn } from "../types.js";
 import type { Logger } from "pino";
 
 export interface QStashDispatchOptions {
-  redisClient: RedisClient;
   matched: ChapterItem[];
   activeChannelIds: string[];
   channelToGuild: Map<string, string>;
@@ -35,7 +34,7 @@ export interface DispatchResult {
 
 export async function runDispatch(opts: QStashDispatchOptions): Promise<DispatchResult> {
   const {
-    redisClient, matched, activeChannelIds, channelToGuild,
+    matched, activeChannelIds, channelToGuild,
     nowIso, start, deadlineMs, sendEmbedFn, deleteGuildChannelFn,
     appendLiveEvent, log, warn, cronLogger,
   } = opts;
@@ -52,7 +51,6 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
   if (qstashEnabled) {
     const pendingClaimTtl = resolvePositiveInt(env.CHAPTER_PENDING_TTL_SEC, 600);
     const queueState = await prepareDispatchQueue(
-      redisClient,
       matched,
       Infinity,
       pendingClaimTtl * 1000,
@@ -64,7 +62,7 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
       nowIso,
     }));
 
-    const claimResults = await batchClaimPendingChapters(redisClient, claimItems, pendingClaimTtl);
+    const claimResults = await batchClaimPendingChapters(claimItems, pendingClaimTtl);
     const claimedMeta = queueState.queuedMeta.filter((_, i) => claimResults[i]);
     const claimedItems = claimedMeta.map(m => m.item);
 
@@ -111,7 +109,6 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
 
     if (tasks.length > 0 && queuedCount === 0) {
       const dispatchResult = await dispatchChapters({
-        redis: redisClient,
         matched: claimedMeta.map((m) => m.item),
         channelIds: activeChannelIds,
         sendEmbed: sendEmbedFn as SendEmbedFn,
@@ -148,7 +145,6 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
     cronLogger.info({ queuedCount, totalMatched: matched.length, skipped }, "Pushed to QStash queue with deduplication");
   } else {
     const dispatchResult = await dispatchChapters({
-      redis: redisClient,
       matched,
       channelIds: activeChannelIds,
       sendEmbed: sendEmbedFn as SendEmbedFn,

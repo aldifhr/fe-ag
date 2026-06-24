@@ -9,11 +9,11 @@ import {
   buildPreferredSecondaryUrls,
 } from "../services/scrapePreferences.js";
 import { SOURCE_KEYS } from "../constants/redis.js";
-import type { ChapterItem, RedisClient, TimingMetrics, LifecycleState } from "../types.js";
+import type { ChapterItem, TimingMetrics, LifecycleState } from "../types.js";
 import type { Logger } from "pino";
 
 export interface ScrapePhaseOptions {
-  redisClient: RedisClient;
+  redisClient: null;
   whitelist: any[];
   activeGuildCount: number;
   disabledSources: Set<string> | string[];
@@ -25,7 +25,7 @@ export interface ScrapePhaseOptions {
   deadlineMs: number;
   cronLogger: Logger;
   warn: (msg: string, obj?: Record<string, unknown>) => void;
-  scrapeMangaUpdatesWithMetaFn: (redis: RedisClient, opts: any) => Promise<any>;
+  scrapeMangaUpdatesWithMetaFn: (redis: null, opts: any) => Promise<any>;
   CRON_INCREMENTAL_DEFAULT: boolean;
   CRON_DEDUPLICATE_DEFAULT: boolean;
   CRON_FAST_SECONDARY_LIMIT: number;
@@ -62,7 +62,7 @@ export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePh
   const preferredSecondaryUrls = buildPreferredSecondaryUrls(whitelist) as unknown as Record<string, any[]>;
 
   const { items: allResults, sourceStates, nextSourceHealth: scrapeNextHealth, metrics: orchestratorMetrics } =
-    await scrapeMangaUpdatesWithMetaFn(redisClient, {
+    await scrapeMangaUpdatesWithMetaFn(null, {
       disabledSources: Array.from(disabledSources),
       preferredIkiruTitles,
       preferredSecondaryEntries,
@@ -130,7 +130,7 @@ export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePh
       sourceHealth: nextSourceHealth,
       timingMetrics: finalizeTimingMetrics(start, timingMetrics),
     });
-    await writeCronStatus(redisClient, statusPayload);
+    await writeCronStatus(statusPayload);
     await appendCronLogThrottled(
       {
         tag: "info",
@@ -186,7 +186,7 @@ export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePh
       sourceHealth: nextSourceHealth,
       timingMetrics: finalizeTimingMetrics(start, timingMetrics),
     });
-    await writeCronStatus(redisClient, statusPayload);
+    await writeCronStatus(statusPayload);
     return {
       shortCircuit: {
         statusCode: 200,

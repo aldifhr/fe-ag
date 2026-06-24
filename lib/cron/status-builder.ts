@@ -6,7 +6,6 @@ import { getLogger } from "../logger.js";
 import { writeCronStatus, appendLiveEvent } from "../services/storage.js";
 import { appendCronLog } from "../cronLogs.js";
 import type {
-  RedisClient,
   CronStatus,
   SourceHealth,
   ScraperMetrics,
@@ -18,7 +17,6 @@ import { finalizeTimingMetrics } from "./helpers.js";
 const logger = getLogger({ scope: "cron:status" });
 
 export interface StatusBuildOptions {
-  redis: RedisClient;
   start: number;
   sent: number;
   skipped: number;
@@ -35,7 +33,6 @@ export interface StatusBuildOptions {
 }
 
 export interface ErrorStatusOptions {
-  redis: RedisClient;
   start: number;
   error: string;
   step?: string;
@@ -129,7 +126,7 @@ export async function writeSuccessStatus(
         );
       },
     ),
-    writeCronStatus(options.redis, statusPayload),
+    writeCronStatus(statusPayload),
   ]);
 
   // Log summary
@@ -160,7 +157,7 @@ export async function writeErrorStatus(
   const errorStatus = buildErrorStatus(options);
 
   try {
-    await writeCronStatus(options.redis, errorStatus);
+    await writeCronStatus(errorStatus);
   } catch (err: unknown) {
     logger.error(
       { err: err instanceof Error ? err.message : String(err) },

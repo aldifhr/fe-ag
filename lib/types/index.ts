@@ -28,13 +28,13 @@ export {
 
 // Redis types
 export type {
+  RedisClient,
   RedisValue,
   RedisHashFieldValue,
   RedisSetOptions,
   RedisZRangeOptions,
   RedisScanOptions,
   RedisPipeline,
-  RedisClient,
 } from "./redis.js";
 
 // Discord types

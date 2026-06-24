@@ -28,8 +28,6 @@ import {
 import {
   readCronLogs,
   loadSourceHealthSnapshot,
-  readObjectCache,
-  writeObjectCache,
 } from "../lib/services/storage.js";
 import { redis } from "../lib/redis.js";
 
@@ -138,7 +136,7 @@ async function fetchCronIncidents(redisClient: typeof redis, daysBack = 30) {
 
 async function fetchHealthIncidents(redisClient: typeof redis, daysBack = 30) {
   try {
-    const sourceHealth = await loadSourceHealthSnapshot(redisClient, SOURCE_KEYS);
+    const sourceHealth = await loadSourceHealthSnapshot(SOURCE_KEYS);
     const incidents: IncidentEntry[] = [];
     const cutoffTime = getCutoffTime(daysBack);
 
@@ -326,7 +324,6 @@ async function fetchCronErrorLogs(redisClient: typeof redis, daysBack = 7) {
 async function fetchHealthCheckFailures(redisClient: typeof redis, daysBack = 7) {
   try {
     const sourceHealth = (await loadSourceHealthSnapshot(
-      redisClient,
       SOURCE_KEYS,
     )) as Record<string, any>;
     const failures: any[] = [];
@@ -442,11 +439,7 @@ async function handleIncidents(req: Request, res: Response, reqLogger: any) {
     const includeResolved = resolved !== "false";
 
     const cacheKey = `${INCIDENT_CACHE_KEY}:${daysBack}:${includeResolved}`;
-    const cached = await readObjectCache(redis, cacheKey);
-    if (cached) {
-      logApiOk(reqLogger, { status: 200, cached: true });
-      return res.status(200).json(createSuccessResponse(cached));
-    }
+    // Cache bypassed — Supabase is source of truth
 
     const [cronIncidents, healthIncidents, discordIncidents] =
       await Promise.all([
@@ -506,7 +499,7 @@ async function handleIncidents(req: Request, res: Response, reqLogger: any) {
       })),
     };
 
-    await writeObjectCache(redis, cacheKey, response, INCIDENT_CACHE_TTL);
+    // Cache write bypassed — Supabase is source of truth
 
     logApiOk(reqLogger, {
       status: 200,

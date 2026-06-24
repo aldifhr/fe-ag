@@ -17,7 +17,7 @@ export async function loadValidatedGuilds({
   log: (msg: string) => void;
   warn: (msg: string) => void;
 }) {
-  const lastValidationState = (await readChannelValidationState(redisClient)) as
+  const lastValidationState = (await readChannelValidationState()) as
     | { lastRun?: string; at?: string; totalChannels?: number; total?: number; validCount?: number; valid?: number; invalidCount?: number }
     | string
     | null;
@@ -55,7 +55,7 @@ export async function loadValidatedGuilds({
     }
   }
 
-  await writeChannelValidationState(redisClient, {
+  await writeChannelValidationState({
     lastRun: new Date().toISOString(),
     totalChannels: guildEntries.length,
     validCount: Object.keys(guilds).length,

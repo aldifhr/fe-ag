@@ -85,7 +85,7 @@ export async function handleShortCircuit(
     timingMetrics: finalizeTimingMetrics(start, timingMetrics),
   });
 
-  await writeCronStatus(redis, statusPayload);
+  await writeCronStatus(statusPayload);
 
   // Log the short circuit
   const logCode = reason;

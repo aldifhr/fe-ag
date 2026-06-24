@@ -4,10 +4,10 @@ import { redis } from "../redis.js";
 import type { RedisClient } from "../types.js";
 
 export async function readCronStatusWithHealth(redisClient: RedisClient = redis) {
-  const data = await readCronStatus(redisClient);
+  const data = await readCronStatus();
   if (!data) return null;
 
-  const fallbackHealth = await loadSourceHealthSnapshot(redisClient, SOURCE_KEYS);
+  const fallbackHealth = await loadSourceHealthSnapshot(SOURCE_KEYS);
   const rawRecommendations = await redisClient.get("health:recommendations");
   let recommendations: unknown[] = [];
   if (rawRecommendations) {

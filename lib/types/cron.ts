@@ -8,7 +8,6 @@ import {
   CronStatusSchema,
   LifecycleStateSchema,
 } from "../schemas.js";
-import type { RedisClient } from "./redis.js";
 import type { ChapterItem, SourceHealth, SourceState } from "./scraper.js";
 import type { Logger, SendEmbedFn, CronLogEntry } from "./core.js";
 import type { WhitelistEntry } from "./whitelist.js";
@@ -39,12 +38,11 @@ export interface ConcurrencyResolution {
  * Options for running the cron job
  */
 export interface RunCronJobOptions {
-  redisClient?: RedisClient;
   logger?: Logger;
   loadWhitelistFn?: () => Promise<WhitelistEntry[]>;
   getAllGuildChannelsFn?: () => Promise<Record<string, string>>;
   scrapeMangaUpdatesWithMetaFn?: (
-    redis: RedisClient | null,
+    redis: null,
     options?: OrchestrateOptions
   ) => Promise<{
     items: ChapterItem[];
@@ -55,7 +53,7 @@ export interface RunCronJobOptions {
   sendEmbed?: (
     item: ChapterItem | DiscordEmbedData,
     channelId: string,
-    redis: RedisClient | null,
+    redis: null,
     mentions?: string
   ) => Promise<{ success: boolean; status?: number; channelId?: string; error?: string } | undefined>;
   deleteGuildChannelFn?: (id: string) => Promise<unknown>;

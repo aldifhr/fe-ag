@@ -344,7 +344,7 @@ export async function orchestrateScrapeSources({
           if (id === "ikiru") keysToMark.push(...Array.from(preferredIkiruTitleKeys));
           else if (preferredSecondaryMatchersBySource[id]) keysToMark.push(...Array.from(preferredSecondaryMatchersBySource[id].titleKeys));
 
-          if (keysToMark.length) await batchSetLastScrapeChecks(redis, keysToMark);
+          if (keysToMark.length) await batchSetLastScrapeChecks(keysToMark);
         }
 
         return { id, results: out.results, state: { ...out.state, responseTime: Date.now() - sourceStart } };

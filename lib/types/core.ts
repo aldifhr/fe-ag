@@ -48,7 +48,7 @@ export interface PrepareAuthorizedGetOptions {
 import type { z } from "zod";
 import type { CronLogEntrySchema } from "../schemas.js";
 import type { ChapterItem } from "./scraper.js";
-import type { RedisClient } from "./redis.js";
+import type { DiscordEmbedData } from "./cron.js";
 
 /**
  * Normalized stats for cron execution logs
@@ -61,8 +61,8 @@ export type CronLogEntry = z.infer<typeof CronLogEntrySchema>;
  * Moved here to break circular dependency
  */
 export type SendEmbedFn = (
-  item: ChapterItem,
+  item: ChapterItem | DiscordEmbedData,
   channelId: string,
-  redis: RedisClient,
-  mentions?: string,
-) => Promise<{ success: boolean }>;
+  redis: null,
+  mentions?: string
+) => Promise<{ success: boolean; status?: number; channelId?: string; error?: string } | undefined>;

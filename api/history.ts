@@ -6,9 +6,7 @@ import {
 } from "../lib/constants/redis.js";
 import {
   readCronLogs,
-  readObjectCache,
   readRecentChapters,
-  writeObjectCache,
 } from "../lib/services/storage.js";
 import { logApiError, logApiHit, logApiOk } from "../lib/logger.js";
 import { prepareAuthorizedGet } from "../lib/api/response.js";
@@ -58,19 +56,12 @@ async function handleRecent(req: Request, res: Response, reqLogger: any) {
   const { cacheTtl } = prepared;
 
   try {
-    const cached = await readObjectCache(redis, RECENT_API_CACHE_KEY);
-    if (cached) {
-      logApiOk(reqLogger, { status: 200, cached: true });
-      return res.status(200).json(createSuccessResponse(cached));
-    }
-
     const raw = await readRecentChapters(redis, 0, RECENT_FETCH_LIMIT - 1);
     const validItems = (raw as DiscordEmbedData[]).filter(item => item?.sentAt || item?.enqueuedAt);
     const sorted = sortRecentItems(validItems).slice(0, RECENT_DISPLAY_LIMIT);
 
     const payload = { items: sorted, fetched: raw.length, displayed: sorted.length };
-    await writeObjectCache(redis, RECENT_API_CACHE_KEY, payload, cacheTtl);
-    logApiOk(reqLogger, { status: 200, cached: false, count: sorted.length });
+    logApiOk(reqLogger, { status: 200, count: sorted.length });
     return res.status(200).json(createSuccessResponse(payload));
   } catch (err: unknown) {
     logApiError(reqLogger, err, { status: 500 });
@@ -88,12 +79,6 @@ async function handleLogs(req: Request, res: Response, reqLogger: any) {
   const { cacheTtl } = prepared;
 
   try {
-    const cached = await readObjectCache(redis, LOGS_API_CACHE_KEY);
-    if (cached) {
-      logApiOk(reqLogger, { status: 200, cached: true });
-      return res.status(200).json(createSuccessResponse(cached));
-    }
-
     const raw = await readCronLogs(redis, 0, LOGS_FETCH_LIMIT - 1);
     const dailyStats = await readCronDailyStats(30);
 
@@ -113,8 +98,7 @@ async function handleLogs(req: Request, res: Response, reqLogger: any) {
       }));
 
     const payload = { logs, dailyStats, totalLogs: raw.length, displayedLogs: logs.length };
-    await writeObjectCache(redis, LOGS_API_CACHE_KEY, payload, cacheTtl);
-    logApiOk(reqLogger, { status: 200, cached: false, count: raw.length });
+    logApiOk(reqLogger, { status: 200, count: raw.length });
     return res.status(200).json(createSuccessResponse(payload));
   } catch (err: unknown) {
     logApiError(reqLogger, err, { status: 500 });

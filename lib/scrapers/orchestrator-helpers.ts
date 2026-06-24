@@ -128,7 +128,7 @@ export async function getHibernatingTitleKeys(
 export async function applyIncrementalFilter(
   titleKeys: Set<string>,
   redis: RedisClient | null,
-  batchGetLastScrapeChecks: (redis: RedisClient, keys: string[]) => Promise<(string | null)[]>
+  batchGetLastScrapeChecks: (keys: string[]) => Promise<(string | null)[]>
 ): Promise<Set<string>> {
   if (!redis || titleKeys.size === 0) return titleKeys;
 
@@ -136,7 +136,7 @@ export async function applyIncrementalFilter(
   
   // Concurrently fetch last checks AND manga metadata to maximize network efficiency
   const [lastChecks, metadataList] = await Promise.all([
-    batchGetLastScrapeChecks(redis, titleKeysArray),
+    batchGetLastScrapeChecks(titleKeysArray),
     batchGetMangaMetadata(redis, titleKeysArray).catch(err => {
       logger.warn({ err }, "Failed to batch get manga metadata in incremental checks");
       return titleKeysArray.map(() => null);

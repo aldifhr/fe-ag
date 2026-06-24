@@ -1,10 +1,8 @@
-import { normalizeSourceUrl, normalizeTitleKey } from "../domain.js";
-import { redis, flushWriteTasks, withDistributedLock } from "../redis.js";
+import { normalizeTitleKey } from "../domain.js";
 import { batchClaimPendingChapters, recordDispatchToSupabase } from "./storage.js";
-import { RedisClient, CronLogEntry, ChapterItem, SendToChannelsOptions, DispatchChaptersOptions } from "../types.js";
-import { buildDispatchChapterMeta, DispatchChapterMeta } from "./dispatch/meta.js";
+import { CronLogEntry, ChapterItem, DispatchChaptersOptions } from "../types.js";
 import { prepareDispatchQueue, DispatchQueueState } from "./dispatch/deduplication.js";
-import { buildCronLogSummary, LOG_SUMMARY_SAMPLE_LIMIT } from "./dispatch/history.js";
+import { buildCronLogSummary } from "./dispatch/history.js";
 import { getMangaSubscribers } from "./notifications.js";
 import { getSubscribersBatchWithCache } from "./notifications-batch.js";
 import { appendCronLog } from "../cronLogs.js";
@@ -14,32 +12,26 @@ import {
   CHAPTER_PENDING_TTL_SEC,
   CROSS_SOURCE_DEDUPE_TTL_SEC,
   DEFAULT_CHAPTER_DISPATCH_CONCURRENCY,
-  DEFAULT_DISPATCH_WRITE_TASK_BATCH,
 } from "../config.js";
 import { getLogger } from "../logger.js";
 import { env } from "../config/env.js";
-import { chunkArray } from "../utils.js";
 import pLimit from "p-limit";
+import { chunkArray } from "../utils.js";
 import { buildMentionChunks } from "./dispatch/sender.js";
 import {
   IkiruMetaCacheEntry,
   hydrateIkiruMetadataIfMissing,
 } from "./dispatch/hydration.js";
 import {
-  addSuccessWriteCommandsToPipeline,
-  cleanupRecentChapters,
+  markChapterSent,
   fireAndForgetCleanup,
 } from "./dispatch/pipeline.js";
 
 const logger = getLogger({ scope: "dispatch" });
 
 
-export type { SendToChannelsOptions, DispatchChaptersOptions } from "../types.js";
+export type { DispatchChaptersOptions } from "../types.js";
 export { hydrateIkiruMetadataIfMissing } from "./dispatch/hydration.js";
-
-// Distributed lock constants
-const BATCH_LOCK_KEY = "dispatch:batch:lock";
-const BATCH_LOCK_TTL = 30; // seconds
 
 function calculateInitialSkips(queueState: DispatchQueueState): number {
   return (
@@ -60,7 +52,6 @@ function logConcurrencyWarning(concurrency: number, log: (m: string) => void): v
 }
 
 async function buildAndLogSummary(
-  redisClient: RedisClient,
   sentItems: ChapterItem[],
   failed: number,
   skipped: number,
@@ -126,7 +117,6 @@ async function buildAndLogSummary(
  * ```
  */
 export async function dispatchChapters({
-  redis: redisClient,
   matched = [],
   channelIds = [],
   sendEmbed,
@@ -136,7 +126,6 @@ export async function dispatchChapters({
   pendingClaimTtl = CHAPTER_PENDING_TTL_SEC,
   crossSourceDedupeTtl = CROSS_SOURCE_DEDUPE_TTL_SEC,
   chapterConcurrency = env.CHAPTER_DISPATCH_CONCURRENCY ?? DEFAULT_CHAPTER_DISPATCH_CONCURRENCY,
-  writeTaskBatch = DEFAULT_DISPATCH_WRITE_TASK_BATCH,
   maxItems = Infinity,
   onDispatchSuccess = null,
   onChannelError = null,
@@ -148,7 +137,6 @@ export async function dispatchChapters({
   startTime = Date.now(),
   deadlineMs = 0,
 }: DispatchChaptersOptions) {
-  if (!redisClient) throw new Error("dispatchChapters requires redis");
   if (typeof sendEmbed !== "function") {
     throw new Error("dispatchChapters requires sendEmbed function");
   }
@@ -164,7 +152,6 @@ export async function dispatchChapters({
   const subscriberCache = new Map<string, string[]>();
 
   const queueState = await prepareDispatchQueue(
-    redisClient,
     matched,
     maxItems,
     pendingStaleMs,
@@ -186,7 +173,6 @@ export async function dispatchChapters({
   }));
 
   const claimResults = await batchClaimPendingChapters(
-    redisClient,
     claimItems,
     pendingClaimTtl,
   );
@@ -273,7 +259,6 @@ export async function dispatchChapters({
 
     // Send notifications in batches to Discord (10 embeds per message)
     if (notificationTasks.length > 0) {
-      // Pre-group tasks by channel once (avoids O(n*m) filter inside nested loop)
       const tasksByChannel = new Map<string, typeof notificationTasks>();
       for (const task of notificationTasks) {
         for (const cid of task.channelIds) {
@@ -286,30 +271,24 @@ export async function dispatchChapters({
 
       for (let channelBatchIdx = 0; channelBatchIdx < allChannelIds.length; channelBatchIdx += CHANNEL_BATCH_SIZE) {
         const channelBatch = allChannelIds.slice(channelBatchIdx, channelBatchIdx + CHANNEL_BATCH_SIZE);
-        const statusWritePipeline = redisClient.pipeline();
 
         for (const channelId of channelBatch) {
           const channelTasks = tasksByChannel.get(channelId) ?? [];
-          
-          // Chunk tasks for this channel into groups of 10 (Discord limit)
           const taskChunks = chunkArray(channelTasks, 10);
-          
+
           for (const chunk of taskChunks) {
-            const taskKeys = chunk.map(t => `${t.chapter.title}:${t.chapter.chapter}`);
-            
-            // 1. Consolidate mentions for the whole chunk
             const combinedMentions = [...new Set(chunk.flatMap(t => t.mentions || []))].join(" ");
             const safeMentions = combinedMentions.length > 1000 ? combinedMentions.substring(0, 997) + "..." : combinedMentions;
-            
+
             try {
-              const results = typeof sendEmbedsBatch === "function" 
-                ? await sendEmbedsBatch(chunk.map(t => t.chapter), channelId, redisClient, safeMentions)
+              const results = typeof sendEmbedsBatch === "function"
+                ? await sendEmbedsBatch(chunk.map(t => t.chapter), channelId, safeMentions)
                 : (typeof sendEmbed === "function"
                   ? await (async () => {
                       let success = true;
                       for (const t of chunk) {
                         try {
-                          const res = await sendEmbed(t.chapter, channelId, redisClient, safeMentions);
+                          const res = await sendEmbed(t.chapter, channelId, null, safeMentions);
                           if (!res || res.success === false) success = false;
                         } catch (err) {
                           success = false;
@@ -320,35 +299,30 @@ export async function dispatchChapters({
                   : await sendDiscordEmbedsChannelBatch(
                     chunk.map(t => t.chapter),
                     channelId,
-                    redisClient,
+                    null,
                     safeMentions
                   )
                 );
 
               if (results.success) {
-                // 3. EAGER COMMIT: Mark all as SENT in batch pipeline
                 for (const task of chunk) {
                   if (task.primaryKey && task.writeMeta) {
-                    addSuccessWriteCommandsToPipeline({
-                      pipeline: statusWritePipeline,
+                    // Mark chapter as sent in Supabase
+                    markChapterSent({
                       item: task.chapter,
                       key: task.primaryKey,
                       duplicateKey: task.duplicateKey ?? null,
                       titleKey: task.writeMeta.titleKey,
-                      index: task.writeMeta.index,
                       nowIso: task.writeMeta.nowIso,
-                      chapterTtl,
-                      crossSourceDedupeTtl,
-                      redisClient,
+                    }).catch(err => {
+                      logger.warn({ err: err instanceof Error ? err.message : String(err), url: task.chapter.url }, "Failed to mark chapter sent in Supabase");
                     });
 
-                    // Record to Supabase permanently (only if metadata is available)
                     recordDispatchToSupabase(task.chapter, task.writeMeta.titleKey).catch(err => {
                       logger.warn({ err: err.message, url: task.chapter.url }, "Failed to record dispatch to Supabase");
                     });
                   }
 
-                  // Count as sent only after successful Discord delivery
                   counters.sent += 1;
                   counters.sentItems.push(task.chapter);
 
@@ -364,21 +338,6 @@ export async function dispatchChapters({
               const message = err instanceof Error ? err.message : String(err);
               logger.error({ err: message, channelId, count: chunk.length }, "Failed to send batched Discord notification");
             }
-
-
-          }
-        }
-
-        // Execute pipeline for this channel batch
-        const pipelineResults = await statusWritePipeline.exec();
-        if (pipelineResults) {
-          const errors = pipelineResults
-            .filter((item: unknown) => Array.isArray(item) && item[0] !== null)
-            .map((item: unknown) => (item as [Error, unknown])[0]);
-          if (errors.length > 0) {
-            const errorMessage = `Pipeline execution failed with ${errors.length} errors`;
-            logger.error({ errors: errors.map(e => e instanceof Error ? e.message : String(e)) }, "Channel batch pipeline failed");
-            throw new Error(errorMessage);
           }
         }
       }
@@ -392,7 +351,6 @@ export async function dispatchChapters({
   }
 
   const summaryLog = await buildAndLogSummary(
-    redisClient,
     counters.sentItems,
     counters.failed,
     counters.skipped,
@@ -402,7 +360,6 @@ export async function dispatchChapters({
 
   const withinDeadline = !deadline || Date.now() < deadline - FINAL_ABORT_MARGIN_MS;
   if (withinDeadline) {
-    await cleanupRecentChapters(redisClient);
     fireAndForgetCleanup();
   } else {
     warn("Skipped non-essential cleanup tasks due to critical time limit (Final Abort Margin).");

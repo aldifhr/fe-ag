@@ -2,7 +2,6 @@
  * Dispatch system types for chapter notifications
  */
 
-import type { RedisClient } from "./redis.js";
 import type { ChapterItem, SourceHealth } from "./scraper.js";
 import { ClaimStateSchema } from "../schemas.js";
 import { z } from "zod";
@@ -49,10 +48,9 @@ export interface DispatchQueueState {
  * Options for sending to channels with rate limiting
  */
 export interface SendToChannelsOptions {
-  sendFn: (item: unknown, channelId: string, redis: RedisClient, mentions?: string) => Promise<{ success: boolean }>;
+  sendFn: (item: unknown, channelId: string, mentions?: string) => Promise<{ success: boolean }>;
   item: unknown;
   channelIds: string[];
-  redis?: RedisClient | null;
   mentions?: string;
   concurrency?: number;
   onError?: ((err: unknown, channelId: string) => void | Promise<void>) | null;
@@ -65,11 +63,10 @@ export type { SendEmbedFn } from "./core.js";
  * Options for dispatching chapters
  */
 export interface DispatchChaptersOptions {
-  redis: RedisClient;
   matched?: ChapterItem[];
   channelIds?: string[];
   sendEmbed: SendEmbedFn;
-  sendEmbedsBatch?: (items: ChapterItem[], channelId: string, redis: RedisClient, mentions?: string) => Promise<{ success: boolean }>;
+  sendEmbedsBatch?: (items: ChapterItem[], channelId: string, mentions?: string) => Promise<{ success: boolean }>;
   nowIso?: string;
   chapterTtl?: number;
   pendingClaimTtl?: number;
