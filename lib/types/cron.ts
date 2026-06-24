@@ -42,7 +42,6 @@ export interface RunCronJobOptions {
   loadWhitelistFn?: () => Promise<WhitelistEntry[]>;
   getAllGuildChannelsFn?: () => Promise<Record<string, string>>;
   scrapeMangaUpdatesWithMetaFn?: (
-    redis: null,
     options?: OrchestrateOptions
   ) => Promise<{
     items: ChapterItem[];
@@ -53,7 +52,6 @@ export interface RunCronJobOptions {
   sendEmbed?: (
     item: ChapterItem | DiscordEmbedData,
     channelId: string,
-    redis: null,
     mentions?: string
   ) => Promise<{ success: boolean; status?: number; channelId?: string; error?: string } | undefined>;
   deleteGuildChannelFn?: (id: string) => Promise<unknown>;

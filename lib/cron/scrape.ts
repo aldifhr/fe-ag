@@ -13,7 +13,6 @@ import type { ChapterItem, TimingMetrics, LifecycleState } from "../types.js";
 import type { Logger } from "pino";
 
 export interface ScrapePhaseOptions {
-  redisClient: null;
   whitelist: any[];
   activeGuildCount: number;
   disabledSources: Set<string> | string[];
@@ -25,7 +24,7 @@ export interface ScrapePhaseOptions {
   deadlineMs: number;
   cronLogger: Logger;
   warn: (msg: string, obj?: Record<string, unknown>) => void;
-  scrapeMangaUpdatesWithMetaFn: (redis: null, opts: any) => Promise<any>;
+  scrapeMangaUpdatesWithMetaFn: (opts: any) => Promise<any>;
   CRON_INCREMENTAL_DEFAULT: boolean;
   CRON_DEDUPLICATE_DEFAULT: boolean;
   CRON_FAST_SECONDARY_LIMIT: number;
@@ -46,7 +45,7 @@ export interface ScrapePhaseResult {
 
 export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePhaseResult> {
   const {
-    redisClient, whitelist, activeGuildCount, disabledSources,
+    whitelist, activeGuildCount, disabledSources,
     scrapeOptions, currentHealthMap, timingMetrics, lifecycle, start, deadlineMs,
     cronLogger, warn, scrapeMangaUpdatesWithMetaFn,
     CRON_INCREMENTAL_DEFAULT, CRON_DEDUPLICATE_DEFAULT, CRON_FAST_SECONDARY_LIMIT,
@@ -62,7 +61,7 @@ export async function runScrapePhase(opts: ScrapePhaseOptions): Promise<ScrapePh
   const preferredSecondaryUrls = buildPreferredSecondaryUrls(whitelist) as unknown as Record<string, any[]>;
 
   const { items: allResults, sourceStates, nextSourceHealth: scrapeNextHealth, metrics: orchestratorMetrics } =
-    await scrapeMangaUpdatesWithMetaFn(null, {
+    await scrapeMangaUpdatesWithMetaFn({
       disabledSources: Array.from(disabledSources),
       preferredIkiruTitles,
       preferredSecondaryEntries,

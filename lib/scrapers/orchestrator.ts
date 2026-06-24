@@ -173,9 +173,9 @@ export async function orchestrateScrapeSources({
     );
 
     const [skipTitleKeys, ikiruIncrementalFiltered, secondaryIncrementalFiltered] = await Promise.all([
-      getHibernatingTitleKeys(null, allTitleKeys, options),
+      getHibernatingTitleKeys(allTitleKeys, options),
       useIncremental && preferredIkiruTitleKeys.size > 0
-        ? applyIncrementalFilter(preferredIkiruTitleKeys, null, batchGetLastScrapeChecks)
+        ? applyIncrementalFilter(preferredIkiruTitleKeys, batchGetLastScrapeChecks)
         : null as unknown as Promise<Set<string>>,
       Promise.all(
         secondarySources.map(async (source) => {
@@ -188,8 +188,8 @@ export async function orchestrateScrapeSources({
           } = { source, titleKeys: null, urlKeys: null, originalCount: matcher.titleKeys.size };
           if (useIncremental) {
             [results.titleKeys, results.urlKeys] = await Promise.all([
-              matcher.titleKeys.size > 0 ? applyIncrementalFilter(matcher.titleKeys, null, batchGetLastScrapeChecks) : null,
-              matcher.urlKeys.size > 0 ? applyIncrementalFilter(matcher.urlKeys, null, batchGetLastScrapeChecks) : null,
+              matcher.titleKeys.size > 0 ? applyIncrementalFilter(matcher.titleKeys, batchGetLastScrapeChecks) : null,
+              matcher.urlKeys.size > 0 ? applyIncrementalFilter(matcher.urlKeys, batchGetLastScrapeChecks) : null,
             ]);
           }
           return results;
@@ -466,7 +466,7 @@ export async function orchestrateScrapeSources({
         failureThreshold: options?.healthFailureThreshold,
         cooldownSeconds: options?.healthCooldownSeconds,
       });
-      await saveSourceHealthMap(null, nextSourceHealth, SOURCE_KEYS);
+      await saveSourceHealthMap(nextSourceHealth, SOURCE_KEYS);
     } catch (healthErr: unknown) {
       const err = healthErr instanceof Error ? healthErr : new Error(String(healthErr));
       logger.warn({ err: err.message }, "failed to update source health map");

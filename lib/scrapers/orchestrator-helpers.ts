@@ -24,7 +24,6 @@ export interface PreferredSecondaryMatcher {
  * Get titles that should be hibernated (skipped) based on last update time
  */
 export async function getHibernatingTitleKeys(
-  _redis: null,
   _titleKeys: string[],
   _options: OrchestrateOptions = {}
 ): Promise<Set<string>> {
@@ -34,7 +33,6 @@ export async function getHibernatingTitleKeys(
 
 export async function applyIncrementalFilter(
   titleKeys: Set<string>,
-  _redis: null,
   _batchGetLastScrapeChecks: (keys: string[]) => Promise<(string | null)[]>
 ): Promise<Set<string>> {
   // Redis removed; incremental filter returns all keys unfiltered

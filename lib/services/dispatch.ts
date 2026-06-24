@@ -288,7 +288,7 @@ export async function dispatchChapters({
                       let success = true;
                       for (const t of chunk) {
                         try {
-                          const res = await sendEmbed(t.chapter, channelId, null, safeMentions);
+                          const res = await sendEmbed(t.chapter, channelId, safeMentions);
                           if (!res || res.success === false) success = false;
                         } catch (err) {
                           success = false;

@@ -143,7 +143,6 @@ export interface ScraperProvider {
    * Scrape latest updates from the source
    */
   scrapeLatest(options: {
-    redis?: any;
     preferred?: any;
     logger?: any;
     deadline?: number;
@@ -156,7 +155,6 @@ export interface ScraperProvider {
    * Search for manga by title
    */
   search(query: string, options?: {
-    redis?: any;
     deadline?: number;
   }): Promise<ProviderResult<ChapterItem[]>>;
 
@@ -164,7 +162,6 @@ export interface ScraperProvider {
    * Fetch detailed metadata for a specific manga
    */
   fetchMetadata(mangaUrl: string, options?: {
-    redis?: any;
     deadline?: number;
     mangaId?: string | number;
   }): Promise<Partial<MangaMetadata> | null>;

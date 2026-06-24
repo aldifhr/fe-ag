@@ -42,7 +42,7 @@ import { loadValidatedGuilds } from "./cron/validation.js";
 import { readCronStatusWithHealth } from "./cron/status.js";
 import { runScrapePhase } from "./cron/scrape.js";
 import { runDispatch } from "./cron/qstash-dispatch.js";
-import { acquireCronLock, runCleanupTasks } from "./cron/index.js";
+import { acquireCronLock } from "./cron/index.js";
 import { loadCronInputs, validateCronInputs } from "./cron/inputs.js";
 import { handleShortCircuit } from "./cron/short-circuit.js";
 import { writeSuccessStatus, writeErrorStatus } from "./cron/status-builder.js";
@@ -190,7 +190,6 @@ export async function runCronJob({
 
     // 5. Scrape phase
     const scrapeResult = await runScrapePhase({
-      redisClient: null,
       whitelist,
       activeGuildCount,
       disabledSources: Object.entries(sourceHealthMap)
@@ -255,10 +254,7 @@ export async function runCronJob({
       skipBreakdown,
     });
 
-    // 8. Cleanup (fire-and-forget)
-    runCleanupTasks();
-
-    // 9. Source Health Check (Alert if stale)
+    // 8. Source Health Check (Alert if stale)
     const { checkSourceHealth } = await import("./services/health-monitor.js");
     const { SOURCE_KEYS } = await import("./constants/redis.js");
     await checkSourceHealth(SOURCE_KEYS);

@@ -66,7 +66,6 @@ export function createInitialMetrics(): ScraperMetrics {
 async function processRow(
   row: SecondaryMangaRow,
   apiBase: string,
-  _redis: unknown,
   metrics: ScraperMetrics,
   detailState: DetailState,
   seen: Set<string>,
@@ -88,7 +87,7 @@ async function processRow(
 
   if (row?.__directFallback) {
     let resRow = row;
-    const chs: any[] = await fetchSecondaryRecentChapters(apiBase, row.manga_id, null, lookbackHours, deadline);
+    const chs: any[] = await fetchSecondaryRecentChapters(apiBase, row.manga_id, lookbackHours, deadline);
     if (!chs.length) return [];
 
     if (!resRow.title || /^unknown title$/i.test(resRow.title) || resRow.status === null) {
@@ -106,7 +105,7 @@ async function processRow(
   const useDetail = shouldFetchDetail(row, isPriority, detailState.count, detailState.circuitOpen, now);
   let chapters: any[] | null = null;
   if (useDetail && claimDetailSlot(detailState)) {
-    chapters = await fetchDetailChapters(apiBase, row.manga_id, null, metrics, detailState, normalized, lookbackHours, deadline);
+    chapters = await fetchDetailChapters(apiBase, row.manga_id, metrics, detailState, normalized, lookbackHours, deadline);
     releaseDetailSlot(detailState);
   }
 
@@ -146,7 +145,7 @@ export async function scrapeSecondaryUpdatesWithMeta(
     }
 
     const existingIds = new Set(updateRows.map(r => String(r?.manga_id || "")).filter(Boolean));
-    const directFallbackRows = await selectRotatingDirectFallbackRows(buildDirectUrlFallbackRows(preferredMatcher, existingIds), 50, null, normalized);
+    const directFallbackRows = await selectRotatingDirectFallbackRows(buildDirectUrlFallbackRows(preferredMatcher, existingIds), 50);
 
     const allRowsToProcess = [...updateRows, ...directFallbackRows] as SecondaryMangaRow[];
     
@@ -174,7 +173,7 @@ export async function scrapeSecondaryUpdatesWithMeta(
     const concurrency = globalAdaptiveLimiter.getConcurrency();
     const limit = pLimit(concurrency);
     
-    const tasks = cappedRows.map((row: SecondaryMangaRow) => limit(() => processRow(row, API_BASE, null, metrics, detailState, seen, preferredMatcher, normalized, lookbackHours, deadline)));
+    const tasks = cappedRows.map((row: SecondaryMangaRow) => limit(() => processRow(row, API_BASE, metrics, detailState, seen, preferredMatcher, normalized, lookbackHours, deadline)));
 
     const results = (await Promise.all(tasks)).flat();
 
@@ -190,7 +189,6 @@ export async function scrapeSecondaryUpdatesWithMeta(
             return processRow(
               { manga_id: parseSeriesIdFromUrl(s.data[0].mangaUrl ?? null)!, title: s.data[0].title, __directFallback: true } as any,
               API_BASE,
-              null,
               metrics,
               detailState,
               seen,

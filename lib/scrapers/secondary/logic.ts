@@ -68,7 +68,6 @@ export function releaseDetailSlot(detailState: DetailState) {
 export async function fetchSecondaryRecentChapters(
   apiBase: string, 
   mangaId: string | number, 
-  _redis: unknown = null, 
   lookbackHours = SCRAPER_LOOKBACK_HOURS, 
   deadline = 0
 ) {
@@ -92,7 +91,6 @@ export async function fetchSecondaryRecentChapters(
 export async function fetchDetailChapters(
   apiBase: string,
   mangaId: string | number,
-  _redis: unknown,
   metrics: ScraperMetrics,
   detailState: DetailState,
   normalized: string,
@@ -107,7 +105,7 @@ export async function fetchDetailChapters(
     let chapters: any[] | null = [];
     
     try {
-      chapters = await fetchSecondaryRecentChapters(apiBase, mangaId, null, lookbackHours, deadline);
+      chapters = await fetchSecondaryRecentChapters(apiBase, mangaId, lookbackHours, deadline);
       if (chapters?.length) {
         metrics.detailSuccesses = (metrics.detailSuccesses || 0) + 1;
         const duration = Date.now() - startTime;
@@ -186,7 +184,7 @@ export function buildDirectUrlFallbackRows(matcher: PreferredSecondaryMatcher | 
   return rows;
 }
 
-export async function selectRotatingDirectFallbackRows(rows: SecondaryMangaRow[], limit: number, _redis: unknown, _source: string) {
+export async function selectRotatingDirectFallbackRows(rows: SecondaryMangaRow[], limit: number) {
   if (!rows.length || limit <= 0) return [];
   if (rows.length <= limit) return rows;
   return rows.slice(0, limit);

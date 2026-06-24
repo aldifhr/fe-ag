@@ -304,7 +304,7 @@ export const globalAdaptiveLimiter = new AdaptiveConcurrencyLimiter(10, 5, 15);
 /**
  * Initialize with Redis client
  */
-export function initializeScrapeOptimizer(_redis: unknown = null): void {
+export function initializeScrapeOptimizer(): void {
   Object.assign(globalScrapeCacheManager, new ScrapeCacheManager());
 }
 

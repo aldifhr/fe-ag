@@ -63,6 +63,5 @@ export type CronLogEntry = z.infer<typeof CronLogEntrySchema>;
 export type SendEmbedFn = (
   item: ChapterItem | DiscordEmbedData,
   channelId: string,
-  redis: null,
   mentions?: string
 ) => Promise<{ success: boolean; status?: number; channelId?: string; error?: string } | undefined>;

@@ -72,7 +72,7 @@ export default async function handler(req: Request, res: Response) {
           skipExpansion: false,
         },
         skipLock: true,
-        scrapeMangaUpdatesWithMetaFn: async (_redis: null, opts) => {
+        scrapeMangaUpdatesWithMetaFn: async (opts: any) => {
           const { scrapeMangaUpdatesWithMeta } = await import("../lib/scrapers/orchestrator.js");
           return scrapeMangaUpdatesWithMeta({
             ...opts,

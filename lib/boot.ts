@@ -22,7 +22,7 @@ export async function initializeAllProviders() {
 
   try {
     // Initialize scrape optimizer
-    initializeScrapeOptimizer({} as any);
+    initializeScrapeOptimizer();
     logger.info("Scrape optimizer initialized");
 
     // Register Unified Providers

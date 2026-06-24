@@ -142,7 +142,7 @@ export function applySourceOutcome(
 /**
  * Load health map for specified sources from Supabase
  */
-export async function loadSourceHealthMap(_redisClient: unknown, keys: string[]): Promise<Record<string, SourceHealth>> {
+export async function loadSourceHealthMap(keys: string[]): Promise<Record<string, SourceHealth>> {
   if (!keys.length) return {};
   try {
     const { data, error } = await supabase
@@ -177,7 +177,7 @@ export async function loadSourceHealthMap(_redisClient: unknown, keys: string[])
 /**
  * Save health map to Supabase via upsert_source_health RPC
  */
-export async function saveSourceHealthMap(_redisClient: unknown, map: Record<string, SourceHealth>, keys: string[]): Promise<void> {
+export async function saveSourceHealthMap(map: Record<string, SourceHealth>, keys: string[]): Promise<void> {
   const tasks = keys
     .filter((k) => !!map[k])
     .map((k) => {
@@ -341,11 +341,6 @@ export async function getDiscordPing(): Promise<number | null> {
   } catch {
     return null;
   }
-}
-
-export async function getRedisPing(): Promise<null> {
-  // Redis has been removed
-  return null;
 }
 
 export async function getProviderMetrics() {
