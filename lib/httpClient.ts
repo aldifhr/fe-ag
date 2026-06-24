@@ -3,7 +3,7 @@ import { getLogger } from "./logger.js";
 import { AdaptiveRateLimiter, type RetryOptions } from "./types.js";
 import type { Agent as HttpAgent } from "http";
 import type { Agent as HttpsAgent } from "https";
-import { URL } from "url";
+// URL is globally available in both Node.js and Edge Runtime — no import needed
 
 const logger = getLogger({ scope: "httpClient" });
 
