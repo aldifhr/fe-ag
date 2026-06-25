@@ -158,9 +158,8 @@ export default async function handler(req: Request) {
       const h = sourceHealth[source];
       const failures = h?.consecutiveFailures || 0;
       
-      // Fetch last update time — Redis-based health monitor removed, using null fallback
-      const lastUpdateStr = null;
-      const lastUpdateAt = null;
+      const lastUpdateAt = h?.lastSuccessAt ? new Date(h.lastSuccessAt).getTime() : (h?.lastCheckedAt ? new Date(h.lastCheckedAt).getTime() : null);
+      const lastUpdateStr = lastUpdateAt ? new Date(lastUpdateAt).toLocaleString("id-ID") : null;
       
       const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
       const isStale = lastUpdateAt ? (Date.now() - lastUpdateAt > STALE_THRESHOLD_MS) : true;
