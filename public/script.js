@@ -478,7 +478,7 @@ async function bootstrapAuth() {
     });
     clearTimeout(authTimeout);
     const data = await response.json();
-    state.isAuthenticated = Boolean(data?.authenticated);
+    state.isAuthenticated = Boolean(data?.data?.authenticated);
   } catch {
     state.isAuthenticated = false;
   }
