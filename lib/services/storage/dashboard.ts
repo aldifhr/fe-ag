@@ -79,7 +79,8 @@ export async function readRecentChapters(start = 0, stop = 49): Promise<unknown[
       url: d.chapter_url,
       source: d.source,
       sentAt: d.sent_at,
-      metadata: d.metadata,
+      cover: d.metadata?.cover ?? null,
+      updatedTime: d.metadata?.updatedTime ?? null,
     }));
   } catch (err) {
     logger.warn({ err }, "readRecentChapters failed");
@@ -88,19 +89,36 @@ export async function readRecentChapters(start = 0, stop = 49): Promise<unknown[
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
-  // Redis removed; all pipeline-based data is replaced with default/empty values
-
-  const cronStatus = null;
-  const sourceHealth: Record<string, unknown> = {};
   const recommendations: string[] = [];
-  const lastHealthCheck: string | null = null;
   const liveEvents: unknown[] = [];
 
-  // Pull logs and recent chapters from Supabase
-  const [recentChapters, parsedRecentLogs] = await Promise.all([
+  // Pull logs, recent chapters, source health, and cron status from Supabase
+  const [recentChapters, parsedRecentLogs, sourceHealthRows, cronStatusRow] = await Promise.all([
     readRecentChapters(0, 19),
     readCronLogs(0, 9),
+    supabase.from('source_health').select('*'),
+    supabase.from('cron_run_status').select('status').order('id', { ascending: false }).limit(1).maybeSingle(),
   ]);
+
+  const sourceHealth: Record<string, unknown> = {};
+  if (sourceHealthRows.data) {
+    for (const row of sourceHealthRows.data) {
+      sourceHealth[row.source] = {
+        status: row.status,
+        consecutiveFailures: row.consecutive_failures,
+        disabledUntil: row.disabled_until,
+        lastError: row.last_error,
+        lastSuccessAt: row.last_success_at,
+        lastCheckedAt: row.last_checked_at,
+        responseTime: row.response_time_ms,
+        failuresToday: row.failures_today,
+        successesToday: row.successes_today,
+      };
+    }
+  }
+
+  const cronStatus = cronStatusRow?.data?.status ?? null;
+  const lastHealthCheck: string | null = null;
 
   let whitelist: WhitelistEntry[] = [];
   try {
