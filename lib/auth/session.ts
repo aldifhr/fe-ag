@@ -90,23 +90,15 @@ export async function isDashboardSessionAuthorized(req: RequestLike): Promise<bo
  * Get Set-Cookie header for session
  */
 export async function getSessionCookieHeader(
-  req: RequestLike,
+  _req: RequestLike,
   token: string,
 ): Promise<string> {
-  const proto = String(
-    (req as RequestLike & { headers: Record<string, string> }).headers?.["x-forwarded-proto"] || "",
-  ).toLowerCase();
-  const secure = proto === "https" ? " Secure;" : "";
-  return `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_TTL_SECONDS};${secure}`;
+  return `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=${SESSION_TTL_SECONDS};`;
 }
 
 /**
  * Get Set-Cookie header to clear session
  */
-export async function getClearSessionCookieHeader(req: RequestLike): Promise<string> {
-  const proto = String(
-    (req as RequestLike & { headers: Record<string, string> }).headers?.["x-forwarded-proto"] || "",
-  ).toLowerCase();
-  const secure = proto === "https" ? " Secure;" : "";
-  return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0;${secure}`;
+export async function getClearSessionCookieHeader(_req: RequestLike): Promise<string> {
+  return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0;`;
 }
