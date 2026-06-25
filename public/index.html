@@ -166,6 +166,26 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal">
+        <h2>🔐 Akses Dashboard</h2>
+        <p>Masukkan password untuk mengakses dashboard monitoring.</p>
+        <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitPassword()" />
+        <div class="modal-actions">
+          <button type="button" class="btn-primary" onclick="submitPassword()">Masuk</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="deleteConfirmOverlay">
+      <div class="modal">
+        <h2>🗑️ Hapus Manga</h2>
+        <p id="deleteConfirmText">Yakin ingin menghapus?</p>
+        <div class="modal-actions">
+          <button type="button" class="btn-soft" onclick="resolveDeleteConfirm(false)">Batal</button>
+          <button type="button" class="btn-primary" id="deleteConfirmBtn" style="background:var(--red);color:#fff;">Hapus</button>
+        </div>
+      </div>
+    </div>
     <script type="module" src="./script.js" defer></script>
 </body>
 </html>
