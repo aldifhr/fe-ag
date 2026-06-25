@@ -1,7 +1,7 @@
 import { getLogger } from "../../logger.js";
 import { CronLogEntry, WhitelistEntry, MangaMetadata } from "../../types.js";
 import { normalizeCronLogEntry } from "../../utils/log-helpers.js";
-import { CronLogEntrySchema, ChapterItemSchema } from "../../schemas.js";
+import { CronLogEntrySchema } from "../../schemas.js";
 import { validateData } from "../../validation.js";
 import { loadWhitelist } from "./whitelist.js";
 import { batchGetMangaMetadata } from "./metadata.js";
@@ -47,9 +47,44 @@ export async function readCronLogs(start = 0, stop = 49): Promise<CronLogEntry[]
     .filter((l): l is CronLogEntry => !!l);
 }
 
-export async function readRecentChapters(_start = 0, _stop = 49): Promise<unknown[]> {
-  // Redis removed; recent chapters no longer available
-  return [];
+export async function readRecentChapters(start = 0, stop = 49): Promise<unknown[]> {
+  try {
+    const { data, error } = await supabase
+      .from('dispatch_history')
+      .select('*')
+      .order('sent_at', { ascending: false })
+      .range(start, stop);
+
+    if (error || !data || data.length === 0) {
+      if (error) logger.warn({ error: error.message }, "Failed to fetch recent chapters");
+      return [];
+    }
+
+    const titleKeys = [...new Set(data.map(d => d.title_key))];
+    const { data: whitelistData } = await supabase
+      .from('whitelist')
+      .select('title_key, title')
+      .in('title_key', titleKeys);
+
+    const titleMap = new Map<string, string>();
+    if (whitelistData) {
+      for (const row of whitelistData) {
+        titleMap.set(row.title_key, row.title);
+      }
+    }
+
+    return data.map(d => ({
+      title: titleMap.get(d.title_key) || d.title_key,
+      chapter: d.chapter_title,
+      url: d.chapter_url,
+      source: d.source,
+      sentAt: d.sent_at,
+      metadata: d.metadata,
+    }));
+  } catch (err) {
+    logger.warn({ err }, "readRecentChapters failed");
+    return [];
+  }
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
@@ -59,11 +94,13 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
   const sourceHealth: Record<string, unknown> = {};
   const recommendations: string[] = [];
   const lastHealthCheck: string | null = null;
-  const recentChapters: unknown[] = [];
   const liveEvents: unknown[] = [];
 
-  // Pull logs from Supabase via readCronLogs
-  const parsedRecentLogs = await readCronLogs(0, 9);
+  // Pull logs and recent chapters from Supabase
+  const [recentChapters, parsedRecentLogs] = await Promise.all([
+    readRecentChapters(0, 19),
+    readCronLogs(0, 9),
+  ]);
 
   let whitelist: WhitelistEntry[] = [];
   try {

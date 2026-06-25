@@ -9,7 +9,7 @@ import {
   loadWhitelist 
 } from "../lib/services/storage.js";
 import { readCronDailyStats } from "../lib/cronLogs.js";
-import { SOURCE_KEYS } from "../lib/constants/redis.js";
+import { SOURCE_KEYS } from "../lib/constants/sources.js";
 import { getSupabasePing, getDiscordPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
 import { findCronJob, getCronNextRuns, getCronLogs, FastCronExecutionResult } from "../lib/services/fastcron.js";
 import type { Request, Response } from "express";

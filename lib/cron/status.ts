@@ -1,5 +1,5 @@
 import { readCronStatus, loadSourceHealthSnapshot } from "../services/storage.js";
-import { SOURCE_KEYS } from "../constants/redis.js";
+import { SOURCE_KEYS } from "../constants/sources.js";
 
 export async function readCronStatusWithHealth() {
   const data = await readCronStatus();

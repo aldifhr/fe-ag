@@ -1,6 +1,6 @@
 import {
   SOURCE_KEYS,
-} from "../lib/constants/redis.js";
+} from "../lib/constants/sources.js";
 import { loadSourceHealthSnapshot } from "../lib/services/storage.js";
 import { readCronStatusWithHealth } from "../lib/cronRuntime.js";
 import { readCronDailyStats, CronDailyStats } from "../lib/cronLogs.js";

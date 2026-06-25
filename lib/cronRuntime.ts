@@ -256,7 +256,7 @@ export async function runCronJob({
 
     // 8. Source Health Check (Alert if stale)
     const { checkSourceHealth } = await import("./services/health-monitor.js");
-    const { SOURCE_KEYS } = await import("./constants/redis.js");
+    const { SOURCE_KEYS } = await import("./constants/sources.js");
     await checkSourceHealth(SOURCE_KEYS);
 
     return {

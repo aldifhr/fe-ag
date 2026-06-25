@@ -8,7 +8,7 @@ import {
   buildPreferredSecondaryTitles,
   buildPreferredSecondaryUrls,
 } from "../services/scrapePreferences.js";
-import { SOURCE_KEYS } from "../constants/redis.js";
+import { SOURCE_KEYS } from "../constants/sources.js";
 import type { ChapterItem, TimingMetrics, LifecycleState } from "../types.js";
 import type { Logger } from "pino";
 

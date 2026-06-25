@@ -1,6 +1,6 @@
 import {
   SOURCE_KEYS,
-} from "../constants/redis.js";
+} from "../constants/sources.js";
 import {
   batchGetLastScrapeChecks,
   batchSetLastScrapeChecks,
