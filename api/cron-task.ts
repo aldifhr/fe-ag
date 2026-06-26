@@ -90,7 +90,7 @@ export default async function handler(req: Request, res: Response) {
       source, 
       outcome: taskResult?.body?.outcome || "done" 
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ err: message }, "Provider scrape task failed");
     

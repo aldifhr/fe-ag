@@ -31,7 +31,7 @@ export async function fetchIkiruMetadata(mangaUrl: string) {
       rating: raw.rating || null,
       cover: raw.cover || null,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ url: mangaUrl, err: message }, "Failed to fetch Ikiru metadata via Scrapling");
     return null;

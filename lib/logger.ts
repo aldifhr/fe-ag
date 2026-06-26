@@ -183,7 +183,6 @@ export const loggers = {
   api: getLogger({ scope: "api" }),
   cron: getLogger({ scope: "cron" }),
   discord: getLogger({ scope: "discord" }),
-  redis: getLogger({ scope: "redis" }),
   scraper: getLogger({ scope: "scraper" }),
   dispatch: getLogger({ scope: "dispatch" }),
   auth: getLogger({ scope: "auth" }),
@@ -235,11 +234,12 @@ export function requestLogger(req: any, res: any, next: () => void) {
 }
 
 // Error logging helper with stack trace
-export function logError(err: any, context: Record<string, any> = {}, logger: Logger = baseLogger) {
+export function logError(err: unknown, context: Record<string, any> = {}, logger: Logger = baseLogger) {
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
-  const code = (err as any)?.code;
-  const type = err?.constructor?.name;
+  const errorObj = err instanceof Error ? err : (typeof err === "object" && err ? err : {});
+  const code = (errorObj as Record<string, unknown>)?.code;
+  const type = errorObj?.constructor?.name;
 
   logger.error(
     {
@@ -301,15 +301,16 @@ export function logApiOk(logger: Logger | null | undefined, extra: Record<string
   logger.info({ event: "request_ok", ...extra }, "api success");
 }
 
-export function logApiError(logger: Logger | null | undefined, err: any, extra: Record<string, any> = {}) {
+export function logApiError(logger: Logger | null | undefined, err: unknown, extra: Record<string, unknown> = {}) {
   if (!logger) return;
-  const statusCode = err?.response?.status ?? extra.statusCode ?? null;
-  const errCode =
-    extra.code || err?.code || (statusCode ? `http_${statusCode}` : null);
-  const errType = extra.type || err?.name || "Error";
+  const e = err as Record<string, unknown> | undefined;
+  const response = e?.response as Record<string, unknown> | undefined;
+  const config = e?.config as Record<string, unknown> | undefined;
+  const statusCode = (response?.status as number) ?? (extra.statusCode as number) ?? null;
+  const errCode = (extra.code as string) || (e?.code as string) || (statusCode ? `http_${statusCode}` : null);
+  const errType = (extra.type as string) || (e?.name as string) || "Error";
 
-  // Prevent leaking sensitive data in headers
-  const filteredHeaders = { ...err?.config?.headers };
+  const filteredHeaders = { ...(config?.headers as Record<string, string> | undefined) };
   if (filteredHeaders.Authorization)
     filteredHeaders.Authorization = "[REDACTED]";
   if (filteredHeaders.Cookie) filteredHeaders.Cookie = "[REDACTED]";
@@ -317,12 +318,12 @@ export function logApiError(logger: Logger | null | undefined, err: any, extra: 
   logger.error(
     {
       event: "request_error",
-      err: err?.message || String(err),
+      err: (e?.message as string) || String(err),
       errCode,
       errType,
       statusCode,
-      url: err?.config?.url,
-      method: err?.config?.method,
+      url: config?.url as string,
+      method: config?.method as string,
       ...extra,
     },
     "api error",
@@ -352,13 +353,14 @@ export async function sendErrorLog(webhookUrl: string | undefined, error: any, c
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-  } catch (err: any) {
-    console.error("[sendErrorLog] Failed to send error log:", err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[sendErrorLog] Failed to send error log:", msg);
   }
 }
 
 // Export base logger for direct use
 export default baseLogger;
 
-// Re-export pino levels for convenience
+// Re-export log levels for convenience
 export const levels = LEVEL_VALUES;

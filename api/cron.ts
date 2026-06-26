@@ -195,7 +195,7 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
           
           logger.info({ status: result.statusCode, ...result.logMeta }, "Cron background job finished");
         }, { ttlSec: 45, timeoutMs: 0, label: "Cron" });
-      } catch (err: any) {
+      } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         logger.error({ err: message }, "Cron background job failed");
         
@@ -250,18 +250,6 @@ async function handleHealthCheck(req: Request, res: Response, reqLogger: ReturnT
   }
 }
 
-async function handleDeadLinks(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>) {
-  try {
-    const brokenLinks = null;
-    const parsed: unknown[] = [];
-    logApiOk(reqLogger, { status: 200, count: parsed.length });
-    return res.status(200).json(createSuccessResponse({ deadLinks: parsed }));
-  } catch (err: unknown) {
-    logApiError(reqLogger, err, { status: 500 });
-    return res.status(500).json(createErrorResponse("LINKS_CHECK_FAILED", err instanceof Error ? err.message : String(err)));
-  }
-}
-
 export { shouldRunChannelValidation } from "../lib/cron/helpers.js";
 
 export default async function handler(req: Request, res: Response) {
@@ -290,8 +278,6 @@ export default async function handler(req: Request, res: Response) {
       return handleUpdateCron(req, res, reqLogger, query);
     case "health":
       return handleHealthCheck(req, res, reqLogger);
-    case "links":
-      return handleDeadLinks(req, res, reqLogger);
     case "prefetch-metadata":
       return handlePrefetchMetadata(req, res);
     default:

@@ -15,12 +15,7 @@
     "api/interactive.ts": {
       "maxDuration": 10
     },
-    "api/analytics.ts": {
-      "maxDuration": 10
-    },
-    "api/scrapling_bridge.py": {
-      "maxDuration": 60
-    }
+
   },
   "rewrites": [
     {

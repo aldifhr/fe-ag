@@ -98,6 +98,25 @@ const envSchema = z.object({
     SECONDARY_DETAIL_WINDOW_HOURS: z.preprocess((v) => Number(v) || 2, z.number()).default(2),
     SECONDARY_DETAIL_THROTTLE_MS: z.preprocess((v) => Number(v) || 200, z.number()).default(200),
     IKIRU_EMPTY_PAGE_BREAK_STREAK: z.preprocess((v) => Number(v) || 1, z.number()).default(1),
+    IKIRU_LATEST_URL: z.string().optional(),
+    IKIRU_COOKIE_MAX_AGE_SEC: z.preprocess((v) => Number(v) || 86400, z.number()).default(86400),
+    IKIRU_COOKIE_REFRESH_BACKOFF_MS: z.preprocess((v) => Number(v) || 30000, z.number()).default(30000),
+    IKIRU_COOKIE: z.string().optional(),
+
+    // Shinigami scraper config
+    SHINIGAMI_API_BASE: z.string().url().default("https://api.shngm.io"),
+    SHINIGAMI_MAX_RETRIES: z.preprocess((v) => Number(v) || 2, z.number()).default(2),
+    SHINIGAMI_RETRY_DELAY: z.preprocess((v) => Number(v) || 1000, z.number()).default(1000),
+    SHINIGAMI_TIMEOUT: z.preprocess((v) => Number(v) || 15000, z.number()).default(15000),
+    SHINIGAMI_LOOKBACK_HOURS: z.preprocess((v) => Number(v) || 48, z.number()).default(48),
+    SHINIGAMI_DIRECT_FALLBACK_MAX_URLS: z.preprocess((v) => Number(v) || 20, z.number()).default(20),
+    SHINIGAMI_DETAIL_MAX_MANGA: z.preprocess((v) => Number(v) || 5, z.number()).default(5),
+    SHINIGAMI_MAX_ROWS: z.preprocess((v) => Number(v) || 20, z.number()).default(20),
+    SHINIGAMI_MAX_CONCURRENCY: z.preprocess((v) => Number(v) || 5, z.number()).default(5),
+    SHINIGAMI_MAX_EXPANSION_SEARCHES: z.preprocess((v) => Number(v) || 5, z.number()).default(5),
+
+    // App URL for scrapling bridge
+    APP_URL: z.string().optional(),
 
     // Discord send rate-limiting
     DISCORD_SEND_MAX_CONCURRENT: z.preprocess((v) => Number(v) || 10, z.number()).default(10),
@@ -132,17 +151,19 @@ if (!parsed.success && !isTest) {
 }
 
 // Build partial env from defaults for fallback (edge runtime safety)
-const buildPartialEnv = () => {
+const buildPartialEnv = (): EnvType => {
     try {
-        return envSchema.partial().parse(process.env);
+        return envSchema.partial().parse(process.env) as EnvType;
     } catch {
-        return {} as any;
+        return {} as EnvType;
     }
 };
 
+type EnvType = z.infer<typeof envSchema> & Record<string, unknown>;
+
 // Use Proxy in test mode for dynamic process.env modifications
-export const env: any = isTest
-    ? new Proxy({}, {
+export const env: EnvType = isTest
+    ? new Proxy({} as EnvType, {
         get(_, prop: string) {
             const envToParse = { ...process.env };
             // Inject dummy values for tests if missing
@@ -152,14 +173,14 @@ export const env: any = isTest
 
             const p = envSchema.safeParse(envToParse);
             if (p.success) {
-                return (p.data as any)[prop];
+                return (p.data as EnvType)[prop];
             }
             // Fallback for partial/invalid during tests
             try {
-                return (envSchema.partial().parse(envToParse) as any)[prop];
+                return (envSchema.partial().parse(envToParse) as EnvType)[prop];
             } catch {
-                return (process.env as any)[prop];
+                return (process.env as unknown as EnvType)[prop];
             }
         }
     })
-    : (parsed.data || buildPartialEnv());
+    : (parsed.data || buildPartialEnv()) as EnvType;

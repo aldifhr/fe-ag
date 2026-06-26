@@ -22,18 +22,6 @@ export { batchGetMangaMetadata, setMangaMetadata, deleteMangaMetadata };
 export { supabasePing };
 export { readCronLogs, readRecentChapters, fetchDashboardSnapshot } from "./storage/dashboard.js";
 
-export async function readObjectCache<T>(_key: string): Promise<T | null> {
-  return null as T | null;
-}
-
-export async function writeObjectCache(
-  _key: string,
-  _payload: unknown,
-  _cacheTtl: number,
-): Promise<void> {
-  // In-memory cache removed — Supabase is source of truth
-}
-
 type ChannelValidationState = z.infer<typeof ChannelValidationStateSchema>;
 
 const logger = getLogger({ scope: "storage" });

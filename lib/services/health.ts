@@ -13,13 +13,6 @@ const logger = getLogger({ scope: "health" });
 // --- Source Health Management (Restored) ---
 
 /**
- * Generate the Redis key for a specific source's health entry.
- */
-export function sourceHealthKey(key: string): string {
-  return `source:health:${key}`;
-}
-
-/**
  * Build a default healthy SourceHealth baseline for a given source key.
  */
 export function defaultSourceHealth(key: string): SourceHealth {

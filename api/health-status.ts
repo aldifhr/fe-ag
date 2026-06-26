@@ -10,7 +10,6 @@ import { isMonitorAuthorized } from "../lib/auth.js";
 import { createEdgeResponse, createErrorResponse } from "../lib/api/response.js";
 import { supabase } from "../lib/supabase.js";
 import { mangaProviderRegistry } from "../lib/providers/registry.js";
-import { initializeAllProviders } from "../lib/boot.js";
 import { getSupabasePing, getDiscordPing, formatResponseTime, getProviderMetrics } from "../lib/services/health.js";
 
 import { findCronJob, getCronNextRuns, getCronLogs, FastCronExecutionResult } from "../lib/services/fastcron.js";
@@ -144,8 +143,6 @@ export default async function handler(req: Request) {
       getSupabasePing(),
       getProviderMetrics(),
     ]);
-    const guildCount = null;
-
     // Get current run data for fallback when historical stats not yet available
     const cronStatus_ = cronStatus as Record<string, unknown> | null;
     const cronRunCount = Number(cronStatus_?.sent || 0);
@@ -255,7 +252,6 @@ export default async function handler(req: Request) {
       lastUpdated: new Date().toISOString(),
       uptime: overallUptime,
       totalIncidents: networks.reduce((acc, n) => acc + n.services.reduce((a2, s) => a2 + s.incidents.length, 0), 0),
-      guildCount,
       cronStatus: cronStatus_ ? {
         lastRun: cronStatus_.lastRun || null,
         sent: cronStatus_.sent || 0,

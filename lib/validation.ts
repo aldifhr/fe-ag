@@ -271,8 +271,8 @@ export function parseQueryParams<T>(schema: z.ZodSchema<T>, query: any): Validat
     }
 
     return safeParse(schema, transformed);
-  } catch (err: any) {
-    return { success: false, errors: [err.message] };
+  } catch (err: unknown) {
+    return { success: false, errors: [err instanceof Error ? err.message : String(err)] };
   }
 }
 

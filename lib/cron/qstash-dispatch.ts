@@ -7,7 +7,7 @@ import { resolvePositiveInt } from "../config.js";
 import { env } from "../config/env.js";
 import { hydrateIkiruMetadataIfMissing, IkiruMetaCacheEntry } from "../services/dispatch/hydration.js";
 import type { ChapterItem, SendEmbedFn } from "../types.js";
-import type { Logger } from "pino";
+import type { Logger } from "../types.js";
 
 export interface QStashDispatchOptions {
   matched: ChapterItem[];

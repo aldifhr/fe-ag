@@ -10,7 +10,7 @@ import {
 } from "../services/scrapePreferences.js";
 import { SOURCE_KEYS } from "../constants/sources.js";
 import type { ChapterItem, TimingMetrics, LifecycleState } from "../types.js";
-import type { Logger } from "pino";
+import type { Logger } from "../types.js";
 
 export interface ScrapePhaseOptions {
   whitelist: any[];

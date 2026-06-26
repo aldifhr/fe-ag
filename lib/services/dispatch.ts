@@ -90,7 +90,6 @@ async function buildAndLogSummary(
  * @param options.nowIso - Current timestamp (ISO format)
  * @param options.chapterTtl - Chapter TTL in seconds (default: 86400)
  * @param options.pendingClaimTtl - Pending claim TTL in seconds (default: 600)
- * @param options.crossSourceDedupeTtl - Cross-source dedupe TTL in seconds (default: 86400)
  * @param options.chapterConcurrency - Concurrent dispatch limit (default: 8)
  * @param options.maxItems - Maximum items to dispatch (default: Infinity)
  * @param options.getSubscribersFn - Function to get manga subscribers
@@ -124,7 +123,6 @@ export async function dispatchChapters({
   nowIso = new Date().toISOString(),
   chapterTtl = CHAPTER_TTL_SEC,
   pendingClaimTtl = CHAPTER_PENDING_TTL_SEC,
-  crossSourceDedupeTtl = CROSS_SOURCE_DEDUPE_TTL_SEC,
   chapterConcurrency = env.CHAPTER_DISPATCH_CONCURRENCY ?? DEFAULT_CHAPTER_DISPATCH_CONCURRENCY,
   maxItems = Infinity,
   onDispatchSuccess = null,

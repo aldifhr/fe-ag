@@ -17,8 +17,6 @@
 // Lock
 export {
   acquireCronLock,
-  forceReleaseCronLock,
-  isCronLocked,
   type LockResult,
 } from "./lock.js";
 

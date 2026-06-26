@@ -7,11 +7,9 @@ import {
   daysBackQuerySchema,
   parseQueryParams,
 } from "../lib/validation.js";
-import { getClientAddress } from "../lib/auth/ip.js";
 import { logApiError, logApiHit, logApiOk } from "../lib/logger.js";
 import { getLogger } from "../lib/logger.js";
 import { isMonitorAuthorized } from "../lib/auth.js";
-import { INCIDENT_CACHE_TTL } from "../lib/config.js";
 import {
   getCutoffTime,
   getTimestampMs,
@@ -333,7 +331,7 @@ function determineStatus(notices: any[]) {
 // Handlers
 // ==========================================
 
-async function handleIncidents(req: Request, res: Response, reqLogger: any) {
+async function handleIncidents(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>) {
   try {
     const v = parseQueryParams(daysBackQuerySchema, req.query);
     if (!v.success) {
@@ -430,7 +428,7 @@ async function handleIncidents(req: Request, res: Response, reqLogger: any) {
   }
 }
 
-async function handleNotices(req: Request, res: Response, reqLogger: any) {
+async function handleNotices(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>) {
   try {
     const v = parseQueryParams(daysBackQuerySchema, req.query);
     if (!v.success) {

@@ -198,12 +198,13 @@ async function loadApiRoutes() {
               const body = await webResponse.text();
               res.send(body);
             }
-          } catch (err: any) {
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
             log.error(
               { 
-                err: err.message, 
-                stack: err.stack,
-                type: err.constructor?.name,
+                err: errorMessage, 
+                stack: err instanceof Error ? err.stack : undefined,
+                type: err instanceof Error ? err.constructor.name : typeof err,
                 route: routeName, 
                 path: req.path 
               },
@@ -212,7 +213,7 @@ async function loadApiRoutes() {
             if (!res.headersSent) {
               res.status(500).json({ 
                 error: "Internal Server Error",
-                details: process.env.NODE_ENV !== "production" ? err.message : undefined
+                details: process.env.NODE_ENV !== "production" ? errorMessage : undefined
               });
             }
           }
@@ -224,9 +225,9 @@ async function loadApiRoutes() {
           "API module missing default export",
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error({ err, file, route: routeName }, "Failed to load API route");
-      failedRoutes.push({ name: routeName, error: err.message });
+      failedRoutes.push({ name: routeName, error: err instanceof Error ? err.message : String(err) });
     }
   }
 

@@ -19,7 +19,6 @@ export const QSTASH_NEXT_SIGNING_KEY = env.QSTASH_NEXT_SIGNING_KEY;
 export const LOGS_CACHE_SEC = 600;
 export const RECENT_CACHE_SEC = 1800;
 export const HEALTH_CACHE_TTL_MS = 300_000;
-export const INCIDENT_CACHE_TTL = 3600;
 export const CLAIM_STATUS = {
   PENDING: "pending",
   ENQUEUED: "enqueued",

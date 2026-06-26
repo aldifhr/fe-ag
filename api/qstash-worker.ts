@@ -181,7 +181,9 @@ export default async function handler(req: Request, res: Response) {
               p_title_key: task.chapter.titleKey,
               p_chapter_number: chapterNum,
             });
-          } catch (_) {}
+          } catch (err) {
+            logger.warn({ err, titleKey: task.chapter.titleKey }, "Failed to upsert title last chapter");
+          }
         }
         
         logger.info({ chapter: task.chapter.title }, "Marked as sent in Supabase");
@@ -189,7 +191,7 @@ export default async function handler(req: Request, res: Response) {
         // Record to dispatch_history
         const titleKey = task.chapter.titleKey || "";
         if (titleKey) {
-          recordDispatchToSupabase(task.chapter as any, titleKey).catch(() => {});
+          recordDispatchToSupabase(task.chapter as any, titleKey);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

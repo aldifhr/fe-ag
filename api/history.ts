@@ -8,7 +8,6 @@ import { prepareAuthorizedGet } from "../lib/api/response.js";
 import { readCronDailyStats } from "../lib/cronLogs.js";
 import { LOGS_CACHE_SEC, RECENT_CACHE_SEC } from "../lib/config.js";
 import { getTimestampMs } from "../lib/dateUtils.js";
-import { getClientAddress } from "../lib/auth/ip.js";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -41,7 +40,7 @@ export function sortRecentItems(items: DiscordEmbedData[] = []): DiscordEmbedDat
   });
 }
 
-async function handleRecent(req: Request, res: Response, reqLogger: any) {
+async function handleRecent(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>) {
   const prepared = await prepareAuthorizedGet(req, res, {
     defaultCacheTtl: RECENT_CACHE_SEC,
     rawCacheTtl: RECENT_CACHE_SEC,
@@ -64,7 +63,7 @@ async function handleRecent(req: Request, res: Response, reqLogger: any) {
   }
 }
 
-async function handleLogs(req: Request, res: Response, reqLogger: any) {
+async function handleLogs(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>) {
   const prepared = await prepareAuthorizedGet(req, res, {
     defaultCacheTtl: LOGS_CACHE_SEC,
     rawCacheTtl: LOGS_CACHE_SEC,

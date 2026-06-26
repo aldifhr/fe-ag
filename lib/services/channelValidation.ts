@@ -142,8 +142,10 @@ export async function fetchDiscordChannelsBatch(
       try {
         const channel = await fetchDiscordChannel({ channelId, botToken });
         return { channelId, channel, valid: true };
-      } catch (err: any) {
-        const status = err?.response?.status;
+      } catch (err: unknown) {
+        const axiosErr = err as Record<string, unknown> | undefined;
+        const response = axiosErr?.response as Record<string, unknown> | undefined;
+        const status = response?.status as number | undefined;
         return {
           channelId,
           channel: null,

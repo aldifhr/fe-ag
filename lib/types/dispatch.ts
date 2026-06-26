@@ -70,7 +70,6 @@ export interface DispatchChaptersOptions {
   nowIso?: string;
   chapterTtl?: number;
   pendingClaimTtl?: number;
-  crossSourceDedupeTtl?: number;
   chapterConcurrency?: number;
   writeTaskBatch?: number;
   maxItems?: number;

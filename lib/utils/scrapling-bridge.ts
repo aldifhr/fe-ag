@@ -125,8 +125,10 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
     // Redis removed; cookies no longer saved
     
     return parsed.data;
-  } catch (err: any) {
-    const message = err.response?.data || err.message;
+  } catch (err: unknown) {
+    const axiosErr = err as Record<string, unknown> | undefined;
+    const response = axiosErr?.response as Record<string, unknown> | undefined;
+    const message = response?.data || (err instanceof Error ? err.message : String(err));
     logger.error({ action: options.action, err: message }, "Scrapling API failed");
     throw new Error(`Scrapling API failed: ${message}`);
   }
