@@ -81,7 +81,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
       
       if (!output) {
         logger.warn("Python scraper returned empty stdout");
-        return [] as any;
+        return [] as unknown as T;
       }
       
       const parsed = JSON.parse(output) as ScraplingResponse<T>;

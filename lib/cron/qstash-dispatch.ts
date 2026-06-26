@@ -83,7 +83,7 @@ export async function runDispatch(opts: QStashDispatchOptions): Promise<Dispatch
             chapter: chapter.chapter ?? "",
             source: chapter.source,
             url: chapter.url ?? "",
-            cover: chapter.cover ?? (chapter as any).image ?? undefined,
+            cover: chapter.cover ?? ("image" in chapter ? (chapter as Record<string, unknown>).image as string | undefined : undefined),
             updatedTime: chapter.updatedTime ?? undefined,
             mangaUrl: chapter.mangaUrl ?? undefined,
             status: chapter.status ?? undefined,

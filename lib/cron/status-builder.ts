@@ -118,7 +118,7 @@ export async function writeSuccessStatus(
   const statusPayload = buildSuccessStatus(options);
 
   await Promise.all([
-    appendCronLog(statusPayload as any).catch(
+    appendCronLog({ ...statusPayload }).catch(
       (err: unknown) => {
         logger.warn(
           { err: err instanceof Error ? err.message : String(err) },

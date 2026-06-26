@@ -389,7 +389,8 @@ export async function scrapeWithHeaders(
       headers: res.headers as Record<string, string>,
     };
   } catch (err: unknown) {
-    const statusCode = (err as any)?.response?.status || 500;
+    const axiosErr = err as { response?: { status?: number } } | null;
+    const statusCode = axiosErr?.response?.status || 500;
     const message = err instanceof Error ? err.message : String(err);
     throw new AppError(message, {
       code: "EXTERNAL_ERROR",

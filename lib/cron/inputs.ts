@@ -50,7 +50,9 @@ export async function loadCronInputs(
   initializeScrapeOptimizer();
 
   // Anti-Shutdown: Send a ping to Supabase to keep the project active
-  supabasePing().catch(() => {}); // Fire and forget
+  supabasePing().catch((err: unknown) => {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Supabase ping failed");
+  });
 
   const [whitelist, guildChannels, _] =
     await Promise.all([

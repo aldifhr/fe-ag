@@ -290,10 +290,10 @@ function parseHmgetPipelineResult(
   let results = raw;
 
   if (results && typeof results === "object" && !Array.isArray(results)) {
-    results = keys.map((k) => (results as any)[k]);
+    results = keys.map((k) => (results as Record<string, unknown>)[k]);
   }
-  
-  return ((results as any[]) || []).map((j: unknown) => {
+
+  return ((results as unknown[]) || []).map((j: unknown) => {
     if (typeof j === "string") return safeJsonParse(j, j);
     return j;
   }) as (ClaimState | string | null)[];

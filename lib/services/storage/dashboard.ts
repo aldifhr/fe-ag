@@ -131,16 +131,10 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
     whitelist = whitelist.map((entry, i) => {
       const meta = metadata[i];
       if (meta && meta.cover) {
-        return {
-          ...entry,
-          cover: meta.cover,
-          description: meta.description,
-          status: meta.status,
-          rating: meta.rating
-        } as any;
+        return { ...entry, cover: meta.cover, description: meta.description, status: meta.status, rating: meta.rating };
       }
       return entry;
-    });
+    }) as typeof whitelist;
   } catch (err: unknown) {
     logger.error({ err: err instanceof Error ? err.message : String(err) }, "[fetchDashboardSnapshot] Failed to load whitelist");
   }

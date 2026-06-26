@@ -293,7 +293,7 @@ export const SecondaryApiResponseSchema = z.object({
 /**
  * Validation result for a single Discord channel
  */
-export const ChannelValidationEntrySchema = z.object({
+const ChannelValidationEntrySchema = z.object({
   valid: z.boolean(),
   expiresAt: z.number(),
 });

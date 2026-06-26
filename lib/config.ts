@@ -5,8 +5,6 @@ export { env };
 export const CHAPTER_TTL_SEC = env.CHAPTER_TTL_SEC;
 export const CHAPTER_PENDING_TTL_SEC = env.CHAPTER_PENDING_TTL_SEC;
 export const CROSS_SOURCE_DEDUPE_TTL_SEC = env.CROSS_SOURCE_DEDUPE_TTL_SEC;
-export const RECENT_LIST_TTL_SEC = env.RECENT_LIST_TTL_SEC;
-export const RECENT_LIST_MAX_SIZE = 1000;
 export const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 export const STATUS_CACHE_SEC = 300;
 
@@ -40,7 +38,6 @@ export const DISCORD_BUTTON_STYLE = {
   LINK: 5,
 };
 export const DISCORD_EMBED_TITLE_LIMIT = 256;
-export const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 
 // --- Scraper Config ---
 export const SCRAPER_LOOKBACK_HOURS = env.SCRAPER_LOOKBACK_HOURS;
@@ -75,7 +72,6 @@ export const SECONDARY_CONFIG = {
 
 // --- Dispatch Config ---
 export const DEFAULT_CHAPTER_DISPATCH_CONCURRENCY = env.CHAPTER_DISPATCH_CONCURRENCY;
-export const DEFAULT_DISPATCH_WRITE_TASK_BATCH = env.DISPATCH_WRITE_TASK_BATCH;
 export const ENQUEUED_EXPIRY_MS = env.ENQUEUED_EXPIRY_MS;
 
 // --- Session Config ---

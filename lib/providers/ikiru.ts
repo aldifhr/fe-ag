@@ -119,7 +119,7 @@ export const ikiruProvider: MangaProvider = {
     const { preferredMatcher, logger, ...rest } = options;
     const start = Date.now();
     try {
-      const res = await scrapeIkiruUpdatesWithMeta(preferredMatcher as any, logger as any, rest);
+      const res = await scrapeIkiruUpdatesWithMeta(preferredMatcher as { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> | undefined, logger, rest);
       const duration = Date.now() - start;
       metricsTracker.record(duration, res.state.status === "ok");
       return res;

@@ -32,7 +32,9 @@ const envSchema = z.object({
     WORKER_TOKEN: z.string().optional(),
     FASTCRON_API_TOKEN: z.string().optional(),
     VERCEL_PROTECTION_BYPASS: z.string().optional(),
-
+    VERCEL_URL: z.string().optional(),
+    NEXT_RUNTIME: z.string().optional(),
+    NOTIFICATION_CHANNEL_ID: z.string().optional(),
 
     // URLs
     BASE_URL: z.string().optional(),
