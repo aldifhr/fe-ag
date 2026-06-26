@@ -15,6 +15,7 @@ import {
   SourceState 
 } from "../types.js";
 import { detectSource, extractShinigamiMangaId } from "../utils/shinigami-detector.js";
+import type { PreferredSecondaryMatcher } from "../scrapers/orchestrator-helpers.js";
 import { MetricsTracker } from "./metrics.js";
 
 const logger = getLogger({ scope: "provider:shinigami" });
@@ -132,7 +133,7 @@ export const shinigamiProvider: MangaProvider = {
 
     try {
       const { results, state: catchState } = await scrapeSecondaryUpdatesWithMeta("shinigami", {
-        preferredMatcher: preferredMatcher as any,
+        preferredMatcher: preferredMatcher as PreferredSecondaryMatcher | null,
         options: rest,
         deadline: rest.deadline
       });

@@ -36,7 +36,7 @@ export interface QStashNotificationTask {
     cover?: string;
     updatedTime?: string;
     mangaUrl?: string;
-    // Keys for Redis state management
+    // Keys for Supabase state management
     key?: string;
     duplicateKey?: string;
     titleKey?: string;

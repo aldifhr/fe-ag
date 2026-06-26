@@ -107,7 +107,7 @@ class RequestDeduplicator {
 }
 
 /**
- * Intelligent caching strategy with Redis backend
+ * Caching strategy (in-memory)
  */
 export class ScrapeCacheManager {
   private localCache: Map<string, { data: unknown; timestamp: number }>;
@@ -302,7 +302,7 @@ export const globalScrapeCacheManager = new ScrapeCacheManager();
 export const globalAdaptiveLimiter = new AdaptiveConcurrencyLimiter(10, 5, 15);
 
 /**
- * Initialize with Redis client
+ * Initialize cache client
  */
 export function initializeScrapeOptimizer(): void {
   Object.assign(globalScrapeCacheManager, new ScrapeCacheManager());

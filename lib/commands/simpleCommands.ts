@@ -14,6 +14,7 @@ import { fetchDiscordChannel } from "../services/channelValidation.js";
 import { env } from "../config/env.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
+import { getErrorMessage } from "../errors.js";
 import { TypedCommandOption } from "../types.js";
 
 const logger = getLogger({ scope: "commands:simple" });
@@ -39,10 +40,10 @@ export async function handleList(payload: any, options: TypedCommandOption[], re
         );
         await editInteractionResponseWithComponents(payload, content, components);
       } catch (err: unknown) {
-        logger.error({ err: (err as any).message }, "[handleList] Error");
+        logger.error({ err: getErrorMessage(err) }, "[handleList] Error");
         await editInteractionResponse(
           payload,
-          `❌ Gagal memuat daftar: ${(err as any).message}`,
+          `❌ Gagal memuat daftar: ${getErrorMessage(err)}`,
         );
       }
     })(),
@@ -122,7 +123,7 @@ export function handleSetchannel(payload: any, options: TypedCommandOption[], re
       } catch (err: unknown) {
         await editInteractionResponse(
           payload.token,
-          `❌ Terjadi kesalahan: ${(err as any).message}`,
+          `❌ Terjadi kesalahan: ${getErrorMessage(err)}`,
         );
       }
     })(),

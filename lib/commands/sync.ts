@@ -6,6 +6,7 @@ import { isGuildAdmin } from "../permissions.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
 import { withSupabaseLock } from "../lock.js";
+import { getErrorMessage } from "../errors.js";
 
 const logger = getLogger({ scope: "commands:sync" });
 
@@ -77,14 +78,14 @@ export default async function handleSync(payload: any, _options: any, res: any) 
           await editInteractionResponse(payload, msg);
         }, { ttlSec: 60, timeoutMs: 30000, label: "Sync" }); // 30s lock timeout
       } catch (err: unknown) {
-        if ((err as any).message?.includes("Gagal mendapatkan lock")) {
+        if (getErrorMessage(err)?.includes("Gagal mendapatkan lock")) {
           return editInteractionResponse(
             payload,
             "⚠️ Bot sedang sinkronisasi. Cek lagi nanti.",
           );
         }
-        logger.error({ err: (err as any).message, userId }, "Manual sync failed");
-        await editInteractionResponse(payload, `❌ Sync gagal: ${(err as any).message}`);
+        logger.error({ err: getErrorMessage(err), userId }, "Manual sync failed");
+        await editInteractionResponse(payload, `❌ Sync gagal: ${getErrorMessage(err)}`);
       }
     })(),
   );

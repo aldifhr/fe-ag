@@ -27,7 +27,7 @@ export async function getHibernatingTitleKeys(
   _titleKeys: string[],
   _options: OrchestrateOptions = {}
 ): Promise<Set<string>> {
-  // Redis removed; hibernation checks no longer available
+  
   return new Set();
 }
 
@@ -35,7 +35,7 @@ export async function applyIncrementalFilter(
   titleKeys: Set<string>,
   _batchGetLastScrapeChecks: (keys: string[]) => Promise<(string | null)[]>
 ): Promise<Set<string>> {
-  // Redis removed; incremental filter returns all keys unfiltered
+  
   return titleKeys;
 }
 

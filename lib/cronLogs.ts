@@ -4,7 +4,7 @@ import { supabase } from "./supabase.js";
 import { normalizeCronLogEntry } from "./utils/log-helpers.js";
 export { normalizeCronLogEntry };
 
-// :: In-memory throttle store :: replaces Redis SET NX EX
+// :: In-memory throttle store :: uses Supabase lock
 const throttleMap = new Map<string, number>();
 const THROTTLE_CLEANUP_INTERVAL = 100;
 let throttleOpCounter = 0;
@@ -30,7 +30,7 @@ function setThrottle(key: string, ttlSec: number): void {
 }
 
 /**
- * Appends a log entry to both Redis and Supabase.
+ * Appends a log entry to Supabase cron_logs.
  */
 
 function formatDateKey(rawTime: string | number | Date | null = null): string {
@@ -96,7 +96,7 @@ function normalizeStatsRecord(date: string, raw: Record<string, unknown> | null 
 }
 
 /**
- * Read historical daily stats — Supabase primary, no Redis dependency.
+ * Read historical daily stats from Supabase.
  */
 export async function readCronDailyStats(
   days = 30,
@@ -169,7 +169,7 @@ function shouldPersistRawCronLog(entry?: Record<string, unknown>): boolean {
 }
 
 /**
- * Increment daily counters for a log entry — Supabase-only.
+ * Increment daily counters for a log entry Ã¢â‚¬â€ Supabase-only.
  */
 export async function appendCronDailyStats(entry?: Record<string, unknown>): Promise<void> {
   const payload = normalizeCronLogEntry(entry);
@@ -239,7 +239,7 @@ export async function appendCronDailyStats(entry?: Record<string, unknown>): Pro
 }
 
 /**
- * Append a permanent log entry and update daily stats — Supabase-only.
+ * Append a permanent log entry and update daily stats Ã¢â‚¬â€ Supabase-only.
  */
 export async function appendCronLog(entry?: Record<string, unknown>): Promise<boolean> {
   const payload = normalizeCronLogEntry(entry);
@@ -280,7 +280,7 @@ function buildThrottleKey(entry?: Record<string, unknown>): string {
 }
 
 /**
- * Append a log entry only if it's not throttled — in-memory throttle.
+ * Append a log entry only if it's not throttled Ã¢â‚¬â€ in-memory throttle.
  */
 export async function appendCronLogThrottled(
   entry?: Record<string, unknown>,

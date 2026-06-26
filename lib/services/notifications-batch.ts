@@ -135,7 +135,7 @@ export interface BatchLookupStats {
 }
 
 /**
- * Calculate batch lookup savings (simplified — no Redis)
+ * Calculate batch lookup savings (simplified — in-memory)
  */
 export function calculateBatchSavings(
   titles: string[],

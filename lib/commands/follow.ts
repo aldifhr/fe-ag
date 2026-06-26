@@ -12,6 +12,7 @@ import {
   DISCORD_COMPONENT_TYPE,
 } from "../config.js";
 import { getLogger } from "../logger.js";
+import { getErrorMessage } from "../errors.js";
 import { SubcommandOption } from "../types.js";
 
 const logger = getLogger({ scope: "commands:follow" });
@@ -135,10 +136,10 @@ export default async function handleFollow(
             components,
           );
         } catch (err: unknown) {
-          logger.error({ err: (err as any).message }, "[handleFollow list] Error");
+          logger.error({ err: getErrorMessage(err) }, "[handleFollow list] Error");
           return editInteractionResponse(
             payload,
-            `❌ Gagal memuat daftar: ${(err as any).message}`,
+            `❌ Gagal memuat daftar: ${getErrorMessage(err)}`,
           );
         }
       })(),
@@ -180,7 +181,7 @@ export default async function handleFollow(
         } catch (err: unknown) {
           return editInteractionResponse(
             payload,
-            `❌ Gagal unfollow: ${(err as any).message}`,
+            `❌ Gagal unfollow: ${getErrorMessage(err)}`,
           );
         }
       })(),

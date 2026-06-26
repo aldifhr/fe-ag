@@ -227,7 +227,7 @@ export const LifecycleStateSchema = z.object({
 });
 
 /**
- * Detailed metadata for a manga, cached in Redis
+ * Detailed metadata for a manga stored in Supabase
  */
 export const MangaMetadataSchema = z.object({
   title: z.string(),

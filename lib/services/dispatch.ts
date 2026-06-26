@@ -75,7 +75,7 @@ async function buildAndLogSummary(
  * 
  * This is the core notification dispatch function that:
  * 1. Deduplicates chapters (same chapter, cross-source duplicates)
- * 2. Claims chapters in Redis (PENDING state) to prevent race conditions
+ * 2. Locks chapters in Supabase (PENDING state) to prevent race conditions
  * 3. Enriches metadata (covers, descriptions) from cache or scraping
  * 4. Sends Discord embeds with buttons (follow/unfollow)
  * 5. Handles user subscriptions and mentions
@@ -198,7 +198,7 @@ export async function dispatchChapters({
     subscriberCache,
   );
 
-  // Process chapters and build notification tasks (no Redis writes yet)
+  // Process chapters and build notification tasks (no DB writes yet)
   const processLimit = pLimit(chapterConcurrency);
   await Promise.all(
     claimedMeta.map((entry, index) =>

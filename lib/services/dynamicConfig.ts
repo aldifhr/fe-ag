@@ -8,7 +8,7 @@ export interface DynamicOverrides {
   lastUpdated?: string;
 }
 
-// In-memory only; Redis removed
+// In-memory only
 let cachedOverrides: DynamicOverrides = {};
 
 /**

@@ -110,7 +110,7 @@ export function buildErrorStatus(
 }
 
 /**
- * Write success status to Redis and log
+ * Log success status to Supabase cron_logs
  */
 export async function writeSuccessStatus(
   options: StatusBuildOptions,
@@ -149,7 +149,7 @@ export async function writeSuccessStatus(
 }
 
 /**
- * Write error status to Redis
+ * Log error status to Supabase
  */
 export async function writeErrorStatus(
   options: ErrorStatusOptions,

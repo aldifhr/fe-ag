@@ -195,7 +195,7 @@ async function fetchLastUpdates(titleKeys: string[]): Promise<Map<string, string
 }
 
 /**
- * Build a map of duplicate keys to their existing Redis values
+ * Build a map of duplicate keys to their existing stored values
  */
 export function buildDuplicateFlagMap(
   duplicateKeys: string[],
@@ -304,7 +304,7 @@ function parseHmgetPipelineResult(
  * 
  * This function is the heart of the deduplication system. It:
  * 1. Builds chapter metadata with unique keys
- * 2. Fetches existing state from Redis (SENT/PENDING)
+ * 2. Fetches existing state from Supabase (SENT/PENDING)
  * 3. Checks cross-source duplicates (ikiru vs shinigami)
  * 4. Filters out already-sent or pending chapters
  * 5. Selects preferred source for duplicates
@@ -312,9 +312,9 @@ function parseHmgetPipelineResult(
  * 7. Provides detailed skip breakdown for observability
  * 
  * **Deduplication Strategy:**
- * - Same chapter key → Skip if SENT or PENDING
- * - Duplicate key (cross-source) → Skip if duplicate is SENT/PENDING
- * - Stale PENDING → Allow retry after TTL expires
+ * - Same chapter key â†’ Skip if SENT or PENDING
+ * - Duplicate key (cross-source) â†’ Skip if duplicate is SENT/PENDING
+ * - Stale PENDING â†’ Allow retry after TTL expires
  * - Prefer newer source when both available
  * 
  * @param matched - Array of matched chapters from scrapers
@@ -363,7 +363,7 @@ export async function prepareDispatchQueue(
     fetchLastUpdates(titleKeys),
   ]);
 
-  // Build existingFlags array matching the old Redis format
+  // Build existingFlags array from stored state
   const existingFlags = validChapterMeta.map((entry) => {
     const rawKey = entry.key?.startsWith("chapter:") ? entry.key.slice("chapter:".length) : entry.key;
     return rawKey ? (claimsMap.get(rawKey) ?? null) : null;
@@ -382,7 +382,7 @@ export async function prepareDispatchQueue(
 
   // 3. CHECK SUPABASE (Hybrid Deduplication)
   // Check if any of these chapters are already in Supabase 'dispatch_history'
-  // Redis keys use "chapter:${normalizedUrl}" format, but Supabase stores raw URLs
+  // Keys use normalized URLs, Supabase stores raw URLs
   const allPossibleKeys = [...new Set([...keys, ...duplicateKeys])];
   const supabaseSentKeys = new Set<string>();
   if (allPossibleKeys.length > 0) {
@@ -464,12 +464,12 @@ export async function prepareDispatchQueue(
   }
 
   // Filter claimable: 
-  // 1. Must NOT be in Redis SENT/PENDING
+  // 1. Must NOT be in Supabase SENT/PENDING
   // 2. Must NOT be in Supabase
   // 3. Must NOT be older than already dispatched chapters
   const claimableMeta = validChapterMeta.filter(
     (entry, i) => {
-      // Basic Redis/Supabase checks
+      // Basic Supabase checks
       const rawEntryKey = entry.key?.startsWith("chapter:") ? entry.key.slice("chapter:".length) : entry.key;
       const isBlocked = isBlockingClaim(existingFlags[i]) || 
                        (rawEntryKey && supabaseSentKeys.has(rawEntryKey)) ||

@@ -225,7 +225,7 @@ export function safeParse<T>(schema: z.ZodSchema<T>, data: any): ValidationResul
 }
 
 /**
- * Shared helper to validate data from Redis/JSON using Zod schemas.
+ * Shared helper to validate data from JSON/API using Zod schemas.
  * Returns null and logs a warning on validation failure.
  */
 export function validateData<T>(

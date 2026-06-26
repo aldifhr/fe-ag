@@ -6,7 +6,7 @@ export interface ProviderMetrics {
   history: number[]; // Last 20 response times
 }
 
-// In-memory storage for provider metrics (replaces Redis)
+// In-memory storage for provider metrics
 const metricsStore = new Map<string, ProviderMetrics>();
 
 export class MetricsTracker {

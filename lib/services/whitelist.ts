@@ -524,7 +524,7 @@ export async function buildWhitelistListResponse(
   const start = (safePage - 1) * pageSize;
   const slice = whitelist.slice(start, start + pageSize);
 
-  // Redis removed; update times no longer available
+  
   const updateTimes: (string | null)[] = slice.map(() => null);
 
   const lines = slice.map((item, i) => {
@@ -532,13 +532,13 @@ export async function buildWhitelistListResponse(
       .map((s) => `[${sourceLabel(s.source)}]`)
       .join(" ");
     const { text, isHibernating } = formatRelativeIndo(updateTimes[i] as string);
-    return `${start + i + 1}. **${formatMarkedTitle(item)}**${isHibernating ? " 💤" : ""} ${sourceIcons}${text ? ` _(Update: ${text})_` : ""}`;
+    return `${start + i + 1}. **${formatMarkedTitle(item)}**${isHibernating ? " ðŸ’¤" : ""} ${sourceIcons}${text ? ` _(Update: ${text})_` : ""}`;
   });
 
   const content =
     whitelist.length === 0
       ? `Whitelist kosong.`
-      : `📚 **Daftar Whitelist (${whitelist.length})**${search ? ` | Cari: "${search}"` : ""}${filter ? ` | Status: ${MARK_REASON_LABELS[filter] || filter}` : ""}\n*Halaman ${safePage}/${totalPage}*\n\n${lines.join("\n")}`;
+      : `ðŸ“š **Daftar Whitelist (${whitelist.length})**${search ? ` | Cari: "${search}"` : ""}${filter ? ` | Status: ${MARK_REASON_LABELS[filter] || filter}` : ""}\n*Halaman ${safePage}/${totalPage}*\n\n${lines.join("\n")}`;
 
   const components =
     whitelist.length === 0

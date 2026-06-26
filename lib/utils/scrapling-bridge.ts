@@ -20,7 +20,7 @@ interface ScraplingResponse<T> {
 
 /**
  * Bridge to execute Python Scrapling scraper via HTTP (Vercel compatible)
- * Redis removed; cookie persistence is no longer available.
+ * Cookie persistence via Supabase (Redis removed).
  */
 export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
   // Determine API base URL
@@ -34,7 +34,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
     apiBase = env.APP_URL;
   }
 
-  // Redis removed; cookies no longer loaded from cache
+  
   const isIkiru = options.baseUrl?.includes("ikiru") || (!options.baseUrl && (options.url?.includes("ikiru") || options.action === "latest"));
   const existingCookies: string | null = null;
 
@@ -86,7 +86,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
       
       const parsed = JSON.parse(output) as ScraplingResponse<T>;
       
-      // Redis removed; cookies no longer saved
+      
       
       return parsed.data;
     } catch (err) {
@@ -122,7 +122,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
 
     const parsed = response.data as ScraplingResponse<T>;
     
-    // Redis removed; cookies no longer saved
+    
     
     return parsed.data;
   } catch (err: unknown) {

@@ -53,13 +53,13 @@ async function refreshCookie(): Promise<string | null> {
 
     const location = (res.headers["location"] as string) ?? "";
     if (res.status === 302 && location.includes("login=failed")) {
-      logger.error({ url: LOGIN_URL }, "Login failed — invalid credentials");
+      logger.error({ url: LOGIN_URL }, "Login failed â€” invalid credentials");
       return null;
     }
 
     const rawCookies = res.headers["set-cookie"];
     if (!rawCookies?.length) {
-      logger.error({ url: LOGIN_URL }, "Login failed — no cookie in response");
+      logger.error({ url: LOGIN_URL }, "Login failed â€” no cookie in response");
       return null;
     }
 
@@ -67,7 +67,7 @@ async function refreshCookie(): Promise<string | null> {
       c.startsWith("wordpress_logged_in_"),
     );
     if (!hasAuthCookie) {
-      logger.error({ url: LOGIN_URL, foundCookies: rawCookies.map(c => c.split('=')[0]).join(', ') }, "Login failed — no wordpress_logged_in cookie");
+      logger.error({ url: LOGIN_URL, foundCookies: rawCookies.map(c => c.split('=')[0]).join(', ') }, "Login failed â€” no wordpress_logged_in cookie");
       return null;
     }
 
@@ -222,7 +222,7 @@ export function shouldBackoffCookieRefresh(
 }
 
 export async function getCookie(): Promise<string> {
-  // Redis removed; return env cookie directly
+  
   return env.IKIRU_COOKIE || "";
 }
 
@@ -401,12 +401,12 @@ export async function scrapeWithHeaders(
 }
 
 export async function getFingerprintHeaders(_url: string): Promise<Record<string, string>> {
-  // Redis removed; fingerprint caching no longer available
+  
   return {};
 }
 
 export async function saveFingerprint(_url: string, _response: any): Promise<void> {
-  // Redis removed; fingerprint caching no longer available
+  
 }
 
 export const getStatusColor = (status: string | null | undefined): number =>

@@ -63,7 +63,7 @@ export type ProviderErrorCode = z.infer<typeof ProviderErrorCodeSchema>;
 export type ProviderError = z.infer<typeof ProviderErrorSchema>;
 
 /**
- * Detailed metadata for a manga, cached in Redis
+ * Detailed metadata for a manga stored in Supabase
  */
 export type MangaMetadata = z.infer<typeof MangaMetadataSchema>;
 

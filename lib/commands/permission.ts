@@ -2,6 +2,7 @@ import { InteractionResponseType } from "discord-interactions";
 import { isGuildAdmin, isOwner } from "../permissions.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
+import { getErrorMessage } from "../errors.js";
 import { SubcommandOption } from "../types.js";
 
 const logger = getLogger({ scope: "commands:permission" });
@@ -94,11 +95,11 @@ export default async function handlePermission(payload: any, options: Subcommand
       },
     });
   } catch (err: unknown) {
-    logger.error({ err: (err as any).message, action, userId: userOption }, "Permission action failed");
+    logger.error({ err: getErrorMessage(err), action, userId: userOption }, "Permission action failed");
     return res.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: `❌ Terjadi kesalahan: ${(err as any).message}`,
+        content: `❌ Terjadi kesalahan: ${getErrorMessage(err)}`,
         flags: DISCORD_EPHEMERAL_FLAG,
       },
     });
