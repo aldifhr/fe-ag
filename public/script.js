@@ -595,6 +595,9 @@ async function loadLightData() {
       setTimeout(() => loadingScreen.style.display = "none", 300);
     }
 
+    // Warm up edge functions on first load to avoid cold start
+    warmupEdgeFunctions();
+
     const lastUpdated = $("lastUpdated");
     if (lastUpdated) lastUpdated.textContent = `diperbarui ${fmt(new Date())}`;
     state.lastLightLoadAt = Date.now();
@@ -607,6 +610,19 @@ async function loadLightData() {
     if (state.lightAbortController === controller)
       state.lightAbortController = null;
   }
+}
+
+function warmupEdgeFunctions() {
+  fetch(`${API_BASE}/api/whitelist`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "include",
+  }).catch(() => {});
+  fetch(`${API_BASE}/api/health-status`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "include",
+  }).catch(() => {});
 }
 
 function showErrorState(message = "Failed to load data") {
