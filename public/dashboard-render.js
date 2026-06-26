@@ -1327,7 +1327,6 @@ export function createDashboardRenderer({ state, $, esc }) {
     // I used column-reverse in CSS for aesthetic but let's check.
     // If we use normal order, we should scroll to bottom.
     // Let's use normal order for natural reading and scroll to TOP if newest is at top.
-    // Redis LRANGE 0 -1 returns newest first (LPUSH).
   }
 
   return {
