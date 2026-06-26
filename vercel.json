@@ -14,8 +14,7 @@
     },
     "api/interactive.ts": {
       "maxDuration": 10
-    },
-
+    }
   },
   "rewrites": [
     {
