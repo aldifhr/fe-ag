@@ -60,10 +60,6 @@
                 <div class="health-val" style="color:var(--muted)">—</div>
             </div>
             <div class="health-card">
-                <div class="health-lbl">Redis Cache</div>
-                <div class="health-val" style="color:var(--muted)">—</div>
-            </div>
-            <div class="health-card">
                 <div class="health-lbl">Discord API</div>
                 <div class="health-val" style="color:var(--muted)">—</div>
             </div>
@@ -347,11 +343,10 @@
             const overview = document.getElementById("systemHealthOverview");
             if (overview) {
                 const sys = nets.find(n => n.name === "System Services")?.services || [];
-                const supabase = sys.find(s => s.name === "Supabase DB"), redis = sys.find(s => s.name === "Redis Database"), discord = sys.find(s => s.name === "Discord API");
+                const supabase = sys.find(s => s.name === "Supabase DB"), discord = sys.find(s => s.name === "Discord API");
                 const fmt = s => s ? (s.status === "healthy" ? `<span style="color:var(--green)">${s.ping && s.ping !== "-" ? s.ping : "OK"}</span>` : `<span style="color:var(--red)">Down</span>`) : `<span style="color:var(--muted)">—</span>`;
                 overview.innerHTML = `
                     <div class="health-card"><div class="health-lbl">Supabase DB</div><div class="health-val">${fmt(supabase)}</div></div>
-                    <div class="health-card"><div class="health-lbl">Redis Cache</div><div class="health-val">${fmt(redis)}</div></div>
                     <div class="health-card"><div class="health-lbl">Discord API</div><div class="health-val">${fmt(discord)}</div></div>`;
             }
         }
