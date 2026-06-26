@@ -1,11 +1,3 @@
-/**
- * Supabase-based distributed locking
- * Replaces withDistributedLock() from lib/redis.ts
- *
- * Uses cron_locks table + acquire_cron_lock / release_cron_lock RPCs
- * from migration 00006_redis_removal.sql
- */
-
 import { supabase } from "./supabase.js";
 import { getLogger } from "./logger.js";
 

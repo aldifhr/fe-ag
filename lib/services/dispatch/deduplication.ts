@@ -317,7 +317,6 @@ function parseHmgetPipelineResult(
  * - Stale PENDING → Allow retry after TTL expires
  * - Prefer newer source when both available
  * 
- * @param redisClient - Redis client for state lookup
  * @param matched - Array of matched chapters from scrapers
  * @param maxItems - Maximum items to queue (default: Infinity)
  * @param pendingStaleMs - TTL for PENDING state in milliseconds (default: 600000)

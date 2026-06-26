@@ -328,7 +328,6 @@ export function classifyErrorType(message = "", source = ""): string {
   ) {
     return "source_parse";
   }
-  if (text.includes("redis")) return "redis_error";
   if (text.includes("failed") || text.includes("error")) return "runtime_error";
   return "other_error";
 }

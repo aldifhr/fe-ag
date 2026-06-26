@@ -78,11 +78,9 @@ async function buildAndLogSummary(
  * 2. Claims chapters in Redis (PENDING state) to prevent race conditions
  * 3. Enriches metadata (covers, descriptions) from cache or scraping
  * 4. Sends Discord embeds with buttons (follow/unfollow)
- * 5. Marks chapters as SENT in Redis
- * 6. Handles user subscriptions and mentions
+ * 5. Handles user subscriptions and mentions
  * 
  * @param options - Dispatch configuration
- * @param options.redis - Redis client (required)
  * @param options.matched - Array of matched chapters to dispatch
  * @param options.channelIds - Discord channel IDs to send to
  * @param options.sendEmbed - Function to send single embed
@@ -105,7 +103,6 @@ async function buildAndLogSummary(
  * @example
  * ```typescript
  * const result = await dispatchChapters({
- *   redis: redisClient,
  *   matched: chapters,
  *   channelIds: ["123456789"],
  *   sendEmbed: sendDiscordEmbed,
