@@ -42,7 +42,7 @@ interface EnrichmentStats {
 export function isMetadataEmpty(meta: MangaMetadata | null): boolean {
   if (!meta) return true;
 
-  const hasDescription = !!(meta.description || (meta as any).synopsis);
+  const hasDescription = !!(meta.description || (meta as MangaMetadata & { synopsis?: string | null }).synopsis);
   const hasRating = !!(
     meta.rating &&
     meta.rating !== "N/A" &&

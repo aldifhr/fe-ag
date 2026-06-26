@@ -55,7 +55,7 @@ interface MangaDetailResponse {
 }
 
 function extractMangaDetail(data: unknown): MangaDetailResponse | null {
-  const root = (data as any)?.data ?? (data as any)?.result ?? data;
+  const root = (data as Record<string, unknown>)?.data ?? (data as Record<string, unknown>)?.result ?? data;
   if (!root || typeof root !== "object") return null;
   return root as MangaDetailResponse;
 }
@@ -140,7 +140,7 @@ export async function detectSource(
     };
   }
 
-  const { isProject, isMirror } = detectSourceFromTypes(result.types, (result.rawData as any)?.taxonomy);
+  const { isProject, isMirror } = detectSourceFromTypes(result.types, (result.rawData as MangaDetailResponse)?.taxonomy);
 
   let source: ShinigamiSource;
   if (isProject && isMirror) source = "both";

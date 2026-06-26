@@ -65,7 +65,7 @@ export default async function handleFollow(
           if (Array.isArray(whitelistDataRaw)) {
             whitelistData = whitelistDataRaw;
           } else if (whitelistDataRaw && typeof whitelistDataRaw === "object") {
-            whitelistData = titleKeys.map((tk) => (whitelistDataRaw as any)[tk]);
+            whitelistData = titleKeys.map((tk) => (whitelistDataRaw as Record<string, unknown>)[tk]);
           }
 
           const followData = compactArray(

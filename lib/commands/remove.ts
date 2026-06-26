@@ -97,7 +97,7 @@ export default function handleRemove(payload: DiscordPayload, options: CommandOp
         }
 
         if (result.status === "not_found") {
-          const count = (result as any).totalCount ?? 0;
+          const count = (result as { totalCount?: number }).totalCount ?? 0;
           await editInteractionResponse(
             payload,
              `Peringatan: "${input}" tidak ditemukan di whitelist! (Jumlah item di database: ${count})\nGunakan /list untuk melihat nomor urut manga.`,

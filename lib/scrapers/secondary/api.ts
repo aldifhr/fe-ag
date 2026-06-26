@@ -57,8 +57,8 @@ export async function fetchWithRetry(
     { deadline },
   );
 
-  if (res && (res as any).request) {
-    await detectAndHealRedirect(endpoint, res as any);
+  if (res?.request) {
+    await detectAndHealRedirect(endpoint, res);
   }
 
   return res;

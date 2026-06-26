@@ -94,7 +94,7 @@ export async function handlePrefetchMetadata(req: Request, res: Response) {
     }, "Unique manga to process");
 
     // Support ?force=true to re-fetch all (even cached)
-    const forceRefresh = req.query?.force === "true" || (req as any).url?.includes("force=true");
+    const forceRefresh = req.query?.force === "true" || req.url?.includes("force=true");
 
     // Prune orphaned metadata from Supabase
     const titleKeys = Array.from(mangaMap.keys());

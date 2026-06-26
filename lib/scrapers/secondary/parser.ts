@@ -30,10 +30,10 @@ export function extractRows<T>(payload: unknown): T[] {
   const root = parsed.data.data ?? parsed.data.result ?? parsed.data.items ?? parsed.data;
   const rows = Array.isArray(root) 
     ? root 
-    : (root as any)?.rows 
-      ? (root as any).rows 
-      : (root as any)?.data 
-        ? (root as any).data 
+    : (root as Record<string, unknown>)?.rows 
+      ? (root as Record<string, unknown>).rows 
+      : (root as Record<string, unknown>)?.data 
+        ? (root as Record<string, unknown>).data 
         : [];
   
   if (!Array.isArray(rows)) return [];

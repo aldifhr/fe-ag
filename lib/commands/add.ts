@@ -8,6 +8,7 @@ import { mangaProviderRegistry } from "../providers/registry.js";
 import { DISCORD_EPHEMERAL_FLAG } from "../config.js";
 import { getLogger } from "../logger.js";
 import { withTimeout } from "../utils.js";
+import type { MangaMetadata } from "../types.js";
 import { AutocompleteOption } from "../types.js";
 import { env } from "../config/env.js";
 import type { Response } from "express";
@@ -91,7 +92,7 @@ async function handleUrlAddWithSource(
       );
     }
 
-    const meta = (result.data as any).metadata;
+    const meta = result.data?.metadata;
     const embed = buildMangaPreviewEmbed(
       { 
         title, 
@@ -149,7 +150,7 @@ async function handleUrlAdd(
         return editInteractionResponse(payload, `❌ Gagal mendapatkan judul dari ${sourceLabel(explicitSource)}.`);
       }
       title = result.data.title;
-      metadata = (result.data as any).metadata;
+      metadata = result.data?.metadata;
     } else {
       // Auto-detect via registry
       const resolution = await withTimeout(
@@ -166,7 +167,7 @@ async function handleUrlAdd(
 
       title = resolution.data?.title || null;
       detectedSource = resolution.data?.source || null;
-      metadata = (resolution.data as any)?.metadata;
+      metadata = (resolution.data as { title: string | null; source: string | null; metadata?: MangaMetadata })?.metadata;
 
       if (resolution.error?.message) {
         return editInteractionResponse(payload, `❌ ${resolution.error.message}`);

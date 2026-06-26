@@ -22,21 +22,21 @@ export async function fetchSecondaryMetadata(_source: string, mangaId: string | 
     const rating = (data?.user_rate !== undefined && data?.user_rate !== null) ? String(data.user_rate) : "";
 
     const genres: string[] = [];
-    const genreTaxonomy = (data as any)?.taxonomy?.Genre || (data as any)?.genres;
+    const genreTaxonomy = data?.taxonomy?.Genre || data?.genres;
     if (Array.isArray(genreTaxonomy)) {
       genreTaxonomy.forEach((g: any) => {
         if (g.name) genres.push(g.name);
       });
     }
 
-    const cover = data?.cover_portrait_url ?? data?.cover_image_url ?? (data as any)?.cover ?? (data as any)?.image ?? null;
+    const cover = data?.cover_portrait_url ?? data?.cover_image_url ?? data?.cover ?? data?.image ?? null;
     
     let status = "Unknown";
-    const rawStatus = data?.status ?? (data as any)?.manga_status;
+    const rawStatus = data?.status ?? (data as Record<string, unknown>)?.manga_status;
     if (rawStatus === 1 || rawStatus === "1") status = "Ongoing";
     else if (rawStatus === 2 || rawStatus === "2") status = "Completed";
 
-    const title = normalizeText(String(data?.title ?? (data as any)?.name ?? ""));
+    const title = normalizeText(String(data?.title ?? (data as Record<string, unknown>)?.name ?? ""));
 
     return { title, synopsis, genres, rating, cover, status };
   } catch (err: unknown) {
