@@ -1211,7 +1211,7 @@ export default function ReaderPage() {
             {currentPage < images.length - 1 ? (
               <button
                 onClick={() => setCurrentPage((p) => p + 1)}
-                className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-accent text-white hover:bg-[var(--color-accent-hover)] transition-all duration-150 shadow-md shadow-[var(--color-accent-dim)] cursor-pointer"
+                className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-all duration-150 shadow-md cursor-pointer"
               >
                 Next
                 <svg
@@ -1262,7 +1262,7 @@ export default function ReaderPage() {
                       onClick={() => {
                         window.location.href = buildChapterUrl(nextChapter);
                       }}
-                      className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-accent text-white hover:bg-[var(--color-accent-hover)] transition-all duration-150 shadow-md shadow-[var(--color-accent-dim)] cursor-pointer"
+                      className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-all duration-150 shadow-md cursor-pointer"
                     >
                       Chapter Selanjutnya
                       <svg
@@ -1291,7 +1291,7 @@ export default function ReaderPage() {
       {!loading && !error && images.length > 0 && readingMode === "strip" && (
         <>
           {/* Gradient fade from content to footer */}
-          <div className="h-24 bg-gradient-to-b from-transparent to-[var(--color-bg)]" />
+          <div className="h-24 bg-linear-to-b from-transparent to-bg" />
 
           <div className="w-full border-t border-border bg-surface">
             <div className="max-w-4xl mx-auto flex flex-col items-center gap-6 py-10 px-4">
@@ -1301,7 +1301,7 @@ export default function ReaderPage() {
 
               <Link
                 href={mangaHref}
-                className="flex items-center gap-2 text-sm font-medium text-accent hover:text-accent-hover transition-colors duration-150 hover:underline underline-offset-4 decoration-[var(--color-accent)]"
+                className="flex items-center gap-2 text-sm font-medium text-accent hover:text-accent-hover transition-colors duration-150 hover:underline underline-offset-4 decoration-accent"
               >
                 <svg
                   width="16"
@@ -1324,7 +1324,7 @@ export default function ReaderPage() {
                 {prevChapter ? (
                   <Link
                     href={buildChapterUrl(prevChapter)}
-                    className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-bg border border-border text-text-secondary hover:text-text hover:border-[var(--color-border-hover)] transition-all duration-150"
+                    className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-bg border border-border text-text-secondary hover:text-text hover:border-border-hover transition-all duration-150"
                   >
                     &larr; Prev
                   </Link>
@@ -1336,7 +1336,7 @@ export default function ReaderPage() {
                 {nextChapter ? (
                   <Link
                     href={buildChapterUrl(nextChapter)}
-                    className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-accent text-white hover:bg-[var(--color-accent-hover)] transition-all duration-150 shadow-md shadow-[var(--color-accent-dim)]"
+                    className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-accent text-white hover:bg-accent-hover transition-all duration-150 shadow-md"
                   >
                     Next &rarr;
                   </Link>
@@ -1529,7 +1529,7 @@ export default function ReaderPage() {
 
           {/* Main bubble button */}
           <div
-            className="w-12 h-12 rounded-full bg-surface/90 backdrop-blur-sm border border-border shadow-lg shadow-black/20 flex items-center justify-center text-text-muted hover:text-text hover:border-[var(--color-border-hover)] transition-colors duration-150 cursor-pointer select-none touch-none"
+            className="w-12 h-12 rounded-full bg-surface/90 backdrop-blur-sm border border-border shadow-lg shadow-black/20 flex items-center justify-center text-text-muted hover:text-text hover:border-border-hover transition-colors duration-150 cursor-pointer select-none touch-none"
             style={{ opacity: bubbleExpanded ? 1 : 0.7 }}
             onPointerDown={handleBubblePointerDown}
             onPointerMove={handleBubblePointerMove}

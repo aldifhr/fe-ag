@@ -40,6 +40,7 @@
     "@vercel/functions": "^3.4.3",
     "axios": "1.13.5",
     "bottleneck": "^2.19.5",
+    "cheerio": "^1.2.0",
     "date-fns": "^4.1.0",
     "discord-interactions": "^4.4.0",
     "express": "^5.2.1",

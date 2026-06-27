@@ -1,13 +1,9 @@
-import {
-  SITE_URL,
-  classifyScraperError,
-} from "../shared.js";
 import { parseDateWithFallback, parseLooseRelativeTime } from "../../dateUtils.js";
 import { IKIRU_CONFIG } from "../../../lib/config.js";
 import { ChapterItem, ScraperMetrics, SourceState, ScraperProvider } from "../../types.js";
 
 import { getLogger } from "../../logger.js";
-import { runScrapling } from "../../utils/scrapling-bridge.js";
+import { fetchIkiruLatest, fetchIkiruMangaDetail } from "./scraper.js";
 import {
   searchIkiruApi,
   getIkiruSeries,
@@ -56,10 +52,52 @@ export async function scrapeIkiruUpdatesWithMeta(
   _preferredIkiru: { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> = new Set(),
   _logger: any = null,
   _options: { skipExpansion?: boolean; maxPages?: number } = {},
-) {
-  // REST API (06.ikiru.wtf) returns 403 from Vercel — use Scrapling directly
-  // Scrapling bridge (Python HTML scraper) was the original working approach for cron
-  return scrapeIkiruWithScrapling(_preferredIkiru, _logger, _options);
+): Promise<{ results: ChapterItem[]; state: SourceState }> {
+  const sourceState: SourceState = {
+    status: "pending",
+    count: 0,
+    error: null,
+    metrics: null,
+  };
+
+  const maxPages = _options.maxPages ?? IKIRU_CONFIG.MAX_PAGES ?? 1;
+
+  let rawItems: Awaited<ReturnType<typeof fetchIkiruLatest>> = [];
+  try {
+    rawItems = await fetchIkiruLatest(maxPages);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: msg }, "[scrapeIkiruUpdatesWithMeta] Cheerio scraper failed");
+  }
+
+  const results: ChapterItem[] = (Array.isArray(rawItems) ? rawItems : []).map((item) => ({
+    title: item.title || "",
+    chapter: item.chapter || "",
+    url: item.url || "",
+    mangaUrl: item.mangaUrl || "",
+    source: "ikiru" as const,
+    updatedTime: item.updatedTime
+      ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() ?? item.updatedTime
+      : null,
+    cover: item.cover || null,
+    rating: item.rating || null,
+    genres: item.genres || [],
+  }));
+
+  sourceState.status = results.length > 0 ? "ok" : "empty";
+  sourceState.count = results.length;
+  sourceState.metrics = {
+    pagesScanned: maxPages,
+    stalePageStreak: 0,
+    emptyPageStreak: results.length === 0 ? 1 : 0,
+    maxPages,
+    preferredTitles: 0,
+    preferredUrls: 0,
+    expandedCount: 0,
+    expansionSkipped: true,
+  } as ScraperMetrics;
+
+  return { results, state: sourceState };
 }
 
 export async function searchIkiru(
@@ -97,86 +135,20 @@ export async function searchIkiru(
   }
 }
 
-// KEEP using Scrapling: REST API only returns latest_chapters, not full chapter list
+// Cheerio HTML scraper for full chapter list (REST API only returns latest_chapters)
 export async function fetchIkiruChapters(mangaUrl: string): Promise<ChapterItem[]> {
   try {
-    const rawResults = await runScrapling<any[]>({
-      action: "expand",
-      url: mangaUrl,
-      baseUrl: SITE_URL,
-      skipMeta: false
-    }).catch((err: unknown) => {
-      logger.error({ mangaUrl, err: String(err) }, "[fetchIkiruChapters] Scrapling bridge failed");
-      return [];
-    });
+    const { chapters } = await fetchIkiruMangaDetail(mangaUrl, true);
 
-    return (Array.isArray(rawResults) ? rawResults : []).map(item => ({
+    return chapters.map(item => ({
       ...item,
-      description: item.description || item.synopsis || null,
+      description: item.description || null,
       updatedTime: item.updatedTime ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() : null
     }));
   } catch (err: unknown) {
-    logger.error({ mangaUrl, err: String(err) }, "[fetchIkiruChapters] Scrapling failed");
+    logger.error({ mangaUrl, err: String(err) }, "[fetchIkiruChapters] Cheerio scraper failed");
     return [];
   }
-}
-
-// --- Scrapling Fallback (for when REST API is blocked) ---
-
-async function scrapeIkiruWithScrapling(
-  _preferredIkiru: { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> = new Set(),
-  _logger: any = null,
-  _options: { skipExpansion?: boolean; maxPages?: number } = {},
-): Promise<{ results: ChapterItem[]; state: SourceState }> {
-  const sourceState: SourceState = {
-    status: "pending",
-    count: 0,
-    error: null,
-    metrics: null,
-  };
-
-  const rawResults = await runScrapling<any[]>({
-    action: "latest",
-    baseUrl: SITE_URL,
-    maxPages: _options.maxPages ?? 1,
-  }).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ err: msg }, "[scrapeIkiruWithScrapling] Scrapling bridge failed");
-    return [];
-  });
-
-  if (!Array.isArray(rawResults)) {
-    logger.warn({ type: typeof rawResults }, "[scrapeIkiruWithScrapling] Non-array response");
-  }
-
-  const results: ChapterItem[] = (Array.isArray(rawResults) ? rawResults : []).map((item) => ({
-    title: item.title || "",
-    chapter: item.chapter || item.number || "",
-    url: item.url || item.mangaUrl || "",
-    mangaUrl: item.mangaUrl || item.url || "",
-    source: "ikiru",
-    updatedTime: item.updatedTime
-      ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() ?? item.updatedTime
-      : null,
-    cover: item.cover || item.image || null,
-    rating: item.rating || null,
-    genres: item.genres || [],
-  }));
-
-  sourceState.status = results.length > 0 ? "ok" : "empty";
-  sourceState.count = results.length;
-  sourceState.metrics = {
-    pagesScanned: 1,
-    stalePageStreak: 0,
-    emptyPageStreak: results.length === 0 ? 1 : 0,
-    maxPages: _options.maxPages ?? 1,
-    preferredTitles: 0,
-    preferredUrls: 0,
-    expandedCount: 0,
-    expansionSkipped: true,
-  } as ScraperMetrics;
-
-  return { results, state: sourceState };
 }
 
 // --- Provider Implementation ---

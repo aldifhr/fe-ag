@@ -175,10 +175,10 @@ export function MangaDetailClient() {
     return (
       <div className="py-20 text-center">
         <h1 className="text-lg font-semibold mb-2">Manga tidak ditemukan</h1>
-        <p className="text-sm text-(--color-text-muted) mb-4">{errorMsg}</p>
+        <p className="text-sm text-text-muted mb-4">{errorMsg}</p>
         <Link
           href="/"
-          className="text-[13px] text-(--color-accent) hover:text-(--color-accent-hover) transition-colors"
+          className="text-[13px] text-accent hover:text-accent-hover transition-colors"
         >
           &larr; Kembali ke beranda
         </Link>

@@ -107,7 +107,7 @@ export default function SearchModal({ open, onClose }: Props) {
     <div
       ref={overlayRef}
       onClick={(e) => { if (e.target === overlayRef.current) handleClose(); }}
-      className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+      className="fixed inset-0 z-100 flex flex-col overflow-hidden"
       style={{
         backgroundColor: "rgba(5, 5, 16, 0.8)",
         backdropFilter: "blur(16px)",
