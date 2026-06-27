@@ -1,6 +1,14 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { getGroupedHistory, removeMangaHistory, removeMultipleMangaHistory, clearHistory, formatChapters, timeAgo, GroupedHistory } from "@/lib/history";
+import {
+  getGroupedHistory,
+  removeMangaHistory,
+  removeMultipleMangaHistory,
+  clearHistory,
+  formatChapters,
+  timeAgo,
+  GroupedHistory,
+} from "@/lib/history";
 import { showToast } from "@/lib/toast";
 import Link from "next/link";
 import { proxyCover } from "@/lib/api";
@@ -26,7 +34,10 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!confirmClear) return;
     function handleClick(e: MouseEvent) {
-      if (confirmRef.current && !confirmRef.current.contains(e.target as Node)) {
+      if (
+        confirmRef.current &&
+        !confirmRef.current.contains(e.target as Node)
+      ) {
         setConfirmClear(false);
       }
     }
@@ -38,7 +49,10 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!confirmBulkDelete) return;
     function handleClick(e: MouseEvent) {
-      if (bulkDeleteRef.current && !bulkDeleteRef.current.contains(e.target as Node)) {
+      if (
+        bulkDeleteRef.current &&
+        !bulkDeleteRef.current.contains(e.target as Node)
+      ) {
         setConfirmBulkDelete(false);
       }
     }
@@ -81,12 +95,12 @@ export default function HistoryPage() {
     if (selectedIds.size === items.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(items.map(i => i.mangaId)));
+      setSelectedIds(new Set(items.map((i) => i.mangaId)));
     }
   };
 
   const toggleItem = (mangaId: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(mangaId)) {
         next.delete(mangaId);
@@ -104,7 +118,7 @@ export default function HistoryPage() {
     }
     const ids = Array.from(selectedIds);
     removeMultipleMangaHistory(ids);
-    setItems(prev => prev.filter(i => !selectedIds.has(i.mangaId)));
+    setItems((prev) => prev.filter((i) => !selectedIds.has(i.mangaId)));
     setSelectedIds(new Set());
     setConfirmBulkDelete(false);
     setSelectMode(false);
@@ -117,8 +131,11 @@ export default function HistoryPage() {
         <h1 className="text-xl font-semibold tracking-tight">Riwayat Baca</h1>
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex gap-4 p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
-              <div className="skeleton w-14 h-[5.25rem] rounded-md shrink-0" />
+            <div
+              key={i}
+              className="flex gap-4 p-3 rounded-lg bg-(--color-surface) border border-(--color-border)"
+            >
+              <div className="skeleton w-14 h-21 rounded-md shrink-0" />
               <div className="flex-1 space-y-2 py-1">
                 <div className="skeleton h-4 w-2/3 rounded" />
                 <div className="skeleton h-3 w-1/3 rounded" />
@@ -137,7 +154,7 @@ export default function HistoryPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Riwayat Baca</h1>
           {items.length > 0 && (
-            <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">
+            <p className="text-[13px] text-(--color-text-muted) mt-0.5">
               {items.length} manga dibaca
             </p>
           )}
@@ -148,17 +165,19 @@ export default function HistoryPage() {
               <>
                 <button
                   onClick={toggleSelectAll}
-                  className="px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-150 border text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] border-[var(--color-border)]"
+                  className="px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-150 border text-(--color-text-muted) hover:bg-(--color-surface) border-(--color-border)"
                 >
-                  {selectedIds.size === items.length ? "Batal Pilih" : "Pilih Semua"}
+                  {selectedIds.size === items.length
+                    ? "Batal Pilih"
+                    : "Pilih Semua"}
                 </button>
                 <button
                   ref={bulkDeleteRef}
                   onClick={handleBulkDelete}
                   className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-150 border ${
                     confirmBulkDelete
-                      ? "text-white bg-[var(--color-danger)] border-[var(--color-danger)] hover:opacity-90"
-                      : "text-[var(--color-danger)] hover:bg-[var(--color-surface)] border-[var(--color-danger)]"
+                      ? "text-white bg-(--color-danger) border-(--color-danger) hover:opacity-90"
+                      : "text-(--color-danger) hover:bg-(--color-surface) border-(--color-danger)"
                   }`}
                 >
                   {confirmBulkDelete
@@ -172,13 +191,17 @@ export default function HistoryPage() {
               onClick={selectMode ? toggleSelectMode : handleClear}
               className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-150 border ${
                 selectMode
-                  ? "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] border-[var(--color-border)]"
+                  ? "text-(--color-text-muted) hover:bg-(--color-surface) border-(--color-border)"
                   : confirmClear
-                    ? "text-white bg-[var(--color-danger)] border-[var(--color-danger)] hover:opacity-90"
-                    : "text-[var(--color-danger)] hover:bg-[var(--color-surface)] border-[var(--color-border)]"
+                    ? "text-white bg-(--color-danger) border-(--color-danger) hover:opacity-90"
+                    : "text-(--color-danger) hover:bg-(--color-surface) border-(--color-border)"
               }`}
             >
-              {selectMode ? "Batal" : confirmClear ? "Yakin hapus?" : "Hapus Semua"}
+              {selectMode
+                ? "Batal"
+                : confirmClear
+                  ? "Yakin hapus?"
+                  : "Hapus Semua"}
             </button>
           </div>
         )}
@@ -186,14 +209,27 @@ export default function HistoryPage() {
 
       {items.length === 0 ? (
         <div className="py-20 text-center">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
+          <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
-          <p className="text-[var(--color-text-secondary)] text-sm mb-1">Belum ada riwayat baca</p>
-          <p className="text-[var(--color-text-muted)] text-[13px]">Mulai baca manga untuk melihat riwayat di sini</p>
+          <p className="text-(--color-text-secondary) text-sm mb-1">
+            Belum ada riwayat baca
+          </p>
+          <p className="text-(--color-text-muted) text-[13px]">
+            Mulai baca manga untuk melihat riwayat di sini
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -235,16 +271,25 @@ function HistoryRow({
         e.stopPropagation();
         onToggleSelect?.();
       }}
-      className={`w-[18px] h-[18px] rounded shrink-0 flex items-center justify-center transition-colors duration-150 border ${
+      className={`w-4.5 h-4.5 rounded shrink-0 flex items-center justify-center transition-colors duration-150 border ${
         selected
-          ? "bg-[var(--color-accent)] border-[var(--color-accent)]"
-          : "border-[var(--color-border)] bg-[var(--color-bg)]"
+          ? "bg-(--color-accent) border-(--color-accent)"
+          : "border-(--color-border) bg-(--color-bg)"
       }`}
       aria-label={selected ? "Batal pilih" : "Pilih"}
     >
       {selected && (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12"/>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
         </svg>
       )}
     </button>
@@ -253,7 +298,7 @@ function HistoryRow({
   const rowContent = (
     <>
       {/* Cover */}
-      <div className="w-14 shrink-0 rounded-md overflow-hidden bg-[var(--color-bg)]">
+      <div className="w-14 shrink-0 rounded-md overflow-hidden bg-(--color-bg)">
         {item.cover ? (
           <img
             src={proxyCover(item.cover)}
@@ -261,11 +306,18 @@ function HistoryRow({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-[5.25rem] flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5">
-              <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16"/>
-              <path d="M14 14l1.586-1.586a2 2 0 012.828 0L20 14"/>
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <div className="w-full h-21 flex items-center justify-center">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+            >
+              <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16" />
+              <path d="M14 14l1.586-1.586a2 2 0 012.828 0L20 14" />
+              <rect x="3" y="3" width="18" height="18" rx="2" />
             </svg>
           </div>
         )}
@@ -273,15 +325,17 @@ function HistoryRow({
 
       {/* Info */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-        <p className={`text-[14px] font-medium text-[var(--color-text)] truncate leading-tight transition-colors duration-150 ${
-          selectMode ? "cursor-pointer" : "group-hover:text-[var(--color-accent)]"
-        }`}>
+        <p
+          className={`text-[14px] font-medium text-(--color-text) truncate leading-tight transition-colors duration-150 ${
+            selectMode ? "cursor-pointer" : "group-hover:text-(--color-accent)"
+          }`}
+        >
           {item.title}
         </p>
-        <p className="text-[13px] text-[var(--color-accent)] font-medium">
+        <p className="text-[13px] text-(--color-accent) font-medium">
           {chapterStr}
         </p>
-        <p className="text-[12px] text-[var(--color-text-muted)]">
+        <p className="text-[12px] text-(--color-text-muted)">
           {timeAgo(item.latestReadAt)}
         </p>
       </div>
@@ -290,10 +344,10 @@ function HistoryRow({
 
   return (
     <div
-      className={`relative flex gap-4 p-3 rounded-lg bg-[var(--color-surface)] border transition-colors duration-150 group ${
+      className={`relative flex gap-4 p-3 rounded-lg bg-(--color-surface) border transition-colors duration-150 group ${
         selected
-          ? "border-[var(--color-accent)]"
-          : "border-[var(--color-border)] hover:border-[var(--color-border-hover)]"
+          ? "border-(--color-accent)"
+          : "border-(--color-border) hover:border-(--color-border-hover)"
       } ${selectMode ? "cursor-pointer" : ""}`}
       onClick={selectMode ? onToggleSelect : undefined}
     >
@@ -315,12 +369,21 @@ function HistoryRow({
           e.stopPropagation();
           onDelete(item.mangaId);
         }}
-        className="self-center p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-bg)] transition-colors duration-150 opacity-50 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+        className="self-center p-1.5 rounded-md text-(--color-text-muted) hover:text-(--color-danger) hover:bg-(--color-bg) transition-colors duration-150 opacity-50 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100"
         aria-label="Hapus dari riwayat"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </button>
     </div>

@@ -105,9 +105,12 @@ export async function fetchIkiruChapters(mangaUrl: string): Promise<ChapterItem[
       url: mangaUrl,
       baseUrl: SITE_URL,
       skipMeta: false
+    }).catch((err: unknown) => {
+      logger.error({ mangaUrl, err: String(err) }, "[fetchIkiruChapters] Scrapling bridge failed");
+      return [];
     });
 
-    return rawResults.map(item => ({
+    return (Array.isArray(rawResults) ? rawResults : []).map(item => ({
       ...item,
       description: item.description || item.synopsis || null,
       updatedTime: item.updatedTime ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() : null
@@ -136,9 +139,17 @@ async function scrapeIkiruWithScrapling(
     action: "latest",
     baseUrl: SITE_URL,
     maxPages: _options.maxPages ?? 1,
+  }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: msg }, "[scrapeIkiruWithScrapling] Scrapling bridge failed");
+    return [];
   });
 
-  const results: ChapterItem[] = rawResults.map((item) => ({
+  if (!Array.isArray(rawResults)) {
+    logger.warn({ type: typeof rawResults }, "[scrapeIkiruWithScrapling] Non-array response");
+  }
+
+  const results: ChapterItem[] = (Array.isArray(rawResults) ? rawResults : []).map((item) => ({
     title: item.title || "",
     chapter: item.chapter || item.number || "",
     url: item.url || item.mangaUrl || "",

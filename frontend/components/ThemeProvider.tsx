@@ -1,5 +1,11 @@
 "use client";
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 
 type Theme = "dark" | "light";
 
@@ -18,10 +24,16 @@ function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
 }
 
-export default function ThemeProvider({ children }: { children: React.ReactNode }) {
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
@@ -41,7 +53,10 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
       return next;
     });
     // Remove transition class after animation completes
-    setTimeout(() => document.documentElement.classList.remove("theme-transition"), 250);
+    setTimeout(
+      () => document.documentElement.classList.remove("theme-transition"),
+      250,
+    );
   }, []);
 
   // Prevent flash: set class before paint

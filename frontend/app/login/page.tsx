@@ -37,7 +37,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#0f1115] px-4">
       <div className="w-full max-w-sm bg-[#1a1d24] rounded-2xl p-8 shadow-xl border border-white/5">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-full bg-[var(--color-accent)]/10 flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-full bg-(--color-accent)/10 flex items-center justify-center mb-4">
             <svg
               width="28"
               height="28"
@@ -66,17 +66,15 @@ export default function LoginPage() {
             placeholder="Password"
             autoFocus
             required
-            className="w-full px-4 py-3 bg-[#0f1115] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[var(--color-accent)] transition-colors mb-3"
+            className="w-full px-4 py-3 bg-[#0f1115] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-(--color-accent) transition-colors mb-3"
           />
 
-          {error && (
-            <p className="text-sm text-red-400 mb-3">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[var(--color-accent)] text-white font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full py-3 bg-(--color-accent) text-white font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? "Memeriksa..." : "Masuk"}
           </button>

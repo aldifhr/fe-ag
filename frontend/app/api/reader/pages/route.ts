@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
   const chapterId = request.nextUrl.searchParams.get("chapterId");
 
   if (!url && (!baseUrl || !chapterNum)) {
-    return NextResponse.json({ error: "Need 'url' OR ('baseUrl' + 'chapter')" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Need 'url' OR ('baseUrl' + 'chapter')" },
+      { status: 400 },
+    );
   }
 
   try {

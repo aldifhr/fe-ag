@@ -54,20 +54,36 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
-export async function searchManga(q: string, source = "all", sort?: string, status?: string): Promise<SearchResult[]> {
+export async function searchManga(
+  q: string,
+  source = "all",
+  sort?: string,
+  status?: string,
+): Promise<SearchResult[]> {
   const params = new URLSearchParams({ q, source });
   if (sort) params.set("sort", sort);
   if (status) params.set("status", status);
-  const data = await fetchJson<{ results: SearchResult[] }>(`/api/reader/search?${params.toString()}`);
+  const data = await fetchJson<{ results: SearchResult[] }>(
+    `/api/reader/search?${params.toString()}`,
+  );
   return data.results;
 }
 
-export async function getMangaDetail(id: string, source = "shinigami"): Promise<MangaDetail> {
+export async function getMangaDetail(
+  id: string,
+  source = "shinigami",
+): Promise<MangaDetail> {
   const params = `id=${encodeURIComponent(id)}`;
   return fetchJson<MangaDetail>(`/api/reader/manga?source=${source}&${params}`);
 }
 
-export async function getChapterPages(url: string, source?: string, chapterId?: string, baseUrl?: string, chapterNum?: string): Promise<PageResult> {
+export async function getChapterPages(
+  url: string,
+  source?: string,
+  chapterId?: string,
+  baseUrl?: string,
+  chapterNum?: string,
+): Promise<PageResult> {
   const params = new URLSearchParams({ url });
   if (source) params.set("source", source);
   if (chapterId) params.set("chapterId", chapterId);
@@ -76,13 +92,22 @@ export async function getChapterPages(url: string, source?: string, chapterId?: 
   return fetchJson<PageResult>(`/api/reader/pages?${params.toString()}`);
 }
 
-export async function getChapterList(id: string, source = "shinigami"): Promise<MangaDetail["chapters"]> {
+export async function getChapterList(
+  id: string,
+  source = "shinigami",
+): Promise<MangaDetail["chapters"]> {
   const detail = await getMangaDetail(id, source);
   return detail.chapters;
 }
 
-export async function getLatest(source = "all", page = 1, sort = "latest"): Promise<SearchResult[]> {
-  const data = await fetchJson<{ results: SearchResult[] }>(`/api/reader/latest?source=${source}&page=${page}&sort=${sort}`);
+export async function getLatest(
+  source = "all",
+  page = 1,
+  sort = "latest",
+): Promise<SearchResult[]> {
+  const data = await fetchJson<{ results: SearchResult[] }>(
+    `/api/reader/latest?source=${source}&page=${page}&sort=${sort}`,
+  );
   return data.results;
 }
 
@@ -98,9 +123,12 @@ export async function getGenres(): Promise<Genre[]> {
   return data.genres;
 }
 
-export async function getGenreManga(slug: string, page = 1): Promise<SearchResult[]> {
+export async function getGenreManga(
+  slug: string,
+  page = 1,
+): Promise<SearchResult[]> {
   const data = await fetchJson<{ results: SearchResult[] }>(
-    `/api/reader/genre-manga?genre=${encodeURIComponent(slug)}&page=${page}&page_size=20`
+    `/api/reader/genre-manga?genre=${encodeURIComponent(slug)}&page=${page}&page_size=20`,
   );
   return data.results;
 }
@@ -128,7 +156,9 @@ export interface FiltersResult {
 }
 
 export async function getPopularToday(): Promise<SearchResult[]> {
-  const data = await fetchJson<{ results: SearchResult[] }>("/api/reader/popular");
+  const data = await fetchJson<{ results: SearchResult[] }>(
+    "/api/reader/popular",
+  );
   return data.results;
 }
 
@@ -142,7 +172,9 @@ export function proxyCover(url: string | null): string {
   try {
     const hostname = new URL(url).hostname;
     const needsProxy = ["06.ikiru.wtf", "03.ikiru.wtf"].includes(hostname);
-    return needsProxy ? `/api/reader/image?src=${encodeURIComponent(url)}` : url;
+    return needsProxy
+      ? `/api/reader/image?src=${encodeURIComponent(url)}`
+      : url;
   } catch {
     return url;
   }

@@ -11,7 +11,9 @@ export function addSearchHistory(query: string): void {
     const filtered = list.filter((q) => q !== trimmed);
     filtered.unshift(trimmed);
     localStorage.setItem(KEY, JSON.stringify(filtered.slice(0, MAX)));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getSearchHistory(): string[] {

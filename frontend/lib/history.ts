@@ -34,12 +34,16 @@ export function addHistory(entry: Omit<HistoryEntry, "readAt">): void {
   const all = safeGetHistory();
   // Remove existing entry for same manga+chapter
   const filtered = all.filter(
-    (e) => !(e.mangaId === entry.mangaId && e.chapterNumber === entry.chapterNumber)
+    (e) =>
+      !(e.mangaId === entry.mangaId && e.chapterNumber === entry.chapterNumber),
   );
   // Add new entry at the start
   filtered.unshift({ ...entry, readAt: Date.now() });
   // Cap length
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered.slice(0, MAX_ENTRIES)));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(filtered.slice(0, MAX_ENTRIES)),
+  );
 }
 
 /** Get all history entries. */
@@ -76,13 +80,15 @@ export function getGroupedHistory(): GroupedHistory[] {
     }
   }
 
-  return Array.from(map.values()).sort((a, b) => b.latestReadAt - a.latestReadAt);
+  return Array.from(map.values()).sort(
+    (a, b) => b.latestReadAt - a.latestReadAt,
+  );
 }
 
 /** Get read chapter numbers as strings for a specific manga. */
 export function getReadChapters(mangaId: string): Set<string> {
   const history = getGroupedHistory();
-  const group = history.find(g => g.mangaId === mangaId);
+  const group = history.find((g) => g.mangaId === mangaId);
   if (!group) return new Set();
   return new Set(group.chapters.map(String));
 }
@@ -91,19 +97,31 @@ export function getReadChapters(mangaId: string): Set<string> {
 export function getContinueReading(): Omit<HistoryEntry, "readAt"> | null {
   const entries = safeGetHistory();
   return entries.length > 0
-    ? { mangaId: entries[0].mangaId, title: entries[0].title, cover: entries[0].cover, source: entries[0].source, chapterNumber: entries[0].chapterNumber }
+    ? {
+        mangaId: entries[0].mangaId,
+        title: entries[0].title,
+        cover: entries[0].cover,
+        source: entries[0].source,
+        chapterNumber: entries[0].chapterNumber,
+      }
     : null;
 }
 
 /** Get the last read chapter number for a specific manga. Returns null if no history. */
 export function getLastReadChapter(mangaId: string): number | null {
   const entries = safeGetHistory();
-  const mangaEntries = entries.filter(e => e.mangaId === mangaId);
+  const mangaEntries = entries.filter((e) => e.mangaId === mangaId);
   return mangaEntries.length > 0 ? mangaEntries[0].chapterNumber : null;
 }
 
 /** Mark a chapter as read manually. */
-export function markAsRead(mangaId: string, title: string, cover: string | null, source: string, chapterNumber: number): void {
+export function markAsRead(
+  mangaId: string,
+  title: string,
+  cover: string | null,
+  source: string,
+  chapterNumber: number,
+): void {
   addHistory({ mangaId, title, cover, source, chapterNumber });
 }
 
@@ -111,7 +129,7 @@ export function markAsRead(mangaId: string, title: string, cover: string | null,
 export function unmarkAsRead(mangaId: string, chapterNumber: number): void {
   const all = safeGetHistory();
   const filtered = all.filter(
-    (e) => !(e.mangaId === mangaId && e.chapterNumber === chapterNumber)
+    (e) => !(e.mangaId === mangaId && e.chapterNumber === chapterNumber),
   );
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
@@ -126,7 +144,7 @@ export function removeMangaHistory(mangaId: string): void {
 /** Remove multiple manga from history at once. */
 export function removeMultipleMangaHistory(mangaIds: string[]): void {
   const all = safeGetHistory();
-  const filtered = all.filter(e => !mangaIds.includes(e.mangaId));
+  const filtered = all.filter((e) => !mangaIds.includes(e.mangaId));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
@@ -170,5 +188,8 @@ export function timeAgo(timestamp: number): string {
   if (minutes < 60) return `${minutes}m lalu`;
   if (hours < 24) return `${hours}j lalu`;
   if (days < 7) return `${days}h lalu`;
-  return new Date(timestamp).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  return new Date(timestamp).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+  });
 }

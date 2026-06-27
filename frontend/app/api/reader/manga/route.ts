@@ -8,16 +8,22 @@ export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get("source") || "shinigami";
 
   if (!id && !url) {
-    return NextResponse.json({ error: "Query parameter 'id' or 'url' required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Query parameter 'id' or 'url' required" },
+      { status: 400 },
+    );
   }
 
   try {
     const params = new URLSearchParams();
     if (id) params.set("id", id);
     if (url) params.set("url", url);
-    const res = await fetch(`${API_BASE}/api/reader?route=manga&source=${source}&${params.toString()}`, {
-      signal: AbortSignal.timeout(15000),
-    });
+    const res = await fetch(
+      `${API_BASE}/api/reader?route=manga&source=${source}&${params.toString()}`,
+      {
+        signal: AbortSignal.timeout(15000),
+      },
+    );
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (err: unknown) {

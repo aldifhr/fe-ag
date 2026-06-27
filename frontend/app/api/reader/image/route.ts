@@ -5,7 +5,12 @@ const BLOCKED_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
 function isPrivateHost(hostname: string): boolean {
   if (BLOCKED_HOSTS.has(hostname)) return true;
-  if (hostname.startsWith("10.") || hostname.startsWith("192.168.") || hostname.startsWith("172.")) return true;
+  if (
+    hostname.startsWith("10.") ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("172.")
+  )
+    return true;
   return false;
 }
 
@@ -29,18 +34,22 @@ export async function GET(req: NextRequest) {
 
     const upstream = await fetch(url.toString(), {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       },
       signal: AbortSignal.timeout(15000),
     });
 
     if (!upstream.ok) {
-      return new NextResponse("Upstream fetch failed", { status: upstream.status });
+      return new NextResponse("Upstream fetch failed", {
+        status: upstream.status,
+      });
     }
 
     const contentType = upstream.headers.get("content-type") || "image/jpeg";
-    const isConvertible = contentType.includes("image/jpeg") || contentType.includes("image/png");
+    const isConvertible =
+      contentType.includes("image/jpeg") || contentType.includes("image/png");
     const alreadyWebp = contentType.includes("image/webp");
 
     if (wantWebp && isConvertible && !alreadyWebp) {
@@ -51,7 +60,7 @@ export async function GET(req: NextRequest) {
         headers: {
           "Content-Type": "image/webp",
           "Cache-Control": "public, max-age=31536000, immutable",
-          "Vary": "Accept",
+          Vary: "Accept",
           "Access-Control-Allow-Origin": "*",
         },
       });
@@ -63,7 +72,7 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Vary": "Accept",
+        Vary: "Accept",
         "Access-Control-Allow-Origin": "*",
       },
     });

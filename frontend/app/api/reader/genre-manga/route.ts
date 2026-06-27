@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(
       `${API_BASE}/api/reader?route=genre-manga&genre=${encodeURIComponent(genre)}&page=${page}&page_size=20`,
-      { signal: AbortSignal.timeout(15000) }
+      { signal: AbortSignal.timeout(15000) },
     );
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });

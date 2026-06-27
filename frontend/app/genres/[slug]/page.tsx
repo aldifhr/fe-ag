@@ -10,8 +10,11 @@ function SkeletonGrid() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="rounded-lg overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)]">
-          <div className="aspect-[3/4] skeleton" />
+        <div
+          key={i}
+          className="rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border)"
+        >
+          <div className="aspect-3/4 skeleton" />
           <div className="px-3 py-2.5 space-y-2">
             <div className="skeleton h-4 w-2/3 rounded" />
             <div className="skeleton h-3 w-1/2 rounded" />
@@ -61,7 +64,9 @@ export default function GenreMangaPage() {
         if (!cancelled) setLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [slug, retryKey]);
 
   // Load more
@@ -74,7 +79,9 @@ export default function GenreMangaPage() {
       setItems((prev) => [...prev, ...res]);
       setPage(nextPage);
       setHasMore(res.length >= 20);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
     setLoadingMore(false);
   }, [slug, page, loadingMore, hasMore]);
 
@@ -84,31 +91,53 @@ export default function GenreMangaPage() {
       <div className="space-y-2">
         <Link
           href="/genres"
-          className="inline-flex items-center gap-1 text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+          className="inline-flex items-center gap-1 text-[13px] text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5"/>
-            <path d="M12 19l-7-7 7-7"/>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M19 12H5" />
+            <path d="M12 19l-7-7 7-7" />
           </svg>
           Semua Genre
         </Link>
-        <h1 className="text-xl font-semibold tracking-tight">{formatSlug(slug)}</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {formatSlug(slug)}
+        </h1>
       </div>
 
       {/* Content */}
       {error ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <div className="w-12 h-12 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 8v4"/>
-              <path d="M12 16h.01"/>
+          <div className="w-12 h-12 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--color-danger)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4" />
+              <path d="M12 16h.01" />
             </svg>
           </div>
-          <p className="text-sm text-[var(--color-text-secondary)]">Gagal memuat: {error}</p>
+          <p className="text-sm text-(--color-text-secondary)">
+            Gagal memuat: {error}
+          </p>
           <button
             onClick={() => setRetryKey((k) => k + 1)}
-            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
+            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150"
           >
             Coba Lagi
           </button>
@@ -116,7 +145,7 @@ export default function GenreMangaPage() {
       ) : loading ? (
         <SkeletonGrid />
       ) : items.length === 0 ? (
-        <div className="py-20 text-center text-[var(--color-text-muted)] text-sm">
+        <div className="py-20 text-center text-(--color-text-muted) text-sm">
           Tidak ada manga untuk genre ini
         </div>
       ) : (
@@ -143,12 +172,20 @@ export default function GenreMangaPage() {
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="px-6 py-2.5 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 disabled:opacity-50"
+                className="px-6 py-2.5 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150 disabled:opacity-50"
               >
                 {loadingMore ? (
                   <span className="flex items-center gap-2">
-                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                    <svg
+                      className="animate-spin"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M21 12a9 9 0 11-6.219-8.56" />
                     </svg>
                     Memuat...
                   </span>

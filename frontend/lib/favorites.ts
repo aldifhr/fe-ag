@@ -26,7 +26,9 @@ export function isFavorite(id: string): boolean {
   return safeGetFavorites().some((f) => f.id === id);
 }
 
-export function addFavorite(manga: Omit<FavoriteManga, "addedAt">): FavoriteManga[] {
+export function addFavorite(
+  manga: Omit<FavoriteManga, "addedAt">,
+): FavoriteManga[] {
   const favorites = safeGetFavorites();
   if (favorites.some((f) => f.id === manga.id)) return favorites;
   const updated = [{ ...manga, addedAt: Date.now() }, ...favorites];

@@ -71,7 +71,7 @@ export default function Nav() {
   return (
     <>
       <SearchModal open={searchOpen} onClose={closeSearch} />
-      <nav className="sticky top-0 z-50 bg-[var(--color-bg)]/95 backdrop-blur-sm border-b border-[var(--color-border)]">
+      <nav className="sticky top-0 z-50 bg-(--color-bg)/95 backdrop-blur-sm border-b border-(--color-border)">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Left group */}
           <div className="flex items-center gap-2">
@@ -79,18 +79,30 @@ export default function Nav() {
             {isMangaPage && (
               <button
                 onClick={goBack}
-                className="p-2 -ml-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-md transition-colors duration-150"
+                className="p-2 -ml-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
                 aria-label="Kembali"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M19 12H5" />
                   <path d="m12 19-7-7 7-7" />
                 </svg>
               </button>
             )}
 
-            <Link href="/" className="font-semibold text-[15px] tracking-tight text-[var(--color-text)]">
-              Manhwa<span className="text-[var(--color-accent)]">.</span>
+            <Link
+              href="/"
+              className="font-semibold text-[15px] tracking-tight text-(--color-text)"
+            >
+              Manhwa<span className="text-(--color-accent)">.</span>
             </Link>
 
             {/* Desktop links */}
@@ -101,7 +113,7 @@ export default function Nav() {
               <Link href="/favorites" className={navLinkClass("/favorites")}>
                 Favorit
                 {favCount > 0 && (
-                  <span className="text-[10px] font-semibold min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-[var(--color-accent)] text-white leading-none">
+                  <span className="text-[10px] font-semibold min-w-4.5 h-4.5 px-1 flex items-center justify-center rounded-full bg-(--color-accent) text-white leading-none">
                     {favCount}
                   </span>
                 )}
@@ -115,7 +127,10 @@ export default function Nav() {
               <Link href="/stats" className={navLinkClass("/stats")}>
                 Statistik
               </Link>
-              <Link href="/leaderboard" className={navLinkClass("/leaderboard")}>
+              <Link
+                href="/leaderboard"
+                className={navLinkClass("/leaderboard")}
+              >
                 Leaderboard
               </Link>
             </div>
@@ -149,11 +164,24 @@ export default function Nav() {
 
             <button
               onClick={toggle}
-              className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-md transition-colors duration-150"
-              aria-label={theme === "dark" ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
+              className="p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
+              aria-label={
+                theme === "dark"
+                  ? "Ganti ke mode terang"
+                  : "Ganti ke mode gelap"
+              }
             >
               {theme === "dark" ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <circle cx="12" cy="12" r="5" />
                   <line x1="12" y1="1" x2="12" y2="3" />
                   <line x1="12" y1="21" x2="12" y2="23" />
@@ -165,7 +193,16 @@ export default function Nav() {
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
@@ -174,10 +211,19 @@ export default function Nav() {
             {/* Desktop search icon */}
             <button
               onClick={openSearch}
-              className="hidden sm:block p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-md transition-colors duration-150"
+              className="hidden sm:block p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
               aria-label="Cari"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
               </svg>
@@ -186,16 +232,34 @@ export default function Nav() {
             {/* Mobile hamburger */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="sm:hidden p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-md transition-colors duration-150"
+              className="sm:hidden p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
               aria-label="Menu"
             >
               {menuOpen ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <line x1="3" y1="12" x2="21" y2="12" />
                   <line x1="3" y1="6" x2="21" y2="6" />
                   <line x1="3" y1="18" x2="21" y2="18" />
@@ -207,20 +271,29 @@ export default function Nav() {
 
         {/* Mobile menu */}
         <div
-          className={`sm:hidden overflow-hidden transition-[max-height] duration-300 ease-in-out border-b border-[var(--color-border)] ${
+          className={`sm:hidden overflow-hidden transition-[max-height] duration-300 ease-in-out border-b border-(--color-border) ${
             menuOpen ? "max-h-80" : "max-h-0 border-b-0"
           }`}
         >
-          <div className="px-4 py-2 flex flex-col gap-1 bg-[var(--color-bg)]">
+          <div className="px-4 py-2 flex flex-col gap-1 bg-(--color-bg)">
             {isMangaPage && (
               <button
                 onClick={() => {
                   goBack();
                   closeMenu();
                 }}
-                className="px-4 py-3 text-[15px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full"
+                className="px-4 py-3 text-[15px] font-medium text-(--color-text-secondary) hover:text-(--color-text) hover:bg-(--color-surface) rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M19 12H5" />
                   <path d="m12 19-7-7 7-7" />
                 </svg>
@@ -230,24 +303,44 @@ export default function Nav() {
             <Link href="/" onClick={closeMenu} className={mobileLinkClass("/")}>
               Beranda
             </Link>
-            <Link href="/favorites" onClick={closeMenu} className={mobileLinkClass("/favorites")}>
+            <Link
+              href="/favorites"
+              onClick={closeMenu}
+              className={mobileLinkClass("/favorites")}
+            >
               Favorit
               {favCount > 0 && (
-                <span className="text-[10px] font-semibold min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-[var(--color-accent)] text-white leading-none">
+                <span className="text-[10px] font-semibold min-w-4.5 h-4.5 px-1 flex items-center justify-center rounded-full bg-(--color-accent) text-white leading-none">
                   {favCount}
                 </span>
               )}
             </Link>
-            <Link href="/history" onClick={closeMenu} className={mobileLinkClass("/history")}>
+            <Link
+              href="/history"
+              onClick={closeMenu}
+              className={mobileLinkClass("/history")}
+            >
               Riwayat
             </Link>
-            <Link href="/genres" onClick={closeMenu} className={mobileLinkClass("/genres")}>
+            <Link
+              href="/genres"
+              onClick={closeMenu}
+              className={mobileLinkClass("/genres")}
+            >
               Genre
             </Link>
-            <Link href="/stats" onClick={closeMenu} className={mobileLinkClass("/stats")}>
+            <Link
+              href="/stats"
+              onClick={closeMenu}
+              className={mobileLinkClass("/stats")}
+            >
               Statistik
             </Link>
-            <Link href="/leaderboard" onClick={closeMenu} className={mobileLinkClass("/leaderboard")}>
+            <Link
+              href="/leaderboard"
+              onClick={closeMenu}
+              className={mobileLinkClass("/leaderboard")}
+            >
               Leaderboard
             </Link>
 
@@ -275,16 +368,25 @@ export default function Nav() {
             </Show>
             */}
 
-            <div className="border-t border-[var(--color-border)] mt-1 pt-1">
+            <div className="border-t border-(--color-border) mt-1 pt-1">
               <button
                 onClick={() => {
                   toggle();
                   closeMenu();
                 }}
-                className="px-4 py-3 text-[15px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full"
+                className="px-4 py-3 text-[15px] font-medium text-(--color-text-secondary) hover:text-(--color-text) hover:bg-(--color-surface) rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full"
               >
                 {theme === "dark" ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <circle cx="12" cy="12" r="5" />
                     <line x1="12" y1="1" x2="12" y2="3" />
                     <line x1="12" y1="21" x2="12" y2="23" />
@@ -296,7 +398,16 @@ export default function Nav() {
                     <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                   </svg>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                   </svg>
                 )}

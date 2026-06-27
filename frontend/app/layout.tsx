@@ -17,22 +17,28 @@ export const metadata: Metadata = {
   description: "An aggregator for manga/manhwa/manhua from various sources.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="id" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-bg text-text">
         {/* ClerkProvider skipped — SSL not ready on custom domain. Re-enable when Clerk JS loads. */}
         {/* <ClerkProvider> */}
-          <QueryProvider>
-            <ThemeProvider>
-              <Nav />
-              <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">{children}</main>
-            </ThemeProvider>
-          </QueryProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <Nav />
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+              {children}
+            </main>
+          </ThemeProvider>
+        </QueryProvider>
         {/* </ClerkProvider> */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
           }}
         />
       </body>

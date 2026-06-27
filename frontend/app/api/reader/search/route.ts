@@ -9,16 +9,22 @@ export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status") || "";
 
   if (!q?.trim()) {
-    return NextResponse.json({ error: "Query parameter 'q' required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Query parameter 'q' required" },
+      { status: 400 },
+    );
   }
 
   try {
     const params = new URLSearchParams({ q, source });
     if (sort) params.set("sort", sort);
     if (status) params.set("status", status);
-    const res = await fetch(`${API_BASE}/api/reader?route=search&${params.toString()}`, {
-      signal: AbortSignal.timeout(10000),
-    });
+    const res = await fetch(
+      `${API_BASE}/api/reader?route=search&${params.toString()}`,
+      {
+        signal: AbortSignal.timeout(10000),
+      },
+    );
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (err: unknown) {

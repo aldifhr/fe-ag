@@ -8,9 +8,12 @@ export async function GET(request: NextRequest) {
   const sort = request.nextUrl.searchParams.get("sort") || "latest";
 
   try {
-    const res = await fetch(`${API_BASE}/api/reader?route=latest&page=${page}&source=${source}&sort=${sort}`, {
-      signal: AbortSignal.timeout(15000),
-    });
+    const res = await fetch(
+      `${API_BASE}/api/reader?route=latest&page=${page}&source=${source}&sort=${sort}`,
+      {
+        signal: AbortSignal.timeout(15000),
+      },
+    );
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (err: unknown) {

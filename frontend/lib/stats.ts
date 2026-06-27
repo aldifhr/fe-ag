@@ -1,4 +1,8 @@
-import { getHistory, getGroupedHistory, type HistoryEntry } from "@/lib/history";
+import {
+  getHistory,
+  getGroupedHistory,
+  type HistoryEntry,
+} from "@/lib/history";
 
 export interface ReadingStats {
   totalChaptersRead: number;
@@ -38,7 +42,9 @@ function calculateStreak(days: string[]): { current: number; longest: number } {
       if (d === expected) {
         current++;
         // previous day
-        expected = new Date(new Date(expected).getTime() - 86400000).toISOString().split("T")[0];
+        expected = new Date(new Date(expected).getTime() - 86400000)
+          .toISOString()
+          .split("T")[0];
       } else {
         break;
       }
@@ -77,7 +83,7 @@ export function computeStats(): ReadingStats {
 
   // Unique chapters: dedupe by mangaId+chapterNumber
   const uniqueChapters = new Set(
-    entries.map((e) => `${e.mangaId}:${e.chapterNumber}`)
+    entries.map((e) => `${e.mangaId}:${e.chapterNumber}`),
   );
   const totalChaptersRead = uniqueChapters.size;
   const totalMangaRead = grouped.length;
@@ -91,7 +97,8 @@ export function computeStats(): ReadingStats {
   const allDays = Array.from(byDay.keys());
 
   // Streaks
-  const { current: readingStreak, longest: longestStreak } = calculateStreak(allDays);
+  const { current: readingStreak, longest: longestStreak } =
+    calculateStreak(allDays);
 
   // Today
   const today = new Date().toISOString().split("T")[0];

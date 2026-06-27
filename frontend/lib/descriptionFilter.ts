@@ -6,18 +6,21 @@
 const FILTERED_WORDS: string[] = [
   // Source names / watermarks
   "<p>",
-  "</p>"
+  "</p>",
   // Add more as needed
 ];
 
 // Pre-build regex once (case-insensitive, word-boundary matched)
 const pattern = new RegExp(
   `\\b(${FILTERED_WORDS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
-  "gi"
+  "gi",
 );
 
 /** Strip filtered words from a description string */
 export function cleanDescription(text: string | null | undefined): string {
   if (!text) return "";
-  return text.replace(pattern, "").replace(/\s{2,}/g, " ").trim();
+  return text
+    .replace(pattern, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }

@@ -10,8 +10,11 @@ function SkeletonGrid() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="rounded-lg overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)]">
-          <div className="aspect-[3/4] skeleton" />
+        <div
+          key={i}
+          className="rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border)"
+        >
+          <div className="aspect-3/4 skeleton" />
           <div className="px-3 py-2.5 space-y-2">
             <div className="skeleton h-4 w-2/3 rounded" />
             <div className="skeleton h-3 w-1/2 rounded" />
@@ -76,7 +79,9 @@ export default function LatestPage() {
       setExtraItems((prev) => [...prev, ...res]);
       setPage(nextPage);
       setHasMore(res.length >= 50);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
     setLoadingMore(false);
   }, [page, loadingMore, hasMore, sort, source]);
 
@@ -86,7 +91,7 @@ export default function LatestPage() {
       (entries) => {
         if (entries[0].isIntersecting && !isLoading && hasMore) loadMore();
       },
-      { rootMargin: "200px" }
+      { rootMargin: "200px" },
     );
     if (sentinelRef.current) observerRef.current.observe(sentinelRef.current);
     return () => observerRef.current?.disconnect();
@@ -96,10 +101,12 @@ export default function LatestPage() {
     <div className="space-y-6">
       <SectionErrorBoundary>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Baru Diupdate</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Baru Diupdate
+          </h1>
           {/* Sort pills */}
           <div className="flex items-center gap-1.5 mt-2">
-            <div className="flex items-center bg-[var(--color-surface)] rounded-lg p-0.5 border border-[var(--color-border)]">
+            <div className="flex items-center bg-(--color-surface) rounded-lg p-0.5 border border-(--color-border)">
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -107,8 +114,8 @@ export default function LatestPage() {
                   suppressHydrationWarning
                   className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 ${
                     sort === opt.value
-                      ? "bg-[var(--color-accent)] text-white"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                      ? "bg-(--color-accent) text-white"
+                      : "text-(--color-text-muted) hover:text-(--color-text)"
                   }`}
                 >
                   {opt.label}
@@ -125,8 +132,8 @@ export default function LatestPage() {
                 suppressHydrationWarning
                 className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors duration-150 ${
                   source === opt.value
-                    ? "bg-[var(--color-accent)] text-white"
-                    : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]"
+                    ? "bg-(--color-accent) text-white"
+                    : "bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) border border-(--color-border)"
                 }`}
               >
                 {opt.label}
@@ -139,7 +146,7 @@ export default function LatestPage() {
         {isLoading ? (
           <SkeletonGrid />
         ) : items.length === 0 ? (
-          <div className="py-20 text-center text-[var(--color-text-muted)] text-sm">
+          <div className="py-20 text-center text-(--color-text-muted) text-sm">
             Tidak ada manga ditemukan untuk source ini.
           </div>
         ) : (
@@ -165,9 +172,17 @@ export default function LatestPage() {
             <div ref={sentinelRef} className="h-1" />
             {loadingMore && (
               <div className="flex justify-center py-6">
-                <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-muted)]">
-                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                <div className="flex items-center gap-2 text-[13px] text-(--color-text-muted)">
+                  <svg
+                    className="animate-spin"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M21 12a9 9 0 11-6.219-8.56" />
                   </svg>
                   Memuat...
                 </div>
