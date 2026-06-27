@@ -38,7 +38,7 @@ const envSchema = z.object({
 
     // URLs
     BASE_URL: z.string().optional(),
-    IKIRU_BASE_URL: z.string().url().default("https://05.ikiru.wtf"),
+    IKIRU_BASE_URL: z.string().url().default("https://03.ikiru.wtf"),
     SHINIGAMI_BASE_URL: z.string().url().optional(),
     SECONDARY_PUBLIC_BASE: z.string().url().optional(),
 

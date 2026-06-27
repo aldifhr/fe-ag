@@ -430,7 +430,7 @@ class handler(BaseHTTPRequestHandler):
         action = query_params.get('action', [None])[0]
         url = query_params.get('url', [None])[0]
         query = query_params.get('query', [None])[0]
-        base_url = query_params.get('baseUrl', ["https://05.ikiru.wtf"])[0]
+        base_url = query_params.get('baseUrl', ["https://03.ikiru.wtf"])[0]
         max_pages = int(query_params.get('maxPages', [1])[0])
         username = os.environ.get('IKIRU_EMAIL')
         password = os.environ.get('IKIRU_PASSWORD')
@@ -469,7 +469,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     cookies = json.loads(args.cookies) if args.cookies else None
-    scraper = IkiruScraper(args.baseUrl or "https://05.ikiru.wtf", args.username, args.password, cookies)
+    scraper = IkiruScraper(args.baseUrl or "https://03.ikiru.wtf", args.username, args.password, cookies)
     
     result_data = []
     if args.action == "latest": result_data = scraper.fetch_latest(args.maxPages)

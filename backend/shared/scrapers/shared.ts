@@ -19,7 +19,7 @@ import { AppError } from "../errors.js";
 import { ProviderErrorCode, HttpScrapeOptions, RetryOptions } from "../types.js";
 
 const logger = getLogger({ scope: "cookie" });
-const IKIRU_BASE_DEFAULT = "https://05.ikiru.wtf";
+const IKIRU_BASE_DEFAULT = "https://03.ikiru.wtf";
 
 const LOGIN_URL = `${(env.IKIRU_BASE_URL || IKIRU_BASE_DEFAULT).replace(/\/+$/, "")}/wp-login.php`;
 
@@ -134,6 +134,21 @@ export const ACCEPT_LANGUAGES = [
   "en-US,en;q=0.9,id;q=0.8",
   "id,en;q=0.9",
 ];
+
+/**
+ * Normalize any ikiru domain variant to the configured SITE_URL.
+ * Handles: www.ikiru.my, ikiru.my, 03.ikiru.wtf, 05.ikiru.wtf, etc.
+ */
+export function normalizeIkiruUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (/ikiru\.(my|wtf|io|to)/i.test(u.hostname)) {
+      u.hostname = new URL(SITE_URL).hostname;
+      return u.toString();
+    }
+  } catch { /* not a valid URL, return as-is */ }
+  return url;
+}
 
 export function getFingerprintForSource(source = "generic"): { userAgent: string; acceptLanguage: string } {
   // Use a stable primary User-Agent for Ikiru to keep cookies alive longer

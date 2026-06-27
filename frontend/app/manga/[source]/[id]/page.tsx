@@ -87,7 +87,7 @@ export default function MangaDetailPage() {
           {chapters.map((ch) => (
             <Link
               key={`${ch.id}`}
-              href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}?baseUrl=${encodeURIComponent(manga.url || "")}`}
+              href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}?baseUrl=${encodeURIComponent(manga.url || "")}&chapterId=${encodeURIComponent(ch.id || "")}`}
               className="flex items-center justify-between px-4 py-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
             >
               <span className="text-sm">{ch.title}</span>

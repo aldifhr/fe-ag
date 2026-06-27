@@ -53,8 +53,13 @@ export async function getMangaDetail(id: string, source = "shinigami", url?: str
   return fetchJson<MangaDetail>(`/api/reader/manga?source=${source}&${params}`);
 }
 
-export async function getChapterPages(url: string): Promise<PageResult> {
-  return fetchJson<PageResult>(`/api/reader/pages?url=${encodeURIComponent(url)}`);
+export async function getChapterPages(url: string, source?: string, chapterId?: string, baseUrl?: string, chapterNum?: string): Promise<PageResult> {
+  const params = new URLSearchParams({ url });
+  if (source) params.set("source", source);
+  if (chapterId) params.set("chapterId", chapterId);
+  if (baseUrl) params.set("baseUrl", baseUrl);
+  if (chapterNum) params.set("chapter", chapterNum);
+  return fetchJson<PageResult>(`/api/reader/pages?${params.toString()}`);
 }
 
 export async function getLatest(source = "all", page = 1): Promise<SearchResult[]> {

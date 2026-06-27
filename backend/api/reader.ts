@@ -1,4 +1,4 @@
-import { SECONDARY_SOURCE_URL } from "../shared/scrapers/shared.js";
+import { SECONDARY_SOURCE_URL, normalizeIkiruUrl } from "../shared/scrapers/shared.js";
 import { SECONDARY_CONFIG } from "../reader/config.js";
 import { fetchWithRetry, JSON_HEADERS, fetchUpdateList, searchShngm } from "../shared/scrapers/secondary/api.js";
 import { isAxiosLikeResponse, isSecondaryApiData } from "../shared/scrapers/secondary/types.js";
@@ -140,17 +140,18 @@ async function handleManga(req: Request, res: Response) {
   }
 
   if (source === "ikiru" && url) {
-    const meta = await fetchIkiruMetadata(url);
-    const chapters = await fetchIkiruChapters(url);
+    const normalizedUrl = normalizeIkiruUrl(url);
+    const meta = await fetchIkiruMetadata(normalizedUrl);
+    const chapters = await fetchIkiruChapters(normalizedUrl);
 
     return res.json({
       manga: {
-        id: url,
+        id: normalizedUrl,
         title: meta?.title || "Unknown",
         cover: meta?.cover || null,
         description: meta?.description || null,
         status: meta?.status || null,
-        url,
+        url: normalizedUrl,
         source: "ikiru",
         genres: meta?.genres || [],
       },
@@ -234,6 +235,53 @@ async function handlePages(req: Request, res: Response) {
   const url = req.query.url as string;
   const baseUrl = req.query.baseUrl as string;
   const chapterNum = req.query.chapter as string;
+  const source = (req.query.source as string) || "";
+  const chapterId = (req.query.chapterId as string) || "";
+
+  // Shinigami: use chapter detail API instead of HTML scraping
+  // Auto-resolve chapterId from baseUrl/url + chapter number if not provided
+  const isShinigamiUrl = source === "shinigami" || (url && /shinigami|shngm/i.test(url)) || (baseUrl && /shinigami|shngm/i.test(baseUrl));
+  if (isShinigamiUrl) {
+    let resolvedChapterId = chapterId;
+
+    // Extract mangaId from baseUrl or url (old frontend only sends url)
+    const mangaIdMatch = (baseUrl || url || "").match(/\/series\/([0-9a-f-]{36})/i);
+    // Extract chapter number from url if not provided (e.g. .../series/{id}/239 or .../chapter-239)
+    const resolvedChapterNum = chapterNum || (url || "").match(/\/chapter-(\d+)\s*\/?$/i)?.[1] || (url || "").match(/\/(\d+)\s*\/?$/)?.[1] || "";
+
+    // Auto-resolve: look up chapter list by mangaId + chapter number
+    if (!resolvedChapterId && mangaIdMatch && resolvedChapterNum) {
+      try {
+        const listUrl = `${SECONDARY_SOURCE_URL}/v1/chapter/${mangaIdMatch[1]}/list?page=1&page_size=250&sort_by=chapter_number&sort_order=asc`;
+        const listRes = await fetchWithRetry(listUrl, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
+        if (isAxiosLikeResponse(listRes)) {
+          const chapters = (listRes.data as any)?.data;
+          if (Array.isArray(chapters)) {
+            const match = chapters.find((c: any) => String(c.chapter_number) === String(resolvedChapterNum));
+            if (match?.chapter_id) resolvedChapterId = match.chapter_id;
+          }
+        }
+      } catch { /* fall through */ }
+    }
+
+    if (resolvedChapterId) {
+      try {
+        const endpoint = `${SECONDARY_SOURCE_URL}/v1/chapter/detail/${resolvedChapterId}`;
+        const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
+        if (isAxiosLikeResponse(apiRes)) {
+          const payload = (apiRes.data as any)?.data;
+          if (payload?.chapter?.data?.length) {
+            const base = payload.base_url || "https://assets.shngm.id";
+            const chapterPath = payload.chapter.path || "";
+            const images = payload.chapter.data.map((f: string) => `${base}${chapterPath}${f}`);
+            return res.json({ images, total: images.length, url: endpoint, chapterId: resolvedChapterId });
+          }
+        }
+      } catch (err) {
+        // Fall through to HTML scraping
+      }
+    }
+  }
 
   if (!url && (!baseUrl || !chapterNum)) {
     return res.status(400).json({ error: "Need 'url' OR ('baseUrl' + 'chapter')" });

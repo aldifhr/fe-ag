@@ -1,5 +1,5 @@
 import { SECONDARY_SOURCE_URL } from "../shared.js";
-import { fetchSecondaryFullMangaInfo } from "./api.js";
+import { fetchSecondaryFullMangaInfo, fetchChapterPage } from "./api.js";
 import { SECONDARY_PUBLIC_BASE } from "../shared.js";
 import { SecondaryChapterRow } from "./types.js";
 import { SecondaryMangaRow } from "../../types.js";
@@ -12,6 +12,7 @@ interface ReaderMangaResult {
 /**
  * Fetch manga detail + chapters for the reader API.
  * Wraps fetchSecondaryFullMangaInfo with reader-specific shaping.
+ * Falls back to the chapter list endpoint when the detail endpoint omits chapters.
  */
 export async function fetchReaderManga(mangaId: string | number): Promise<ReaderMangaResult> {
   const info = await fetchSecondaryFullMangaInfo(SECONDARY_SOURCE_URL, mangaId);
@@ -19,8 +20,14 @@ export async function fetchReaderManga(mangaId: string | number): Promise<Reader
   const manga = info.meta ?? info.raw;
   const mangaUrl = `${SECONDARY_PUBLIC_BASE}/series/${mangaId}`;
 
+  // Detail endpoint often omits chapters — fetch them separately when missing
+  let chapters: SecondaryChapterRow[] = info.chapters;
+  if (!chapters.length) {
+    chapters = await fetchChapterPage(SECONDARY_SOURCE_URL, mangaId, 1, 200);
+  }
+
   return {
     manga: { ...manga, url: mangaUrl },
-    chapters: info.chapters,
+    chapters,
   };
 }

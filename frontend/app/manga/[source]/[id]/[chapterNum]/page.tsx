@@ -11,6 +11,7 @@ export default function ReaderPage() {
   const id = decodeURIComponent(params.id);
   const chapterNum = params.chapterNum;
   const baseUrl = searchParams.get("baseUrl") || "";
+  const chapterId = searchParams.get("chapterId") || "";
 
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +35,7 @@ export default function ReaderPage() {
           chapterUrl = `https://shinigami.asia/manga/${id.split("/").pop()}/chapter-${chapterNum}`;
         }
 
-        const data = await getChapterPages(chapterUrl);
+        const data = await getChapterPages(chapterUrl, source, chapterId, baseUrl || undefined, chapterNum || undefined);
         if (!cancelled) {
           setImages(data.images);
         }
@@ -49,7 +50,7 @@ export default function ReaderPage() {
 
     fetchPages();
     return () => { cancelled = true; };
-  }, [source, id, chapterNum, baseUrl]);
+  }, [source, id, chapterNum, baseUrl, chapterId]);
 
   return (
     <div>

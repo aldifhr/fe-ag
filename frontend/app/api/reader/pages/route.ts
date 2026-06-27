@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   const baseUrl = request.nextUrl.searchParams.get("baseUrl");
   const chapterNum = request.nextUrl.searchParams.get("chapter");
+  const source = request.nextUrl.searchParams.get("source");
+  const chapterId = request.nextUrl.searchParams.get("chapterId");
 
   if (!url && (!baseUrl || !chapterNum)) {
     return NextResponse.json({ error: "Need 'url' OR ('baseUrl' + 'chapter')" }, { status: 400 });
@@ -13,6 +15,8 @@ export async function GET(request: NextRequest) {
 
   try {
     let apiUrl = `${API_BASE}/api/reader?route=pages&url=${encodeURIComponent(url || "")}`;
+    if (source) apiUrl += `&source=${encodeURIComponent(source)}`;
+    if (chapterId) apiUrl += `&chapterId=${encodeURIComponent(chapterId)}`;
     if (baseUrl && chapterNum) {
       apiUrl += `&baseUrl=${encodeURIComponent(baseUrl)}&chapter=${encodeURIComponent(chapterNum)}`;
     }

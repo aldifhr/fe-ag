@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reader Debug Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui; background: #111; color: #eee; padding: 20px; }
+    h1 { font-size: 1.2rem; margin-bottom: 16px; color: #8af; }
+    .form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .form label { font-size: 0.8rem; color: #888; }
+    .form input { background: #222; border: 1px solid #444; color: #eee; padding: 6px 10px; border-radius: 4px; font-size: 0.85rem; }
+    .form input.wide { width: 500px; }
+    .form input.med { width: 200px; }
+    .form input.narrow { width: 120px; }
+    button { background: #36a; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button:hover { background: #47b; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { font-size: 0.85rem; margin-bottom: 12px; padding: 8px; border-radius: 4px; background: #1a1a2e; }
+    .status.error { color: #f66; }
+    .status.ok { color: #6f6; }
+    .status.loading { color: #fa0; }
+    .json { font-family: monospace; font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; background: #1a1a2e; padding: 12px; border-radius: 4px; max-height: 200px; overflow-y: auto; margin-bottom: 16px; color: #aaa; }
+    .images { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .images img { max-width: 600px; width: 100%; border-radius: 4px; }
+    .page-label { font-size: 0.7rem; color: #888; }
+    .grid-test { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .grid-test button { font-size: 0.75rem; padding: 4px 8px; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Reader Debug Test</h1>
+
+  <div class="form">
+    <div>
+      <label>Backend URL</label><br>
+      <input id="backend" class="wide" value="http://localhost:3000">
+    </div>
+  </div>
+
+  <h1 style="font-size:1rem; margin-bottom:8px;">📖 Pages Test</h1>
+  <div class="form">
+    <div>
+      <label>URL</label><br>
+      <input id="pageUrl" class="wide" placeholder="chapter page URL">
+    </div>
+    <div>
+      <label>Source</label><br>
+      <input id="pageSource" class="narrow" value="shinigami">
+    </div>
+    <div>
+      <label>Chapter ID</label><br>
+      <input id="pageChapterId" class="med" placeholder="UUID">
+    </div>
+    <div style="align-self:flex-end;">
+      <button onclick="testPages()" id="pagesBtn">Fetch Pages</button>
+    </div>
+  </div>
+
+  <div class="grid-test">
+    <button onclick="testMangaList()">1. Test Manga List (Shinigami)</button>
+    <button onclick="testChapterDetail()">2. Test Chapter Detail API</button>
+    <button onclick="testPagesFallback()">3. Test Pages (HTML scrape fallback)</button>
+  </div>
+
+  <div id="status" class="status">Ready</div>
+  <div id="jsonOutput" class="json" style="display:none;"></div>
+  <div id="images" class="images"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function showStatus(msg, type = 'loading') {
+      const el = $('status');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+
+    function showJson(obj) {
+      const el = $('jsonOutput');
+      el.style.display = 'block';
+      el.textContent = JSON.stringify(obj, null, 2);
+    }
+
+    function showImages(images) {
+      const el = $('images');
+      el.innerHTML = images.map((src, i) =>
+        `<div><p class="page-label">Page ${i + 1} / ${images.length}</p><img src="${src}" loading="lazy" onerror="this.style.border='2px solid red'; this.alt='FAILED: ' + this.src"></div>`
+      ).join('');
+    }
+
+    async function testPages() {
+      const backend = $('backend').value;
+      const url = $('pageUrl').value;
+      const source = $('pageSource').value;
+      const chapterId = $('pageChapterId').value;
+
+      $('pagesBtn').disabled = true;
+      showStatus('Fetching pages...');
+
+      try {
+        const params = new URLSearchParams();
+        if (url) params.set('url', url);
+        if (source) params.set('source', source);
+        if (chapterId) params.set('chapterId', chapterId);
+
+        const resp = await fetch(`${backend}/api/reader?route=pages&${params}`);
+        const data = await resp.json();
+        showJson(data);
+
+        if (data.images?.length) {
+          showStatus(`✅ ${data.images.length} images found`, 'ok');
+          showImages(data.images);
+        } else {
+          showStatus(`❌ No images: ${data.note || 'unknown'}`, 'error');
+        }
+      } catch (e) {
+        showStatus(`❌ Error: ${e.message}`, 'error');
+      } finally {
+        $('pagesBtn').disabled = false;
+      }
+    }
+
+    async function testMangaList() {
+      showStatus('Fetching manga detail + chapters...');
+      try {
+        const resp = await fetch(`${$('backend').value}/api/reader?route=manga&source=shinigami&id=8900a6c4-3747-453b-971f-7670f8a0ff26`);
+        const data = await resp.json();
+        showJson(data);
+        if (data.chapters?.length) {
+          showStatus(`✅ ${data.chapters.length} chapters. First: Ch${data.chapters[0].number} id=${data.chapters[0].id}`, 'ok');
+        } else {
+          showStatus('❌ No chapters', 'error');
+        }
+      } catch (e) {
+        showStatus(`❌ Error: ${e.message}`, 'error');
+      }
+    }
+
+    async function testChapterDetail() {
+      const chapterId = $('pageChapterId').value || '70947fc4-6511-4b5a-8dfd-b41314edd835';
+      showStatus(`Fetching chapter detail for ${chapterId}...`);
+      try {
+        const resp = await fetch(`${$('backend').value}/v1/chapter/detail/${chapterId}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        // Direct API test (may fail if CORS blocks)
+        const text = await resp.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text.substring(0, 500) }; }
+        showJson(data);
+        if (data.data?.chapter?.data?.length) {
+          showStatus(`✅ ${data.data.chapter.data.length} images in chapter. base_url=${data.data.base_url}`, 'ok');
+        } else {
+          showStatus('Response received, check JSON for details', 'ok');
+        }
+      } catch (e) {
+        // Try via backend proxy
+        showStatus(`Direct API failed (${e.message}), trying via backend...`);
+        try {
+          const params = new URLSearchParams({ source: 'shinigami', chapterId, url: 'https://dummy' });
+          const resp = await fetch(`${$('backend').value}/api/reader?route=pages&${params}`);
+          const data = await resp.json();
+          showJson(data);
+          if (data.images?.length) {
+            showStatus(`✅ Via backend: ${data.images.length} images`, 'ok');
+            $('pageChapterId').value = chapterId;
+          } else {
+            showStatus(`❌ No images via backend`, 'error');
+          }
+        } catch (e2) {
+          showStatus(`❌ Both failed: ${e2.message}`, 'error');
+        }
+      }
+    }
+
+    async function testPagesFallback() {
+      const url = $('pageUrl').value || 'https://shinigami.asia/manga/8900a6c4-3747-453b-971f-7670f8a0ff26/chapter-32';
+      $('pageUrl').value = url;
+      showStatus(`Testing HTML scrape on ${url}...`);
+      try {
+        const resp = await fetch(`${$('backend').value}/api/reader?route=pages&url=${encodeURIComponent(url)}`);
+        const data = await resp.json();
+        showJson(data);
+        if (data.images?.length) {
+          showStatus(`✅ ${data.images.length} images via HTML scrape`, 'ok');
+          showImages(data.images);
+        } else {
+          showStatus(`❌ HTML scrape found nothing (expected for SPA)`, 'error');
+        }
+      } catch (e) {
+        showStatus(`❌ Error: ${e.message}`, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

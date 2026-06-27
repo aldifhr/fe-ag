@@ -23,7 +23,7 @@ describe("Environment Config", () => {
   });
 
   it("should have default IKIRU_BASE_URL", () => {
-    expect(env.IKIRU_BASE_URL).toBe("https://05.ikiru.wtf");
+    expect(env.IKIRU_BASE_URL).toBe("https://03.ikiru.wtf");
   });
 
   it("should respect process.env overrides via Proxy", () => {

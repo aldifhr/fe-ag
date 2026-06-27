@@ -46,7 +46,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
     const args = [
       "api/scrapling_bridge.py",
       "--action", options.action,
-      "--baseUrl", options.baseUrl || "https://05.ikiru.wtf",
+      "--baseUrl", options.baseUrl || "https://03.ikiru.wtf",
       "--maxPages", String(options.maxPages || 1)
     ];
     if (options.url) args.push("--url", options.url);
