@@ -181,6 +181,56 @@ export async function fetchIkiruChapters(mangaUrl: string): Promise<ChapterItem[
   }
 }
 
+// --- Scrapling Fallback (for when REST API is blocked) ---
+
+async function scrapeIkiruWithScrapling(
+  _preferredIkiru: { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> = new Set(),
+  _logger: any = null,
+  _options: { skipExpansion?: boolean; maxPages?: number } = {},
+): Promise<{ results: ChapterItem[]; state: SourceState }> {
+  const sourceState: SourceState = {
+    status: "pending",
+    count: 0,
+    error: null,
+    metrics: null,
+  };
+
+  const rawResults = await runScrapling<any[]>({
+    action: "latest",
+    baseUrl: SITE_URL,
+    maxPages: _options.maxPages ?? 1,
+  });
+
+  const results: ChapterItem[] = rawResults.map((item) => ({
+    title: item.title || "",
+    chapter: item.chapter || item.number || "",
+    url: item.url || item.mangaUrl || "",
+    mangaUrl: item.mangaUrl || item.url || "",
+    source: "ikiru",
+    updatedTime: item.updatedTime
+      ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() ?? item.updatedTime
+      : null,
+    cover: item.cover || item.image || null,
+    rating: item.rating || null,
+    genres: item.genres || [],
+  }));
+
+  sourceState.status = results.length > 0 ? "ok" : "empty";
+  sourceState.count = results.length;
+  sourceState.metrics = {
+    pagesScanned: 1,
+    stalePageStreak: 0,
+    emptyPageStreak: results.length === 0 ? 1 : 0,
+    maxPages: _options.maxPages ?? 1,
+    preferredTitles: 0,
+    preferredUrls: 0,
+    expandedCount: 0,
+    expansionSkipped: true,
+  } as ScraperMetrics;
+
+  return { results, state: sourceState };
+}
+
 // --- Provider Implementation ---
 
 export const IkiruProvider: ScraperProvider = {

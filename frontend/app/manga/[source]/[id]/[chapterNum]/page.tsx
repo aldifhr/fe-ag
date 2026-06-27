@@ -73,6 +73,7 @@ export default function ReaderPage() {
     return 1;
   });
   const [mangaTitle, setMangaTitle] = useState<string | null>(null);
+  const [mangaCover, setMangaCover] = useState<string | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -158,7 +159,10 @@ export default function ReaderPage() {
     let cancelled = false;
     getMangaDetail(id, source)
       .then((detail) => {
-        if (!cancelled) setMangaTitle(detail.manga.title);
+        if (!cancelled) {
+          setMangaTitle(detail.manga.title);
+          setMangaCover(detail.manga.cover || null);
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -172,7 +176,7 @@ export default function ReaderPage() {
         addHistory({
           mangaId: id,
           title: mangaTitle,
-          cover: null,
+          cover: mangaCover,
           source,
           chapterNumber: Number(chapterNum),
         });
@@ -196,7 +200,7 @@ export default function ReaderPage() {
         });
       }
     }
-  }, [images.length, loading, id, source, chapterNum, mangaTitle]);
+  }, [images.length, loading, id, source, chapterNum, mangaTitle, mangaCover]);
 
   // Fetch chapter list for prev/next navigation
   useEffect(() => {
