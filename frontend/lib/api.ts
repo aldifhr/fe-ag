@@ -147,3 +147,17 @@ export function proxyCover(url: string | null): string {
     return url;
   }
 }
+
+/** Proxy ANY image through our optimization endpoint (WebP conversion + caching) */
+export function proxyImage(url: string | null | undefined): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    // Only proxy http/https URLs from non-local hosts
+    if (!["http:", "https:"].includes(parsed.protocol)) return url;
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") return url;
+    return `/api/reader/image?src=${encodeURIComponent(url)}`;
+  } catch {
+    return url;
+  }
+}

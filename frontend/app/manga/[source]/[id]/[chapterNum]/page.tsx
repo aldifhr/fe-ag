@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getChapterPages, getChapterList, getMangaDetail } from "@/lib/api";
+import { getChapterPages, getChapterList, getMangaDetail, proxyImage } from "@/lib/api";
 import { addHistory } from "@/lib/history";
 import Link from "next/link";
 
@@ -693,7 +693,8 @@ export default function ReaderPage() {
           {images.map((src, i) => {
             const loaded = loadedImages.has(i);
             const retryN = retryKeys.get(i);
-            const imgSrc = retryN ? `${src}?retry=${retryN}` : src;
+            const baseSrc = proxyImage(src);
+            const imgSrc = retryN ? `${baseSrc}${baseSrc.includes("?") ? "&" : "?"}retry=${retryN}` : baseSrc;
             return (
               <div
                 key={i}
@@ -839,7 +840,7 @@ export default function ReaderPage() {
         <div className={`flex flex-col items-center min-h-[70dvh] ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}>
           <div className="relative w-full max-w-3xl mx-auto flex items-center justify-center select-none" style={{ touchAction: "pan-y", ...(brightness < 1 ? { filter: `brightness(${brightness})` } : {}) }}>
             <img
-              src={retryKeys.get(currentPage) ? `${images[currentPage]}?retry=${retryKeys.get(currentPage)}` : images[currentPage]}
+              src={(() => { const b = proxyImage(images[currentPage]); const r = retryKeys.get(currentPage); return r ? `${b}${b.includes("?") ? "&" : "?"}retry=${r}` : b; })()}
               alt={`Halaman ${currentPage + 1}`}
               className="w-full object-contain cursor-grab active:cursor-grabbing"
               style={{
