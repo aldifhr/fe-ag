@@ -1,10 +1,11 @@
 "use client";
 import { useParams, useSearchParams } from "next/navigation";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   getChapterPages,
   getChapterList,
   getMangaDetail,
+  MangaDetail,
   proxyImage,
 } from "@/lib/api";
 import { addHistory } from "@/lib/history";
@@ -39,21 +40,20 @@ export default function ReaderPage() {
   const chapterId = searchParams.get("chapterId") || "";
 
   // Clean URLs: fallback to localStorage when query params absent
-  function getStoredMeta(s: string, m: string, c: string) {
-    try {
-      const raw = localStorage.getItem(`manhwa-meta-${s}-${m}-${c}`);
-      return raw
-        ? (JSON.parse(raw) as { baseUrl?: string; chapterId?: string })
-        : null;
-    } catch {
-      return null;
+  const storedMeta = useMemo(() => {
+    function getStoredMeta(s: string, m: string, c: string) {
+      try {
+        const raw = localStorage.getItem(`manhwa-meta-${s}-${m}-${c}`);
+        return raw
+          ? (JSON.parse(raw) as { baseUrl?: string; chapterId?: string })
+          : null;
+      } catch {
+        return null;
+      }
     }
-  }
-  const storedMeta =
-    typeof window !== "undefined"
-      ? getStoredMeta(source, id, chapterNum) ||
-        getStoredMeta(source, id, params.chapterNum)
-      : null;
+    return getStoredMeta(source, id, chapterNum) ||
+      getStoredMeta(source, id, params.chapterNum);
+  }, [source, id, chapterNum, params.chapterNum]);
   const effectiveBaseUrl = baseUrl || storedMeta?.baseUrl || "";
   const effectiveChapterId = chapterId || storedMeta?.chapterId || "";
 
@@ -65,14 +65,7 @@ export default function ReaderPage() {
   >([]);
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [readingMode, setReadingMode] = useState<"strip" | "paged">(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("manhwa-reading-mode");
-      if (stored === "paged" || stored === "strip") return stored;
-    }
-    return "strip";
-  });
-  const [currentPage, setCurrentPage] = useState(0);
+
   const [bgColor, setBgColor] = useState<
     "default" | "dark" | "sepia" | "white"
   >(() => {
@@ -104,6 +97,7 @@ export default function ReaderPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const preloadedUrls = useRef<Set<string>>(new Set());
+  const detailFetchRef = useRef<Promise<MangaDetail> | null>(null);
 
   // Image retry state — tracks cache-busting key per image index
   const [retryKeys, setRetryKeys] = useState<Map<number, number>>(new Map());
@@ -153,15 +147,7 @@ export default function ReaderPage() {
   // Strip mode drag-scroll refs
   const stripDragRef = useRef({ dragging: false, startY: 0, startScrollY: 0 });
 
-  // Paged mode swipe refs
-  const pagedDragRef = useRef({
-    startX: 0,
-    startY: 0,
-    dragging: false,
-    moved: false,
-    offsetX: 0,
-  });
-  const [pagedDragOffset, setPagedDragOffset] = useState(0);
+
 
   const mangaHref = `/manga/${source}/${encodeURIComponent(id)}`;
 
@@ -216,7 +202,10 @@ export default function ReaderPage() {
   // Fetch manga title early for breadcrumb
   useEffect(() => {
     let cancelled = false;
-    getMangaDetail(id, source)
+    if (!detailFetchRef.current) {
+      detailFetchRef.current = getMangaDetail(id, source);
+    }
+    detailFetchRef.current
       .then((detail) => {
         if (!cancelled) {
           setMangaTitle(detail.manga.title);
@@ -228,6 +217,13 @@ export default function ReaderPage() {
       cancelled = true;
     };
   }, [id, source]);
+
+  // Set page title
+  useEffect(() => {
+    document.title = mangaTitle
+      ? `${mangaTitle} - Chapter ${chapterNum}`
+      : "Manga Reader";
+  }, [mangaTitle, chapterNum]);
 
   // Record reading history when images load
   useEffect(() => {
@@ -242,7 +238,10 @@ export default function ReaderPage() {
           chapterNumber: Number(chapterNum),
         });
       } else {
-        getMangaDetail(id, source)
+        if (!detailFetchRef.current) {
+          detailFetchRef.current = getMangaDetail(id, source);
+        }
+        detailFetchRef.current
           .then((detail) => {
             addHistory({
               mangaId: id,
@@ -306,11 +305,6 @@ export default function ReaderPage() {
     },
     [source, id],
   );
-
-  // Persist reading mode to localStorage
-  useEffect(() => {
-    localStorage.setItem("manhwa-reading-mode", readingMode);
-  }, [readingMode]);
 
   // Persist reading settings
   useEffect(() => {
@@ -396,43 +390,6 @@ export default function ReaderPage() {
     stripDragRef.current.dragging = false;
   }, []);
 
-  // --- Paged mode swipe-to-navigate ---
-  const handlePagedPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    pagedDragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      dragging: true,
-      moved: false,
-      offsetX: 0,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, []);
-
-  const handlePagedPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!pagedDragRef.current.dragging) return;
-    const dx = e.clientX - pagedDragRef.current.startX;
-    const dy = e.clientY - pagedDragRef.current.startY;
-    // If initial movement is mostly vertical, let native scroll handle it
-    if (!pagedDragRef.current.moved && Math.abs(dy) > Math.abs(dx)) return;
-    if (Math.abs(dx) > 10) pagedDragRef.current.moved = true;
-    if (!pagedDragRef.current.moved) return;
-    pagedDragRef.current.offsetX = dx;
-    setPagedDragOffset(dx);
-  }, []);
-
-  const handlePagedPointerUp = useCallback(() => {
-    if (!pagedDragRef.current.dragging) return;
-    pagedDragRef.current.dragging = false;
-    const dx = pagedDragRef.current.offsetX;
-    if (dx < -30 && currentPage < images.length - 1) {
-      setCurrentPage((p) => p + 1);
-    } else if (dx > 30 && currentPage > 0) {
-      setCurrentPage((p) => p - 1);
-    }
-    setPagedDragOffset(0);
-  }, [currentPage, images.length]);
-
   const scrollToNextImage = useCallback(() => {
     const imgs = document.querySelectorAll("img[alt^='Halaman']");
     for (const img of Array.from(imgs)) {
@@ -457,16 +414,9 @@ export default function ReaderPage() {
     }
   }, []);
 
-  // Reset to first image when switching to paged mode
-  useEffect(() => {
-    if (readingMode === "paged") {
-      setCurrentPage(0);
-    }
-  }, [readingMode]);
-
   // Strip mode scroll progress bar
   useEffect(() => {
-    if (readingMode !== "strip" || images.length === 0) {
+    if (images.length === 0) {
       setScrollProgress(0);
       return;
     }
@@ -486,7 +436,7 @@ export default function ReaderPage() {
       window.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(rafId);
     };
-  }, [readingMode, images.length]);
+  }, [images.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -503,37 +453,13 @@ export default function ReaderPage() {
       } else if (e.key === "ArrowRight" && nextChapter) {
         e.preventDefault();
         window.location.href = buildChapterUrl(nextChapter);
-      } else if (readingMode === "paged") {
-        if (e.key === "ArrowDown" || e.key === " ") {
-          e.preventDefault();
-          if (currentPage < images.length - 1) setCurrentPage((p) => p + 1);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          if (currentPage > 0) setCurrentPage((p) => p - 1);
-        }
       } else {
         if (e.key === "ArrowDown" || e.key === " ") {
           e.preventDefault();
-          const imgs = document.querySelectorAll("img[alt^='Halaman']");
-          for (const img of Array.from(imgs)) {
-            const rect = img.getBoundingClientRect();
-            if (rect.top > 50) {
-              img.scrollIntoView({ behavior: "smooth", block: "start" });
-              break;
-            }
-          }
+          scrollToNextImage();
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
-          const imgs = Array.from(
-            document.querySelectorAll("img[alt^='Halaman']"),
-          ).reverse();
-          for (const img of imgs) {
-            const rect = img.getBoundingClientRect();
-            if (rect.bottom < window.innerHeight - 50 && rect.top < 0) {
-              img.scrollIntoView({ behavior: "smooth", block: "start" });
-              break;
-            }
-          }
+          scrollToPrevImage();
         }
       }
     }
@@ -543,9 +469,8 @@ export default function ReaderPage() {
     prevChapter,
     nextChapter,
     buildChapterUrl,
-    readingMode,
-    currentPage,
-    images.length,
+    scrollToNextImage,
+    scrollToPrevImage,
   ]);
 
   // Preload next 3 images after each image loads
@@ -586,7 +511,7 @@ export default function ReaderPage() {
 
   // Reset pinch-to-zoom when zoomed image scrolls out of viewport
   useEffect(() => {
-    if (zoomedImageIdx === null || readingMode !== "strip") return;
+    if (zoomedImageIdx === null) return;
     const idx = zoomedImageIdx;
     function checkScroll() {
       const imgs = document.querySelectorAll("img[alt^='Halaman']");
@@ -606,14 +531,7 @@ export default function ReaderPage() {
     }
     window.addEventListener("scroll", checkScroll, { passive: true });
     return () => window.removeEventListener("scroll", checkScroll);
-  }, [zoomedImageIdx, readingMode]);
-
-  // Reset zoom when switching reading modes
-  useEffect(() => {
-    setZoomLevel(1);
-    setZoomedImageIdx(null);
-    setPanOffset({ x: 0, y: 0 });
-  }, [readingMode]);
+  }, [zoomedImageIdx]);
 
   // Preload next chapter images once nearEnd triggers
   useEffect(() => {
@@ -781,46 +699,6 @@ export default function ReaderPage() {
               </div>
             </div>
 
-            {/* Reading mode toggle */}
-            <button
-              onClick={() =>
-                setReadingMode(readingMode === "strip" ? "paged" : "strip")
-              }
-              className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-md bg-surface border border-border text-text-secondary hover:text-text hover:border-border-hover transition-colors duration-150 cursor-pointer"
-              aria-label={`Ganti mode ke ${readingMode === "strip" ? "paged" : "strip"}`}
-            >
-              {readingMode === "strip" ? (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 5v14" />
-                  <path d="M19 12l-7 7-7-7" />
-                  <path d="M5 12l7-7 7 7" />
-                </svg>
-              ) : (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-              )}
-              {readingMode === "strip" ? "Strip" : "Paged"}
-            </button>
           </div>
         </div>
       </header>
@@ -830,10 +708,7 @@ export default function ReaderPage() {
         <div
           className="h-full bg-accent transition-[width] duration-100"
           style={{
-            width:
-              readingMode === "paged"
-                ? `${((currentPage + 1) / Math.max(images.length, 1)) * 100}%`
-                : `${scrollProgress}%`,
+            width: `${scrollProgress}%`,
           }}
         />
       </div>
@@ -900,7 +775,7 @@ export default function ReaderPage() {
       {loading && <SkeletonLoader />}
 
       {/* Images — strip mode */}
-      {!loading && !error && images.length > 0 && readingMode === "strip" && (
+      {!loading && !error && images.length > 0 && (
         <div
           className={`flex flex-col items-center select-none cursor-grab active:cursor-grabbing ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}
           style={{ touchAction: "pan-y" }}
@@ -1110,185 +985,8 @@ export default function ReaderPage() {
         </div>
       )}
 
-      {/* Images — paged mode */}
-      {!loading && !error && images.length > 0 && readingMode === "paged" && (
-        <div
-          className={`flex flex-col items-center min-h-[70dvh] ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}
-        >
-          <div
-            className="relative w-full max-w-3xl mx-auto flex items-center justify-center select-none"
-            style={{
-              touchAction: "pan-y",
-              ...(brightness < 1
-                ? { filter: `brightness(${brightness})` }
-                : {}),
-            }}
-          >
-            <img
-              src={(() => {
-                const b = proxyImage(images[currentPage]);
-                const r = retryKeys.get(currentPage);
-                return r ? `${b}${b.includes("?") ? "&" : "?"}retry=${r}` : b;
-              })()}
-              alt={`Halaman ${currentPage + 1}`}
-              className="w-full object-contain cursor-grab active:cursor-grabbing"
-              style={{
-                maxWidth: "48rem",
-                height: "auto",
-                objectFit: "contain",
-                transform: `translateX(${pagedDragOffset}px)`,
-                transition:
-                  pagedDragOffset === 0
-                    ? "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
-                    : "none",
-              }}
-              loading="eager"
-              onLoad={() => {
-                setLoadedImages((prev) => {
-                  const next = new Set(prev);
-                  next.add(currentPage);
-                  return next;
-                });
-              }}
-              onError={() => {
-                const current = retryKeys.get(currentPage) || 0;
-                if (current < 2) {
-                  setTimeout(
-                    () => {
-                      setRetryKeys((prev) => {
-                        const next = new Map(prev);
-                        next.set(currentPage, current + 1);
-                        return next;
-                      });
-                    },
-                    (current + 1) * 1000,
-                  );
-                }
-              }}
-              onPointerDown={handlePagedPointerDown}
-              onPointerMove={handlePagedPointerMove}
-              onPointerUp={handlePagedPointerUp}
-            />
-            {retryKeys.get(currentPage) != null &&
-              (retryKeys.get(currentPage) || 0) > 0 &&
-              (retryKeys.get(currentPage) || 0) < 2 && (
-                <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11px] text-text-muted bg-surface/80 px-2 py-0.5 rounded">
-                  Retry {retryKeys.get(currentPage)}/2…
-                </p>
-              )}
-          </div>
-
-          <div className="flex items-center justify-center gap-4 py-4">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-              className={`flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg border transition-all duration-150 cursor-pointer ${
-                currentPage === 0
-                  ? "bg-bg border-border text-text-muted opacity-40 cursor-not-allowed"
-                  : "bg-bg border-border text-text-secondary hover:text-text hover:border-border-hover"
-              }`}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M19 12H5" />
-                <path d="M12 19l-7-7 7-7" />
-              </svg>
-              Prev
-            </button>
-
-            <span className="text-[13px] text-text-secondary tabular-nums select-none">
-              Halaman {currentPage + 1} / {images.length}
-            </span>
-
-            {currentPage < images.length - 1 ? (
-              <button
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-all duration-150 shadow-md cursor-pointer"
-              >
-                Next
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14" />
-                  <path d="M12 5l7 7-7 7" />
-                </svg>
-              </button>
-            ) : (
-              <div className="flex flex-col items-center gap-3">
-                <span className="text-[13px] text-text-muted italic">
-                  Chapter selesai
-                </span>
-                <div className="flex items-center gap-3">
-                  {prevChapter && (
-                    <button
-                      onClick={() => {
-                        window.location.href = buildChapterUrl(prevChapter);
-                      }}
-                      className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-bg border border-border text-text-secondary hover:bg-surface transition-all duration-150 cursor-pointer"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M19 12H5" />
-                        <path d="M12 19l-7-7 7-7" />
-                      </svg>
-                      Chapter Sebelumnya
-                    </button>
-                  )}
-                  {nextChapter && (
-                    <button
-                      onClick={() => {
-                        window.location.href = buildChapterUrl(nextChapter);
-                      }}
-                      className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-all duration-150 shadow-md cursor-pointer"
-                    >
-                      Chapter Selanjutnya
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M5 12h14" />
-                        <path d="M12 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Bottom nav — only in strip mode */}
-      {!loading && !error && images.length > 0 && readingMode === "strip" && (
+      {/* Bottom nav */}
+      {!loading && !error && images.length > 0 && (
         <>
           {/* Gradient fade from content to footer */}
           <div className="h-24 bg-linear-to-b from-transparent to-bg" />

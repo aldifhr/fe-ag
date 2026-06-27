@@ -36,7 +36,6 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
 
   
   const isIkiru = options.baseUrl?.includes("ikiru") || (!options.baseUrl && (options.url?.includes("ikiru") || options.action === "latest"));
-  const existingCookies: string | null = null; // dead code: never populated; Python scraper has full cookie support if needed later
 
   const isLocal = process.env.NODE_ENV === "development" || !process.env.VERCEL;
 
@@ -52,11 +51,6 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
     if (options.url) args.push("--url", options.url);
     if (options.query) args.push("--query", options.query);
     if (options.skipMeta) args.push("--skipMeta");
-    if (existingCookies) {
-      const cookieStr = typeof existingCookies === "string" ? existingCookies : JSON.stringify(existingCookies);
-      args.push("--cookies", cookieStr);
-    }
-    
     if (isIkiru) {
       if (env.IKIRU_EMAIL) args.push("--username", env.IKIRU_EMAIL);
       if (env.IKIRU_PASSWORD) args.push("--password", env.IKIRU_PASSWORD);
@@ -106,7 +100,6 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
   }
 
   const params: Record<string, any> = { ...options };
-  if (existingCookies) params.cookies = existingCookies;
   if (env.VERCEL_PROTECTION_BYPASS) {
     params["x-vercel-protection-bypass"] = env.VERCEL_PROTECTION_BYPASS;
   }

@@ -4,7 +4,7 @@ import { z } from "zod";
  * Validates the query parameters for the Cron API
  */
 export const cronQuerySchema = z.object({
-  action: z.enum(["update", "health", "links", "prefetch-metadata"]).default("update"),
+  action: z.enum(["update", "health", "prefetch-metadata"]).default("update"),
   mode: z.enum(["normal", "full", "fast"]).optional(),
   incremental: z.enum(["0", "1", "false", "true"]).optional(),
   deduplicate: z.enum(["0", "1", "false", "true"]).optional(),

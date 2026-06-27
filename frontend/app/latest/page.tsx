@@ -26,7 +26,7 @@ function SkeletonGrid() {
 }
 
 type SortOption = "latest" | "popularity" | "rating";
-type SourceOption = "all" | "shinigami" | "ikiru";
+type SourceOption = "all" | "shinigami";
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "latest", label: "Terbaru" },
@@ -37,7 +37,6 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 const SOURCE_OPTIONS: { value: SourceOption; label: string }[] = [
   { value: "all", label: "Semua" },
   { value: "shinigami", label: "Shinigami" },
-  { value: "ikiru", label: "Ikiru" },
 ];
 
 export default function LatestPage() {

@@ -180,14 +180,16 @@ export default function StatsPage() {
           Aktivitas 7 Hari Terakhir
         </h2>
         <div className="flex items-end gap-2 h-32">
-          {stats.recentActivity.map((day) => {
+          {(() => {
+            const today = new Date().toISOString().split("T")[0];
+            return stats.recentActivity.map((day) => {
             const date = new Date(day.date + "T00:00:00");
             const dayName = DAY_NAMES[date.getDay()];
             const height =
               day.chapters > 0
                 ? Math.max((day.chapters / maxChapters) * 100, 8)
                 : 0;
-            const isToday = day.date === new Date().toISOString().split("T")[0];
+            const isToday = day.date === today;
             return (
               <div
                 key={day.date}
@@ -216,7 +218,8 @@ export default function StatsPage() {
                 </span>
               </div>
             );
-          })}
+          });
+          })()}
         </div>
       </div>
 

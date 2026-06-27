@@ -110,7 +110,7 @@ class RequestDeduplicator {
  * Caching strategy (in-memory)
  */
 export class ScrapeCacheManager {
-  private localCache: Map<string, { data: unknown; timestamp: number }>;
+  private localCache: Map<string, { data: unknown; timestamp: number; ttlSeconds: number }>;
   private cachePrefix: string;
   private readonly MAX_LOCAL_ITEMS = 1000;
 
@@ -126,6 +126,10 @@ export class ScrapeCacheManager {
     const localKey = `${this.cachePrefix}:${key}`;
     const local = this.localCache.get(localKey);
     if (local) {
+      if ((Date.now() - local.timestamp) / 1000 > (local as any).ttlSeconds) {
+        this.localCache.delete(localKey);
+        return null;
+      }
       return local.data as T;
     }
     return null;
@@ -134,14 +138,14 @@ export class ScrapeCacheManager {
   /**
    * Set cached data in local cache
    */
-  async set<T>(key: string, data: T, _ttlSeconds: number = 3600): Promise<void> {
+  async set<T>(key: string, data: T, ttlSeconds: number = 3600): Promise<void> {
     const localKey = `${this.cachePrefix}:${key}`;
     
     if (this.localCache.size >= this.MAX_LOCAL_ITEMS) {
       const firstKey = this.localCache.keys().next().value;
       if (firstKey !== undefined) this.localCache.delete(firstKey);
     }
-    this.localCache.set(localKey, { data, timestamp: Date.now() });
+    this.localCache.set(localKey, { data, timestamp: Date.now(), ttlSeconds });
   }
 
   /**
@@ -162,6 +166,13 @@ export class ScrapeCacheManager {
         this.localCache.delete(key);
       }
     }
+  }
+
+  /**
+   * Clear all cache entries without replacing the instance
+   */
+  reset(): void {
+    this.localCache.clear();
   }
 }
 
@@ -312,7 +323,7 @@ export const globalAdaptiveLimiter = new AdaptiveConcurrencyLimiter(10, 5, 15);
  * Initialize cache client
  */
 export function initializeScrapeOptimizer(): void {
-  Object.assign(globalScrapeCacheManager, new ScrapeCacheManager());
+  globalScrapeCacheManager.reset();
 }
 
 /**

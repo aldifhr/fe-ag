@@ -16,12 +16,6 @@ import { getLogger } from "./shared/logger.js";
 
 const log = getLogger({ module: "express-dev" });
 
-// Define custom interface for tracked errors
-interface TrackedError extends Error {
-  code?: string | number;
-  statusCode?: number;
-}
-
 // Extend Express Request
 import "express";
 declare module "express" {
@@ -87,7 +81,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   }
   
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Request-Id");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   

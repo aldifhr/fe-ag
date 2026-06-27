@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import Link from "next/link";
 import { useState } from "react";
 import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
@@ -18,7 +19,7 @@ interface Props {
   chapters?: { number: string; time: string | null }[];
 }
 
-export default function MangaCard({
+function MangaCard({
   title,
   cover,
   source,
@@ -66,7 +67,7 @@ export default function MangaCard({
   function toggleFav(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation();
+    // ponies: stopImmediatePropagation was overly aggressive — stops ALL handlers on same element
     if (fav) {
       removeFavorite(id);
       setFav(false);
@@ -202,3 +203,5 @@ export default function MangaCard({
     </div>
   );
 }
+
+export default React.memo(MangaCard);

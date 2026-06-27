@@ -10,9 +10,9 @@ const FILTERED_WORDS: string[] = [
   // Add more as needed
 ];
 
-// Pre-build regex once (case-insensitive, word-boundary matched)
+// Pre-build regex once (case-insensitive, no word-boundary — <>/ are non-word chars)
 const pattern = new RegExp(
-  `\\b(${FILTERED_WORDS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+  `(${FILTERED_WORDS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
   "gi",
 );
 

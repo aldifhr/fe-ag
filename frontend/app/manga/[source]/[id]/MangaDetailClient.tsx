@@ -7,6 +7,7 @@ import {
   getMangaDetail,
   MangaDetail,
   getGenreManga,
+  getLatest,
   SearchResult,
   proxyCover,
 } from "@/lib/api";
@@ -67,7 +68,7 @@ export function MangaDetailClient() {
   const [chapterSort, setChapterSort] = useState<"desc" | "asc">("desc");
   const [chapterSearch, setChapterSearch] = useState("");
   const [showAllChapters, setShowAllChapters] = useState(false);
-  const continueReading = getContinueReading();
+  const continueReading = useMemo(() => getContinueReading(), []);
   const CHAPTERS_PER_PAGE = 10;
 
   const mangaId = useMemo(() => {
@@ -158,7 +159,6 @@ export function MangaDetailClient() {
         return results.filter((m) => m.id !== data!.manga.id).slice(0, 6);
       }
       // Fallback: fetch latest and shuffle
-      const { getLatest } = await import("@/lib/api");
       const latest = await getLatest("shinigami", 1);
       const filtered = latest.filter((m) => m.id !== data!.manga.id);
       for (let i = filtered.length - 1; i > 0; i--) {
@@ -424,21 +424,28 @@ export function MangaDetailClient() {
             {/* Description */}
             {manga.description && (
               <div>
-                <p
-                  className={`text-[13px] leading-relaxed text-(--color-text-secondary) ${!descExpanded ? "line-clamp-4" : ""}`}
-                >
-                  {cleanDescription(manga.description)}
-                </p>
-                {cleanDescription(manga.description).length > 200 && (
-                  <button
-                    onClick={() => setDescExpanded((p) => !p)}
-                    className="text-[12px] text-(--color-accent) hover:text-(--color-accent-hover) font-medium mt-1 transition-colors"
-                  >
-                    {descExpanded
-                      ? "Tampilkan lebih sedikit"
-                      : "Baca selengkapnya"}
-                  </button>
-                )}
+                {(() => {
+                  const cleaned = cleanDescription(manga.description);
+                  return (
+                    <>
+                      <p
+                        className={`text-[13px] leading-relaxed text-(--color-text-secondary) ${!descExpanded ? "line-clamp-4" : ""}`}
+                      >
+                        {cleaned}
+                      </p>
+                      {cleaned.length > 200 && (
+                        <button
+                          onClick={() => setDescExpanded((p) => !p)}
+                          className="text-[12px] text-(--color-accent) hover:text-(--color-accent-hover) font-medium mt-1 transition-colors"
+                        >
+                          {descExpanded
+                            ? "Tampilkan lebih sedikit"
+                            : "Baca selengkapnya"}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -622,7 +629,8 @@ export function MangaDetailClient() {
                             e.preventDefault();
                             e.stopPropagation();
                             e.nativeEvent.stopImmediatePropagation();
-                            if (readChapters.has(String(ch.number))) {
+                            const chNum = String(ch.number);
+                            if (readChapters.has(chNum)) {
                               unmarkAsRead(id, Number(ch.number));
                             } else {
                               markAsRead(
@@ -633,7 +641,15 @@ export function MangaDetailClient() {
                                 Number(ch.number),
                               );
                             }
-                            setReadChapters(getReadChapters(id));
+                            setReadChapters((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(chNum)) {
+                                next.delete(chNum);
+                              } else {
+                                next.add(chNum);
+                              }
+                              return next;
+                            });
                           }}
                           className="p-1 rounded hover:bg-(--color-surface) transition-colors shrink-0"
                           aria-label={

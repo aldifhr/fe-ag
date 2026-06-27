@@ -189,7 +189,7 @@ export async function searchShngm(query: string, source = "shinigami", deadline 
       
       const rows = extractRows<SecondaryMangaRow>(res.data);
       const mapped = rows.map((r: SecondaryMangaRow) => ({
-        title: r.title!, 
+        title: r.title ?? "Unknown", 
         chapter: "Latest", 
         cover: r.cover_image_url ?? r.cover_portrait_url ?? null,
         url: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`,
@@ -227,7 +227,7 @@ export async function fetchRandomShinigamiManga(source = "shinigami", { randomFn
     const rows = extractRows<SecondaryMangaRow>(res.data);
     if (!rows?.length) return null;
     const r = rows[Math.floor(randomFn() * rows.length)];
-    return { title: r.title!, mangaUrl: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`, cover: r.cover_portrait_url || r.cover_image_url || null, source: norm };
+    return { title: r.title ?? "Unknown", mangaUrl: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`, cover: r.cover_portrait_url || r.cover_image_url || null, source: norm };
   } catch (err) {
     const errMessage = err instanceof Error ? err.message : String(err);
     logger.debug({ source: norm, err: errMessage }, "Failed to fetch random manga");

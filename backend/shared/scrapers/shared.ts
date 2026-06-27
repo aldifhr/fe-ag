@@ -170,8 +170,7 @@ export function shouldBackoffCookieRefresh(
   return Number.isFinite(backoffUntilMs) && backoffUntilMs > nowMs;
 }
 
-export async function getCookie(): Promise<string> {
-  
+export function getCookie(): string {
   return env.IKIRU_COOKIE || "";
 }
 
@@ -288,7 +287,7 @@ export async function baseHeaders(
   extra: Record<string, string> = {},
   source = "generic"
 ): Promise<Record<string, string>> {
-  const cookie = await getCookie();
+  const cookie = getCookie();
   const fingerprint = getFingerprintForSource(source);
   return {
     "User-Agent": fingerprint.userAgent,

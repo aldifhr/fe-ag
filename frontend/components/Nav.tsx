@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-// import { SignInButton, SignUpButton, UserButton, Show } from "@clerk/nextjs"; // SKIPPED: Clerk disabled for local dev
+// Clerk auth disabled — re-enable when SSL ready
 import SearchModal from "@/components/SearchModal";
 import { useTheme } from "@/components/ThemeProvider";
 import { getFavorites } from "@/lib/favorites";
@@ -15,6 +15,8 @@ function isActive(pathname: string, href: string) {
 export default function Nav() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [mobileOtherOpen, setMobileOtherOpen] = useState(false);
   const [favCount, setFavCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -39,6 +41,24 @@ export default function Nav() {
   useEffect(() => {
     setFavCount(getFavorites().length);
   }, [pathname]);
+
+  // Close desktop "Lainnya" dropdown on outside click or Escape
+  useEffect(() => {
+    if (!otherOpen) return;
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-other-menu]")) setOtherOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOtherOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [otherOpen]);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
@@ -124,44 +144,79 @@ export default function Nav() {
               <Link href="/genres" className={navLinkClass("/genres")}>
                 Genre
               </Link>
-              <Link href="/stats" className={navLinkClass("/stats")}>
-                Statistik
-              </Link>
-              <Link
-                href="/leaderboard"
-                className={navLinkClass("/leaderboard")}
-              >
-                Leaderboard
-              </Link>
+              {/* Lainnya dropdown */}
+              <div className="relative" data-other-menu>
+                <button
+                  onClick={() => setOtherOpen((v) => !v)}
+                  className={[
+                    "px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors duration-150 inline-flex items-center gap-1.5",
+                    isActive(pathname, "/stats") || isActive(pathname, "/leaderboard")
+                      ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                      : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                  ].join(" ")}
+                >
+                  Lainnya
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`}
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                {otherOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 z-50">
+                    <Link
+                      href="/stats"
+                      onClick={() => setOtherOpen(false)}
+                      className={[
+                        "px-3 py-2 text-sm flex items-center gap-2",
+                        isActive(pathname, "/stats")
+                          ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                          : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                      ].join(" ")}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                      </svg>
+                      Statistik
+                    </Link>
+                    <Link
+                      href="/leaderboard"
+                      onClick={() => setOtherOpen(false)}
+                      className={[
+                        "px-3 py-2 text-sm flex items-center gap-2",
+                        isActive(pathname, "/leaderboard")
+                          ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                          : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                      ].join(" ")}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                        <path d="M4 22h16" />
+                        <path d="M10 22V8a4 4 0 0 1 4-4h0a4 4 0 0 1 4 4v14" />
+                        <path d="M6 22V8a4 4 0 0 0-4-4h0a4 4 0 0 0-4 4v14" />
+                      </svg>
+                      Leaderboard
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Right group */}
           <div className="flex items-center gap-2">
             {/* Theme toggle */}
-            {/* Auth controls — Clerk skipped for local dev. Re-enable when SSL ready. */}
-            {/* <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="px-3 py-1.5 text-[13px] font-medium rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] transition-colors duration-150">
-                  Masuk
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="px-3 py-1.5 text-[13px] font-medium rounded-md bg-[var(--color-accent)] text-white hover:opacity-90 transition-colors duration-150">
-                  Daftar
-                </button>
-              </SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8",
-                  },
-                }}
-              />
-            </Show> */}
-
             <button
               onClick={toggle}
               className="p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
@@ -272,7 +327,7 @@ export default function Nav() {
         {/* Mobile menu */}
         <div
           className={`sm:hidden overflow-hidden transition-[max-height] duration-300 ease-in-out border-b border-(--color-border) ${
-            menuOpen ? "max-h-80" : "max-h-0 border-b-0"
+            menuOpen ? "max-h-[28rem]" : "max-h-0 border-b-0"
           }`}
         >
           <div className="px-4 py-2 flex flex-col gap-1 bg-(--color-bg)">
@@ -329,44 +384,77 @@ export default function Nav() {
             >
               Genre
             </Link>
-            <Link
-              href="/stats"
-              onClick={closeMenu}
-              className={mobileLinkClass("/stats")}
-            >
-              Statistik
-            </Link>
-            <Link
-              href="/leaderboard"
-              onClick={closeMenu}
-              className={mobileLinkClass("/leaderboard")}
-            >
-              Leaderboard
-            </Link>
-
-            {/* Mobile auth controls — Clerk skipped for local dev */}
-            {/*
-            <Show when="signed-out">
-              <div className="border-t border-[var(--color-border)] mt-1 pt-1 flex gap-2">
-                <SignInButton mode="modal">
-                  <button className="flex-1 px-4 py-3 text-[15px] font-medium rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] transition-colors duration-150">
-                    Masuk
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="flex-1 px-4 py-3 text-[15px] font-medium rounded-lg bg-[var(--color-accent)] text-white hover:opacity-90 transition-colors duration-150">
-                    Daftar
-                  </button>
-                </SignUpButton>
+            {/* Lainnya collapsible */}
+            <div>
+              <button
+                onClick={() => setMobileOtherOpen((v) => !v)}
+                className={[
+                  "px-4 py-3 text-[15px] font-medium rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full justify-between",
+                  isActive(pathname, "/stats") || isActive(pathname, "/leaderboard")
+                    ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                    : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                ].join(" ")}
+              >
+                Lainnya
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform duration-200 ${mobileOtherOpen ? "rotate-180" : ""}`}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              <div
+                className={`overflow-hidden transition-[max-height] duration-200 ease-in-out ${
+                  mobileOtherOpen ? "max-h-48" : "max-h-0"
+                }`}
+              >
+                <div className="pl-4 flex flex-col gap-1 py-1">
+                  <Link
+                    href="/stats"
+                    onClick={closeMenu}
+                    className={[
+                      "px-4 py-2 text-[13px] font-medium rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full",
+                      isActive(pathname, "/stats")
+                        ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                        : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                    ].join(" ")}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="20" x2="18" y2="10" />
+                      <line x1="12" y1="20" x2="12" y2="4" />
+                      <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    Statistik
+                  </Link>
+                  <Link
+                    href="/leaderboard"
+                    onClick={closeMenu}
+                    className={[
+                      "px-4 py-2 text-[13px] font-medium rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full",
+                      isActive(pathname, "/leaderboard")
+                        ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                        : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                    ].join(" ")}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                      <path d="M4 22h16" />
+                      <path d="M10 22V8a4 4 0 0 1 4-4h0a4 4 0 0 1 4 4v14" />
+                      <path d="M6 22V8a4 4 0 0 0-4-4h0a4 4 0 0 0-4 4v14" />
+                    </svg>
+                    Leaderboard
+                  </Link>
+                </div>
               </div>
-            </Show>
-            <Show when="signed-in">
-              <div className="border-t border-[var(--color-border)] mt-1 pt-2 flex items-center gap-3 px-4">
-                <UserButton />
-                <span className="text-[13px] text-[var(--color-text-muted)]">Akun saya</span>
-              </div>
-            </Show>
-            */}
+            </div>
 
             <div className="border-t border-(--color-border) mt-1 pt-1">
               <button

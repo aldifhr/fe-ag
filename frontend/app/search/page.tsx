@@ -144,11 +144,6 @@ function SearchContent() {
     }
   }, [hasSearched, debouncedQuery]);
 
-  // Load search history on mount
-  useEffect(() => {
-    setSearchHistory(getSearchHistory());
-  }, []);
-
   // Persist filter choices
   useEffect(() => {
     localStorage.setItem("manhwa-search-sort", sortFilter);

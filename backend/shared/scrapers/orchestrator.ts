@@ -491,15 +491,9 @@ export async function orchestrateScrapeSources({
     logger.error({ err: error.message }, "scrape fatal - returning partial data");
     return {
       items: scrapedChapters,
-      sourceStates: sourceStates || {
-        ikiru: { status: "error", count: 0, error: error.message, metrics: null },
-        shinigami: {
-          status: "error",
-          count: 0,
-          error: error.message,
-          metrics: null,
-        },
-      },
+      sourceStates: sourceStates || Object.fromEntries(
+        providers.map(p => [p.id, { status: "error", count: 0, error: error.message, metrics: null }])
+      ),
     };
   }
 }

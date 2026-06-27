@@ -3,8 +3,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
     // Required
-    // Required
-    DISCORD_BOT_TOKEN: z.string().min(1),
+    DISCORD_BOT_TOKEN: z.string().min(1).optional().default(""),
     DISCORD_APPLICATION_ID: z.string().optional(),
     HEALTH_ALERT_CHANNEL_ID: z.string().optional(),
     ALLOWED_USER_IDS: z.string().optional(),

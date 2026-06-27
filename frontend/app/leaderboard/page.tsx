@@ -29,18 +29,21 @@ function useLeaderboardData(activeTab: TabKey) {
     queryKey: ["leaderboard", "rating"],
     queryFn: () => getLatest("all", 1, "rating"),
     staleTime: 5 * 60 * 1000,
+    enabled: activeTab === "rating",
   });
 
   const popularQuery = useQuery({
     queryKey: ["leaderboard", "popular"],
     queryFn: () => getPopularToday(),
     staleTime: 5 * 60 * 1000,
+    enabled: activeTab === "popular",
   });
 
   const latestQuery = useQuery({
     queryKey: ["leaderboard", "latest"],
     queryFn: () => getLatest("all", 1, "latest"),
     staleTime: 5 * 60 * 1000,
+    enabled: activeTab === "latest",
   });
 
   const map = {

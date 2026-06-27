@@ -49,9 +49,9 @@ export async function fetchIkiruMetadata(mangaUrl: string) {
 }
 
 export async function scrapeIkiruUpdatesWithMeta(
-  _preferredIkiru: { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> = new Set(),
-  _logger: any = null,
-  _options: { skipExpansion?: boolean; maxPages?: number } = {},
+  preferredIkiru: { titles: Set<string | null>; urls: Set<string | null> } | Set<string | null> = new Set(),
+  loggerParam: any = null,
+  options: { skipExpansion?: boolean; maxPages?: number } = {},
 ): Promise<{ results: ChapterItem[]; state: SourceState }> {
   const sourceState: SourceState = {
     status: "pending",
@@ -60,7 +60,7 @@ export async function scrapeIkiruUpdatesWithMeta(
     metrics: null,
   };
 
-  const maxPages = _options.maxPages ?? IKIRU_CONFIG.MAX_PAGES ?? 1;
+  const maxPages = options.maxPages ?? IKIRU_CONFIG.MAX_PAGES ?? 1;
 
   let rawItems: Awaited<ReturnType<typeof fetchIkiruLatest>> = [];
   try {
@@ -102,7 +102,7 @@ export async function scrapeIkiruUpdatesWithMeta(
 
 export async function searchIkiru(
   query: string,
-  _options: Record<string, unknown> = {},
+  options: Record<string, unknown> = {},
 ): Promise<{ success: boolean; data: ChapterItem[] }> {
   const keyword = String(query ?? "").trim();
   if (!keyword) return { success: true, data: [] };
@@ -165,7 +165,7 @@ export const IkiruProvider: ScraperProvider = {
   },
 
   async search(query: string, options: any = {}) {
-    return searchIkiru(query, {});
+    return searchIkiru(query, options);
   },
 
   async fetchMetadata(mangaUrl: string, _options: any = {}) {

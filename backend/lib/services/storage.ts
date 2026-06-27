@@ -31,9 +31,12 @@ const LIVE_EVENTS_LIMIT = 50;
 
 
 export async function writeCronStatus(status: CronStatus): Promise<void> {
-  supabase.from("cron_run_status").insert({ status }).then(({ error }: any) => {
+  try {
+    const { error } = await supabase.from("cron_run_status").insert({ status });
     if (error) logger.warn({ error: error.message }, "Failed to persist cron status to Supabase");
-  });
+  } catch (err: unknown) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, "writeCronStatus failed");
+  }
 }
 
 export async function readCronStatus(): Promise<CronStatus | null> {
