@@ -3,10 +3,11 @@ import { IKIRU_CONFIG } from "../../../lib/config.js";
 import { ChapterItem, ScraperMetrics, SourceState, ScraperProvider } from "../../types.js";
 
 import { getLogger } from "../../logger.js";
-import { fetchIkiruLatest, fetchIkiruMangaDetail } from "./scraper.js";
+import { fetchIkiruMangaDetail } from "./scraper.js";
 import {
   searchIkiruApi,
   getIkiruSeries,
+  getIkiruLatestUpdates,
 } from "./api.js";
 import type { IkiruSearchItem } from "./api.js";
 
@@ -62,27 +63,32 @@ export async function scrapeIkiruUpdatesWithMeta(
 
   const maxPages = _options.maxPages ?? IKIRU_CONFIG.MAX_PAGES ?? 1;
 
-  let rawItems: Awaited<ReturnType<typeof fetchIkiruLatest>> = [];
+  // Use REST API instead of cheerio HTML scraping (CF blocks HTML from Vercel)
+  let rawItems: IkiruSearchItem[] = [];
   try {
-    rawItems = await fetchIkiruLatest(maxPages);
+    rawItems = await getIkiruLatestUpdates();
+    logger.info({ count: rawItems.length }, "[scrapeIkiruUpdatesWithMeta] REST API success");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ err: msg }, "[scrapeIkiruUpdatesWithMeta] Cheerio scraper failed");
+    logger.error({ err: msg }, "[scrapeIkiruUpdatesWithMeta] REST API failed");
   }
 
-  const results: ChapterItem[] = (Array.isArray(rawItems) ? rawItems : []).map((item) => ({
-    title: item.title || "",
-    chapter: item.chapter || "",
-    url: item.url || "",
-    mangaUrl: item.mangaUrl || "",
-    source: "ikiru" as const,
-    updatedTime: item.updatedTime
-      ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() ?? item.updatedTime
-      : null,
-    cover: item.cover || null,
-    rating: item.rating || null,
-    genres: item.genres || [],
-  }));
+  const results: ChapterItem[] = rawItems.map((item) => {
+    const latest = item.latest_chapters?.[0];
+    return {
+      title: item.title || "",
+      chapter: latest ? String(latest.number) : "",
+      url: latest?.permalink || item.permalink,
+      mangaUrl: item.permalink,
+      source: "ikiru" as const,
+      updatedTime: latest?.modified_local
+        ? (parseDateWithFallback(latest.modified_local) || parseLooseRelativeTime(latest.modified_local))?.toISOString() ?? latest.modified_local
+        : null,
+      cover: item.cover || null,
+      rating: item.rating || null,
+      genres: item.genre || [],
+    };
+  });
 
   sourceState.status = results.length > 0 ? "ok" : "empty";
   sourceState.count = results.length;
