@@ -166,16 +166,6 @@ export async function getFilters(): Promise<FiltersResult> {
   return fetchJson<FiltersResult>("/api/reader/filters");
 }
 
-export async function getMangaChapterList(
-  id: string,
-  pageSize = 50,
-): Promise<{ number: string; releaseDate: string | null }[]> {
-  const data = await fetchJson<{ chapters: { number: string; releaseDate: string | null }[] }>(
-    `/api/reader/chapter-list?id=${encodeURIComponent(id)}&page_size=${pageSize}`,
-  );
-  return data.chapters;
-}
-
 /** Proxy cover images from domains that block hotlinking */
 export function proxyCover(url: string | null): string {
   if (!url) return "";

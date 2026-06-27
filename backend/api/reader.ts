@@ -40,7 +40,6 @@ export default async function handler(req: Request, res: Response) {
       case "filters":  return await handleFilters(req, res);
       case "genres":  return await handleGenres(req, res);
       case "genre-manga": return await handleGenreManga(req, res);
-      case "chapter-list": return await handleChapterList(req, res);
       case "random":  return await handleRandom(req, res);
       default:        return res.status(404).json({ error: `Unknown route: ${route}` });
     }
@@ -574,35 +573,6 @@ async function handleGenreManga(req: Request, res: Response) {
     }));
 
     return res.json({ results, total: (apiRes.data as any)?.total ?? results.length, page, pageSize });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return res.status(500).json({ error: message });
-  }
-}
-
-// ─── Chapter List (with release_date for schedule analysis) ──────────
-
-async function handleChapterList(req: Request, res: Response) {
-  const mangaId = req.query.id as string;
-  if (!mangaId) {
-    return res.status(400).json({ error: "Query parameter 'id' required" });
-  }
-
-  const page = Math.max(1, parseInt(req.query.page as string) || 1);
-  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.page_size as string) || 50));
-  const endpoint = `${SECONDARY_SOURCE_URL}/v1/chapter/${mangaId}/list?page=${page}&page_size=${pageSize}&sort_by=chapter_number&sort_order=desc`;
-
-  try {
-    const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
-    if (!isAxiosLikeResponse(apiRes)) {
-      return res.status(502).json({ error: "Failed to fetch chapter list" });
-    }
-    const raw = (apiRes.data as any)?.data ?? [];
-    const chapters = raw.map((c: any) => ({
-      number: String(c.chapter_number ?? ""),
-      releaseDate: c.release_date || null,
-    }));
-    return res.json({ chapters });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ error: message });
