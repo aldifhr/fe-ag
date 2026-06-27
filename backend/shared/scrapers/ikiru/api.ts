@@ -1,14 +1,19 @@
 /**
- * Ikiru REST API client — replaces Python Scrapling bridge for all operations
- * except full chapter list expansion (which still needs Scrapling).
+ * Ikiru REST API client
  *
- * API base: https://06.ikiru.wtf/wp-json/readerkiru/v1
+ * Supports two modes:
+ * 1. Direct: IKIRU_API = "https://06.ikiru.wtf/wp-json/readerkiru/v1"
+ * 2. Proxy:  IKIRU_PROXY_URL = "http://43.133.32.206:8899" + IKIRU_PROXY_TOKEN
+ *
+ * Proxy mode bypasses Cloudflare blocks from Vercel serverless IPs.
  */
 
 import { getLogger } from "../../logger.js";
 
 const logger = getLogger({ scope: "ikiru:api" });
 
+const PROXY_URL = process.env.IKIRU_PROXY_URL || "";
+const PROXY_TOKEN = process.env.IKIRU_PROXY_TOKEN || "";
 const IKIRU_API = "https://06.ikiru.wtf/wp-json/readerkiru/v1";
 const TIMEOUT_MS = 10_000;
 
@@ -70,12 +75,23 @@ export interface IkiruFilter {
 
 async function ikiruFetch<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${IKIRU_API}${path}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
+    // Route through VPS proxy if configured (bypasses CF blocks from Vercel)
+    const useProxy = PROXY_URL && PROXY_TOKEN;
+    const url = useProxy
+      ? `${PROXY_URL}/wp-json/readerkiru/v1${path}`
+      : `${IKIRU_API}${path}`;
+
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+      "Accept": "application/json, text/plain, */*",
+      "Accept-Language": "en-US,en;q=0.9",
+    };
+    if (useProxy) {
+      headers["Authorization"] = `Bearer ${PROXY_TOKEN}`;
+    }
+
+    const res = await fetch(url, {
+      headers,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {
