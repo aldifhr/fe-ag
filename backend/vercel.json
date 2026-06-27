@@ -1,0 +1,88 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron?action=prefetch-metadata",
+      "schedule": "0 3 * * *"
+    }
+  ],
+  "functions": {
+    "api/cron.ts": {
+      "maxDuration": 300
+    },
+    "api/cron-task.ts": {
+      "maxDuration": 300
+    },
+    "api/interactive.ts": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/notices",
+      "destination": "/api/incidents?action=notices"
+    },
+    {
+      "source": "/api/manga/:id",
+      "destination": "/api/reader/manga"
+    },
+    {
+      "source": "/api/search",
+      "destination": "/api/reader/search"
+    },
+    {
+      "source": "/api/latest",
+      "destination": "/api/reader/latest"
+    },
+    {
+      "source": "/api/pages",
+      "destination": "/api/reader/pages"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/status(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
+}
