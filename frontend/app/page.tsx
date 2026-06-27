@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getLatest, getRandomManga, getGenreManga, getPopularToday, SearchResult, proxyCover } from "@/lib/api";
+import { getLatest, getRandomManga, getGenreManga, getPopularToday, getGenres, SearchResult, Genre, proxyCover } from "@/lib/api";
 import { checkConnection } from "@/lib/connection";
 import { getGroupedHistory, formatChapters, timeAgo, GroupedHistory } from "@/lib/history";
 import MangaCard from "@/components/MangaCard";
@@ -117,6 +117,12 @@ export default function HomePage() {
     queryKey: ["home-popular"],
     queryFn: () => getPopularToday(),
     staleTime: 10 * 60 * 1000,
+  });
+
+  const genresQuery = useQuery({
+    queryKey: ["home-genres"],
+    queryFn: () => getGenres(),
+    staleTime: 30 * 60 * 1000,
   });
 
   // Sync extra items when initial data changes (refetch / mount)
@@ -284,7 +290,39 @@ export default function HomePage() {
         </SectionErrorBoundary>
       )}
 
-      {/* Section 4: Terakhir dibaca (Continue Reading) */}
+      {/* Section 4: Genre Populer */}
+      {genresQuery.data && genresQuery.data.length > 0 && (
+        <SectionErrorBoundary>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Genre Populer</h2>
+              <Link
+                href="/genres"
+                className="text-[12px] text-[var(--color-accent)] hover:underline"
+              >
+                Lihat Semua &rarr;
+              </Link>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {genresQuery.data
+                .filter((g) =>
+                  ["action", "romance", "fantasy", "comedy", "drama", "isekai", "adventure", "shounen", "slice-of-life", "supernatural", "martial-arts", "sci-fi"].includes(g.slug)
+                )
+                .map((g) => (
+                  <Link
+                    key={g.slug}
+                    href={`/genres/${g.slug}`}
+                    className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors duration-150"
+                  >
+                    {g.name}
+                  </Link>
+                ))}
+            </div>
+          </div>
+        </SectionErrorBoundary>
+      )}
+
+      {/* Section 5: Terakhir dibaca (Continue Reading) */}
       {recentHistory.length > 0 && (
         <SectionErrorBoundary>
           <div className="space-y-2">
@@ -319,7 +357,7 @@ export default function HomePage() {
         </SectionErrorBoundary>
       )}
 
-      {/* Section 5: Semua Manga (Main Content) */}
+      {/* Section 6: Semua Manga (Main Content) */}
       <SectionErrorBoundary>
         {/* Header with sort + random */}
         <div>
