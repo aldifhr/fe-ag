@@ -45,12 +45,18 @@ function getBaseUrl(baseUrl?: string): string {
   return (m ? m[1] : raw).replace(/\/+$/, "") + "/";
 }
 
+function normalizeIkiruDomain(url: string): string {
+  // Normalize any ikiru domain (06/05/03) to env.IKIRU_BASE_URL for consistency
+  const target = getBaseUrl().replace(/\/$/, "");
+  return url.replace(/https?:\/\/\d+\.ikiru\.wtf/g, target);
+}
+
 function toAbsoluteUrl(url: string, baseUrl: string): string {
   if (!url) return "";
   url = url.trim();
-  if (url.startsWith("//")) return `https:${url}`;
+  if (url.startsWith("//")) return normalizeIkiruDomain(`https:${url}`);
   if (url.startsWith("/")) return `${getBaseUrl(baseUrl).replace(/\/$/, "")}${url}`;
-  if (url.startsWith("http")) return url;
+  if (url.startsWith("http")) return normalizeIkiruDomain(url);
   return `${getBaseUrl(baseUrl)}${url}`;
 }
 
