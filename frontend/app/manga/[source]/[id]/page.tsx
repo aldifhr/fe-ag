@@ -262,7 +262,12 @@ export default function MangaDetailPage() {
           if (!matchCh) return null;
           return (
             <Link
-              href={`/manga/${source}/${encodeURIComponent(id)}/${lastRead}?baseUrl=${encodeURIComponent(manga.url || "")}&chapterId=${encodeURIComponent(matchCh.id || "")}`}
+              href={`/manga/${source}/${encodeURIComponent(id)}/${lastRead}`}
+              onClick={() => {
+                try {
+                  localStorage.setItem(`manhwa-meta-${source}-${id}-${lastRead}`, JSON.stringify({ baseUrl: manga.url || "", chapterId: String(matchCh.id || "") }));
+                } catch {}
+              }}
               className="flex items-center gap-3 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 rounded-lg px-4 py-3 mb-4 group transition-colors hover:bg-[var(--color-accent)]/15"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -317,7 +322,12 @@ export default function MangaDetailPage() {
                 <Link
                   key={`${ch.id}`}
                   id={`chapter-${ch.number}`}
-                  href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}?baseUrl=${encodeURIComponent(manga.url || "")}&chapterId=${encodeURIComponent(ch.id || "")}`}
+                  href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}`}
+                  onClick={() => {
+                    try {
+                      localStorage.setItem(`manhwa-meta-${source}-${id}-${ch.number}`, JSON.stringify({ baseUrl: manga.url || "", chapterId: String(ch.id || "") }));
+                    } catch {}
+                  }}
                   className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-colors duration-150 group"
                 >
                   <div className="min-w-0 flex items-center gap-1.5">

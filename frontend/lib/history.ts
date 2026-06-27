@@ -116,6 +116,13 @@ export function unmarkAsRead(mangaId: string, chapterNumber: number): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
+/** Remove all entries for a specific manga. */
+export function removeMangaHistory(mangaId: string): void {
+  const all = safeGetHistory();
+  const filtered = all.filter((e) => e.mangaId !== mangaId);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+}
+
 /** Clear all history. */
 export function clearHistory(): void {
   localStorage.removeItem(STORAGE_KEY);

@@ -94,13 +94,11 @@ export default function HomePage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">
-          Update Terbaru
+          Terbaru
         </h1>
-        {!loading && (
-          <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">
-            {items.length} manga
-          </p>
-        )}
+        <p className="text-[13px] text-[var(--color-text-muted)] mt-1">
+          Website agregator manhwa. Saat ini tersedia dari Shinigami.
+        </p>
       </div>
 
       {/* Lanjutkan Baca */}

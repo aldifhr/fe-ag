@@ -34,7 +34,7 @@ async function handleLatest(req: Request, res: Response) {
   const source = (req.query.source as string) || "all";
 
   const PAGE_SIZE = 50;
-  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string; chapters?: { number: string; time: string | null }[] }[] = [];
+  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string }[] = [];
 
   if (source === "all" || source === "shinigami") {
     const rows = await fetchUpdateList(SECONDARY_SOURCE_URL, undefined);
@@ -47,12 +47,6 @@ async function handleLatest(req: Request, res: Response) {
         source: "shinigami",
         chapter: String(row.latest_chapter_number ?? ""),
         time: row.latest_chapter_time || row.updated_at || undefined,
-        chapters: Array.isArray((row as any).chapters)
-          ? (row as any).chapters.slice(0, 2).map((c: any) => ({
-              number: String(c.chapter_number ?? ""),
-              time: c.created_at || null,
-            }))
-          : undefined,
       });
     }
   }

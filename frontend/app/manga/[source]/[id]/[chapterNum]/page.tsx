@@ -28,6 +28,17 @@ export default function ReaderPage() {
   const baseUrl = searchParams.get("baseUrl") || "";
   const chapterId = searchParams.get("chapterId") || "";
 
+  // Clean URLs: fallback to localStorage when query params absent
+  function getStoredMeta(s: string, m: string, c: string) {
+    try {
+      const raw = localStorage.getItem(`manhwa-meta-${s}-${m}-${c}`);
+      return raw ? (JSON.parse(raw) as { baseUrl?: string; chapterId?: string }) : null;
+    } catch { return null; }
+  }
+  const storedMeta = typeof window !== "undefined" ? getStoredMeta(source, id, chapterNum) : null;
+  const effectiveBaseUrl = baseUrl || storedMeta?.baseUrl || "";
+  const effectiveChapterId = chapterId || storedMeta?.chapterId || "";
+
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +84,14 @@ export default function ReaderPage() {
 
   const mangaHref = `/manga/${source}/${encodeURIComponent(id)}`;
 
+  // Save chapter meta to localStorage for clean URLs
+  useEffect(() => {
+    if (baseUrl || chapterId) {
+      const key = `manhwa-meta-${source}-${id}-${chapterNum}`;
+      localStorage.setItem(key, JSON.stringify({ baseUrl, chapterId }));
+    }
+  }, [baseUrl, chapterId, source, id, chapterNum]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -82,13 +101,13 @@ export default function ReaderPage() {
 
       try {
         let chapterUrl = "";
-        if (baseUrl) {
-          chapterUrl = `${baseUrl.replace(/\/$/, "")}/chapter-${chapterNum}`;
+        if (effectiveBaseUrl) {
+          chapterUrl = `${effectiveBaseUrl.replace(/\/$/, "")}/chapter-${chapterNum}`;
         } else {
           chapterUrl = `https://shinigami.asia/manga/${id.split("/").pop()}/chapter-${chapterNum}`;
         }
 
-        const data = await getChapterPages(chapterUrl, source, chapterId, baseUrl || undefined, chapterNum || undefined);
+        const data = await getChapterPages(chapterUrl, source, effectiveChapterId, effectiveBaseUrl || undefined, chapterNum || undefined);
         if (!cancelled) {
           setImages(data.images);
         }
@@ -103,7 +122,7 @@ export default function ReaderPage() {
 
     fetchPages();
     return () => { cancelled = true; };
-  }, [source, id, chapterNum, baseUrl, chapterId]);
+  }, [source, id, chapterNum, effectiveBaseUrl, effectiveChapterId]);
 
   // Record reading history when images load
   useEffect(() => {
@@ -148,13 +167,15 @@ export default function ReaderPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const currentIdx = chapters.findIndex(ch => String(ch.number) === String(chapterNum));
-  const prevChapter = currentIdx > 0 ? chapters[currentIdx - 1] : null;
-  const nextChapter = currentIdx >= 0 && currentIdx < chapters.length - 1 ? chapters[currentIdx + 1] : null;
+  // Sort ascending so prev = older chapter, next = newer chapter (intuitive direction)
+  const sortedAsc = [...chapters].sort((a, b) => Number(a.number) - Number(b.number));
+  const currentAscIdx = sortedAsc.findIndex(ch => String(ch.number) === String(chapterNum));
+  const prevChapter = currentAscIdx > 0 ? sortedAsc[currentAscIdx - 1] : null;
+  const nextChapter = currentAscIdx >= 0 && currentAscIdx < sortedAsc.length - 1 ? sortedAsc[currentAscIdx + 1] : null;
 
   const buildChapterUrl = useCallback((ch: { number: string | number; id: string | number }) => {
-    return `/manga/${source}/${encodeURIComponent(id)}/${ch.number}?baseUrl=${encodeURIComponent(baseUrl)}&chapterId=${encodeURIComponent(String(ch.id))}`;
-  }, [source, id, baseUrl]);
+    return `/manga/${source}/${encodeURIComponent(id)}/${ch.number}`;
+  }, [source, id]);
 
   // Persist reading mode to localStorage
   useEffect(() => {
@@ -203,11 +224,10 @@ export default function ReaderPage() {
 
   const handleBubblePointerUp = useCallback(() => {
     bubbleDragging.current = false;
-  }, []);
-
-  const handleBubbleClick = useCallback(() => {
-    if (bubbleMoved.current) return;
-    setBubbleExpanded((v) => !v);
+    // If no drag happened, toggle the menu
+    if (!bubbleMoved.current) {
+      setBubbleExpanded((v) => !v);
+    }
   }, []);
 
   const scrollToNextImage = useCallback(() => {
@@ -421,7 +441,7 @@ export default function ReaderPage() {
             </svg>
           </div>
           <p className="text-sm text-[var(--color-text-secondary)] mb-1">Gagal: {error}</p>
-          <p className="text-[12px] text-[var(--color-text-muted)]">Coba buka manual: {baseUrl}/chapter-{chapterNum}</p>
+          <p className="text-[12px] text-[var(--color-text-muted)]">Coba buka manual: {effectiveBaseUrl}/chapter-{chapterNum}</p>
         </div>
       )}
 
@@ -619,20 +639,47 @@ export default function ReaderPage() {
       {/* Floating bubble (iOS AssistiveTouch style) */}
       {images.length > 0 && !loading && (
         <div
-          className="fixed z-50 select-none touch-none"
+          className="fixed z-50 select-none"
           style={{
             left: bubblePos ? bubblePos.x : "auto",
             right: bubblePos ? "auto" : 24,
             top: bubblePos ? bubblePos.y : "50%",
             transform: bubblePos ? "none" : "translateY(-50%)",
           }}
-          onPointerDown={handleBubblePointerDown}
-          onPointerMove={handleBubblePointerMove}
-          onPointerUp={handleBubblePointerUp}
         >
           {/* Expanded menu */}
           {bubbleExpanded && (
-            <div className="absolute bottom-full mb-2 right-0 flex flex-col items-end gap-2 animate-[fadeIn_0.15s_ease]">
+            <div 
+              className="absolute bottom-full mb-2 right-0 flex flex-col items-end gap-2 animate-[fadeIn_0.15s_ease]"
+            >
+              {/* Prev chapter */}
+              {prevChapter && (
+                <button
+                  onClick={() => { window.location.href = buildChapterUrl(prevChapter); setBubbleExpanded(false); }}
+                  className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors duration-150 cursor-pointer"
+                >
+                  <span className="text-[11px] font-medium whitespace-nowrap">Chapter Prev</span>
+                  <span className="w-7 h-7 rounded-full bg-[var(--color-surface-hover)] flex items-center justify-center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+                    </svg>
+                  </span>
+                </button>
+              )}
+              {/* Next chapter */}
+              {nextChapter && (
+                <button
+                  onClick={() => { window.location.href = buildChapterUrl(nextChapter); setBubbleExpanded(false); }}
+                  className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors duration-150 cursor-pointer"
+                >
+                  <span className="text-[11px] font-medium whitespace-nowrap">Chapter Next</span>
+                  <span className="w-7 h-7 rounded-full bg-[var(--color-accent-dim)] flex items-center justify-center text-[var(--color-accent)]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
+                    </svg>
+                  </span>
+                </button>
+              )}
               {/* Scroll up */}
               <button
                 onClick={() => { scrollToPrevImage(); setBubbleExpanded(false); }}
@@ -675,8 +722,11 @@ export default function ReaderPage() {
 
           {/* Main bubble button */}
           <div
-            className="w-12 h-12 rounded-full bg-[var(--color-surface)]/90 backdrop-blur-sm border border-[var(--color-border)] shadow-lg shadow-black/20 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 cursor-pointer"
+            className="w-12 h-12 rounded-full bg-[var(--color-surface)]/90 backdrop-blur-sm border border-[var(--color-border)] shadow-lg shadow-black/20 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 cursor-pointer select-none touch-none"
             style={{ opacity: bubbleExpanded ? 1 : 0.7 }}
+            onPointerDown={handleBubblePointerDown}
+            onPointerMove={handleBubblePointerMove}
+            onPointerUp={handleBubblePointerUp}
           >
             {bubbleExpanded ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
