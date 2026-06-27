@@ -240,14 +240,17 @@ export class AdaptiveConcurrencyLimiter {
     }
     // Decrease concurrency if response time is slow
     else if (avgResponseTime > 5000) {
+      const prev = this.currentConcurrency;
       this.currentConcurrency = Math.max(
         this.minConcurrency,
         Math.floor(this.currentConcurrency * 0.8)
       );
-      logger.info(
-        { concurrency: this.currentConcurrency, avgResponseTime },
-        "Decreased concurrency due to slow response time"
-      );
+      if (this.currentConcurrency < prev) {
+        logger.debug(
+          { concurrency: this.currentConcurrency, avgResponseTime },
+          "Concurrency decreased due to slow responses"
+        );
+      }
     }
     // Increase concurrency if performing well
     else if (errorRate < 0.05 && avgResponseTime < 2000) {

@@ -69,46 +69,59 @@ export async function scrapeIkiruUpdatesWithMeta(
     logger.info("Fetching Ikiru latest updates via REST API");
     const items = await getIkiruLatestUpdates();
 
-    const results: ChapterItem[] = items.map((item: IkiruSearchItem) => {
-      const latest = item.latest_chapters?.[0];
-      return {
-        title: item.title || "",
-        chapter: latest ? String(latest.number) : "",
-        url: latest?.permalink || item.permalink,  // Use chapter permalink for dispatch key
-        mangaUrl: item.permalink,
-        source: "ikiru",
-        updatedTime: latest?.modified_local
-          ? (parseDateWithFallback(latest.modified_local) || parseLooseRelativeTime(latest.modified_local))?.toISOString() ?? latest.modified_local
-          : null,
-        cover: item.cover || null,
-        rating: item.rating || null,
-        genres: item.genre || [],
-      };
-    });
+    // REST API returned data successfully
+    if (items.length > 0) {
+      const results: ChapterItem[] = items.map((item: IkiruSearchItem) => {
+        const latest = item.latest_chapters?.[0];
+        return {
+          title: item.title || "",
+          chapter: latest ? String(latest.number) : "",
+          url: latest?.permalink || item.permalink,  // Use chapter permalink for dispatch key
+          mangaUrl: item.permalink,
+          source: "ikiru",
+          updatedTime: latest?.modified_local
+            ? (parseDateWithFallback(latest.modified_local) || parseLooseRelativeTime(latest.modified_local))?.toISOString() ?? latest.modified_local
+            : null,
+          cover: item.cover || null,
+          rating: item.rating || null,
+          genres: item.genre || [],
+        };
+      });
 
-    sourceState.status = "ok";
-    sourceState.count = results.length;
-    sourceState.metrics = {
-      pagesScanned: 1,
-      stalePageStreak: 0,
-      emptyPageStreak: 0,
-      maxPages: 1,
-      preferredTitles: 0,
-      preferredUrls: 0,
-      expandedCount: 0,
-      expansionSkipped: true
-    } as ScraperMetrics;
+      sourceState.status = "ok";
+      sourceState.count = results.length;
+      sourceState.metrics = {
+        pagesScanned: 1,
+        stalePageStreak: 0,
+        emptyPageStreak: 0,
+        maxPages: 1,
+        preferredTitles: 0,
+        preferredUrls: 0,
+        expandedCount: 0,
+        expansionSkipped: true
+      } as ScraperMetrics;
 
-    return { results, state: sourceState };
+      return { results, state: sourceState };
+    }
+
+    // REST API returned empty — fall through to Scrapling fallback
+    logger.warn("REST API returned 0 items, falling back to Scrapling");
+    return await scrapeIkiruWithScrapling(_preferredIkiru, _logger, _options);
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
-    logger.error({ err: error.message }, "[scrapeIkiruUpdatesWithMeta] REST API failed");
+    logger.warn({ err: error.message }, "REST API failed, falling back to Scrapling");
     
-    sourceState.status = "error";
-    sourceState.error = error.message;
-    sourceState.errCode = classifyScraperError(error);
-    
-    return { results: [], state: sourceState };
+    // Fallback to Scrapling when REST API is blocked/unavailable
+    try {
+      return await scrapeIkiruWithScrapling(_preferredIkiru, _logger, _options);
+    } catch (fallbackErr: unknown) {
+      const fbErr = fallbackErr instanceof Error ? fallbackErr : new Error(String(fallbackErr));
+      logger.error({ err: fbErr.message }, "[scrapeIkiruUpdatesWithMeta] Both REST API and Scrapling failed");
+      sourceState.status = "error";
+      sourceState.error = `REST: ${error.message} | Scrapling: ${fbErr.message}`;
+      sourceState.errCode = classifyScraperError(fbErr);
+      return { results: [], state: sourceState };
+    }
   }
 }
 

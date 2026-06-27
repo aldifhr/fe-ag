@@ -115,6 +115,9 @@ export default function Nav() {
               <Link href="/stats" className={navLinkClass("/stats")}>
                 Statistik
               </Link>
+              <Link href="/leaderboard" className={navLinkClass("/leaderboard")}>
+                Leaderboard
+              </Link>
             </div>
           </div>
 
@@ -243,6 +246,9 @@ export default function Nav() {
             </Link>
             <Link href="/stats" onClick={closeMenu} className={mobileLinkClass("/stats")}>
               Statistik
+            </Link>
+            <Link href="/leaderboard" onClick={closeMenu} className={mobileLinkClass("/leaderboard")}>
+              Leaderboard
             </Link>
 
             {/* Mobile auth controls — Clerk skipped for local dev */}

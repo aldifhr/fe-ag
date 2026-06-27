@@ -44,7 +44,6 @@ export default function ReaderPage() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fitMode, setFitMode] = useState<"width" | "height">("width");
   const [chapters, setChapters] = useState<{ id: string | number; number: string | number }[]>([]);
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -610,27 +609,6 @@ export default function ReaderPage() {
               {readingMode === "strip" ? "Strip" : "Paged"}
             </button>
 
-            {/* Fit mode toggle */}
-            <button
-              onClick={() => setFitMode(fitMode === "width" ? "height" : "width")}
-              className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 cursor-pointer"
-              aria-label={`Ganti mode ke ${fitMode === "width" ? "height" : "width"}`}
-            >
-              {fitMode === "width" ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 3H3v18h18V3z" />
-                  <path d="M3 9h18" />
-                  <path d="M3 15h18" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 3H3v18h18V3z" />
-                  <path d="M9 3v18" />
-                  <path d="M15 3v18" />
-                </svg>
-              )}
-              {fitMode === "width" ? "Lebar" : "Tinggi"}
-            </button>
           </div>
         </div>
       </header>
@@ -798,9 +776,8 @@ export default function ReaderPage() {
                     transition: "opacity 0.5s ease, transform 0.2s ease",
                     transform: zoomedImageIdx === i ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})` : undefined,
                     transformOrigin: zoomedImageIdx === i ? `${zoomOrigin.x}% ${zoomOrigin.y}%` : undefined,
-                    maxWidth: fitMode === "width" ? "48rem" : undefined,
-                    height: fitMode === "height" ? "100dvh" : "auto",
-                    width: fitMode === "height" ? "auto" : undefined,
+                    maxWidth: "48rem",
+                    height: "auto",
                     objectFit: "contain",
                   }}
                   loading={i === 0 ? "eager" : "lazy"}
@@ -844,9 +821,8 @@ export default function ReaderPage() {
               alt={`Halaman ${currentPage + 1}`}
               className="w-full object-contain cursor-grab active:cursor-grabbing"
               style={{
-                maxWidth: fitMode === "width" ? "48rem" : undefined,
-                height: fitMode === "height" ? "100dvh" : "auto",
-                width: fitMode === "height" ? "auto" : undefined,
+                maxWidth: "48rem",
+                height: "auto",
                 objectFit: "contain",
                 transform: `translateX(${pagedDragOffset}px)`,
                 transition: pagedDragOffset === 0 ? "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",

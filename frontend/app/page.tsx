@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getLatest, getRandomManga, getGenreManga, getPopularToday, getGenres, SearchResult, Genre, proxyCover } from "@/lib/api";
+import { getLatest, getRandomManga, getPopularToday, getGenres, SearchResult, proxyCover } from "@/lib/api";
 import { checkConnection } from "@/lib/connection";
 import { getGroupedHistory, formatChapters, timeAgo, GroupedHistory } from "@/lib/history";
 import MangaCard from "@/components/MangaCard";
@@ -42,8 +42,6 @@ const SOURCE_OPTIONS: { value: SourceOption; label: string }[] = [
   { value: "shinigami", label: "Shinigami" },
   { value: "ikiru", label: "Ikiru" },
 ];
-
-const DEFAULT_FOR_YOU_GENRE = "action";
 
 export default function HomePage() {
   const router = useRouter();
@@ -86,32 +84,20 @@ export default function HomePage() {
 
   const error = queryError?.message ?? null;
 
-  // Feature 3: For You — derive genre from reading history
-  const [forYouGenre, setForYouGenre] = useState<string>(DEFAULT_FOR_YOU_GENRE);
-  const [showForYou, setShowForYou] = useState(false);
-
   useEffect(() => {
     const history = getGroupedHistory();
     setRecentHistory(history.slice(0, 5));
-    if (history.length > 0) {
-      setShowForYou(true);
-      const genres = ["action", "romance", "fantasy"];
-      setForYouGenre(genres[history.length % genres.length]);
-    }
   }, []);
 
-  const forYouQuery = useQuery({
-    queryKey: ["for-you", forYouGenre],
-    queryFn: () => getGenreManga(forYouGenre, 1),
-    enabled: showForYou,
-    staleTime: 10 * 60 * 1000,
-  });
-
+  // Reuse initialData for "Baru Diupdate" when it's already fetching all+latest
+  const isDefaultView = source === "all" && sort === "latest";
   const updatedQuery = useQuery({
     queryKey: ["home-updated"],
     queryFn: () => getLatest("all", 1, "latest"),
     staleTime: 10 * 60 * 1000,
+    enabled: !isDefaultView, // Skip when main grid already has same data
   });
+  const updatedData = isDefaultView ? initialData : updatedQuery.data;
 
   const popularQuery = useQuery({
     queryKey: ["home-popular"],
@@ -226,41 +212,21 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Section 1: Untukmu (For You) */}
-      {showForYou && forYouQuery.data && forYouQuery.data.length > 0 && (
+      {/* Section 1: Baru Diupdate (Recently Updated) */}
+      {updatedData && updatedData.length > 0 && (
         <SectionErrorBoundary>
           <div className="space-y-3">
-            <div>
-              <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Untukmu</h2>
-              <p className="text-[11px] text-[var(--color-text-muted)] opacity-70">
-                Berdasarkan genre {forYouGenre.charAt(0).toUpperCase() + forYouGenre.slice(1)}
-              </p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Baru Diupdate</h2>
+              <Link
+                href="/latest"
+                className="text-[12px] text-[var(--color-accent)] hover:underline"
+              >
+                Lihat Semua &rarr;
+              </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 max-w-[960px]">
-              {forYouQuery.data.slice(0, 6).map((item, i) => (
-                <MangaCard
-                  key={`foryou-${item.id}-${i}`}
-                  title={item.title}
-                  cover={item.cover}
-                  source={item.source}
-                  id={item.id}
-                  chapter={item.chapter}
-                  time={item.time}
-                  rating={item.rating}
-                />
-              ))}
-            </div>
-          </div>
-        </SectionErrorBoundary>
-      )}
-
-      {/* Section 2: Baru Diupdate (Recently Updated) */}
-      {updatedQuery.data && updatedQuery.data.length > 0 && (
-        <SectionErrorBoundary>
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Baru Diupdate</h2>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-              {updatedQuery.data.slice(0, 6).map((item, i) => (
+              {updatedData.slice(0, 6).map((item, i) => (
                 <SectionCard key={`upd-${item.id}-${i}`} item={item} />
               ))}
             </div>
@@ -268,7 +234,7 @@ export default function HomePage() {
         </SectionErrorBoundary>
       )}
 
-      {/* Section 3: Populer (Popular/Trending) */}
+      {/* Section 2: Populer (Popular/Trending) */}
       {popularQuery.data && popularQuery.data.length > 0 && (
         <SectionErrorBoundary>
           <div className="space-y-3">
