@@ -36,7 +36,7 @@ export async function runScrapling<T>(options: ScraplingOptions): Promise<T> {
 
   
   const isIkiru = options.baseUrl?.includes("ikiru") || (!options.baseUrl && (options.url?.includes("ikiru") || options.action === "latest"));
-  const existingCookies: string | null = null;
+  const existingCookies: string | null = null; // dead code: never populated; Python scraper has full cookie support if needed later
 
   const isLocal = process.env.NODE_ENV === "development" || !process.env.VERCEL;
 

@@ -6,6 +6,8 @@ export interface SearchResult {
   source: string;
   description?: string | null;
   chapter?: string;
+  time?: string;
+  chapters?: { number: string; time: string | null }[];
 }
 
 export interface MangaDetail {
@@ -48,8 +50,8 @@ export async function searchManga(q: string, source = "all"): Promise<SearchResu
   return data.results;
 }
 
-export async function getMangaDetail(id: string, source = "shinigami", url?: string): Promise<MangaDetail> {
-  const params = source === "ikiru" && url ? `url=${encodeURIComponent(url)}` : `id=${encodeURIComponent(id)}`;
+export async function getMangaDetail(id: string, source = "shinigami"): Promise<MangaDetail> {
+  const params = `id=${encodeURIComponent(id)}`;
   return fetchJson<MangaDetail>(`/api/reader/manga?source=${source}&${params}`);
 }
 
@@ -60,6 +62,11 @@ export async function getChapterPages(url: string, source?: string, chapterId?: 
   if (baseUrl) params.set("baseUrl", baseUrl);
   if (chapterNum) params.set("chapter", chapterNum);
   return fetchJson<PageResult>(`/api/reader/pages?${params.toString()}`);
+}
+
+export async function getChapterList(id: string, source = "shinigami"): Promise<MangaDetail["chapters"]> {
+  const detail = await getMangaDetail(id, source);
+  return detail.chapters;
 }
 
 export async function getLatest(source = "all", page = 1): Promise<SearchResult[]> {

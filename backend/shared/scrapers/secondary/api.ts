@@ -179,24 +179,21 @@ export async function searchShngm(query: string, source = "shinigami", deadline 
     for (const type of typesToFetch) {
       if (deadline > 0 && Date.now() >= deadline - 1000) break;
       
-      for (let p = 1; p <= 2; p++) {
-        const res = await fetchWithRetry(`${API_BASE}/v1/manga/list?type=${type}&page=${p}&page_size=40&sort=latest`, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT, deadline);
-        
-        if (!isAxiosLikeResponse(res)) continue;
-        
-        const rows = extractRows<SecondaryMangaRow>(res.data);
-        if (!rows.length) break;
-        const filtered = rows.filter((r: SecondaryMangaRow) => String(r?.title || "").toLowerCase().includes(kw)).map((r: SecondaryMangaRow) => ({
-          title: r.title!, 
-          chapter: "Latest", 
-          url: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`,
-          mangaUrl: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`, 
-          updatedTime: parseDateWithFallback(r.latest_chapter_time ?? r.updated_at)?.toISOString() ?? null, 
-          source: norm
-        } as ChapterItem));
-        results.push(...filtered);
-        if (results.length >= 10) break;
-      }
+      const res = await fetchWithRetry(`${API_BASE}/v1/manga/list?type=${type}&page=1&page_size=20&q=${encodeURIComponent(kw)}&sort=latest`, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT, deadline);
+      
+      if (!isAxiosLikeResponse(res)) continue;
+      
+      const rows = extractRows<SecondaryMangaRow>(res.data);
+      const mapped = rows.map((r: SecondaryMangaRow) => ({
+        title: r.title!, 
+        chapter: "Latest", 
+        cover: r.cover_image_url ?? r.cover_portrait_url ?? null,
+        url: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`,
+        mangaUrl: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`, 
+        updatedTime: parseDateWithFallback(r.latest_chapter_time ?? r.updated_at)?.toISOString() ?? null, 
+        source: norm
+      } as ChapterItem));
+      results.push(...mapped);
     }
     return { success: true, data: results.slice(0, 50) };
   } catch (err: unknown) {

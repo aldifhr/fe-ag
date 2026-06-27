@@ -10,78 +10,14 @@ import {
   compactTitleKey,
   fuzzyTitleSimilarity,
 } from "../domain.js";
-import { httpGet, httpPost, requestWithRetry } from "../httpClient.js";
+import { httpGet, requestWithRetry } from "../httpClient.js";
 import { detectAndHealRedirect } from "../../lib/services/url/healing.js";
-import { getLogger } from "../logger.js";
-import { IKIRU_CONFIG, SECONDARY_CONFIG } from "../../lib/config.js";
+import { SECONDARY_CONFIG } from "../../lib/config.js";
 import { env } from "../config/env.js";
 import { AppError } from "../errors.js";
 import { ProviderErrorCode, HttpScrapeOptions, RetryOptions } from "../types.js";
 
-const logger = getLogger({ scope: "cookie" });
 const IKIRU_BASE_DEFAULT = "https://03.ikiru.wtf";
-
-const LOGIN_URL = `${(env.IKIRU_BASE_URL || IKIRU_BASE_DEFAULT).replace(/\/+$/, "")}/wp-login.php`;
-
-async function refreshCookie(): Promise<string | null> {
-  const email = env.IKIRU_EMAIL;
-  const password = env.IKIRU_PASSWORD;
-
-  if (!email || !password) {
-    logger.warn("IKIRU_EMAIL/PASSWORD not set, skipping cookie refresh");
-    return null;
-  }
-
-  try {
-    const params = new URLSearchParams({
-      log: email,
-      pwd: password,
-      wp_submit: "Log In",
-      redirect_to: "/wp-admin/",
-      testcookie: "1",
-    });
-
-    const res = await httpPost(LOGIN_URL, params, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Cookie": "wordpress_test_cookie=WP%20Cookie%20check",
-      },
-      maxRedirects: 0,
-      validateStatus: (s) => s === 302 || s === 200,
-    });
-
-    const location = (res.headers["location"] as string) ?? "";
-    if (res.status === 302 && location.includes("login=failed")) {
-      logger.error({ url: LOGIN_URL }, "Login failed â€” invalid credentials");
-      return null;
-    }
-
-    const rawCookies = res.headers["set-cookie"];
-    if (!rawCookies?.length) {
-      logger.error({ url: LOGIN_URL }, "Login failed â€” no cookie in response");
-      return null;
-    }
-
-    const hasAuthCookie = rawCookies.some((c) =>
-      c.startsWith("wordpress_logged_in_"),
-    );
-    if (!hasAuthCookie) {
-      logger.error({ url: LOGIN_URL, foundCookies: rawCookies.map(c => c.split('=')[0]).join(', ') }, "Login failed â€” no wordpress_logged_in cookie");
-      return null;
-    }
-
-    const cookieString = rawCookies
-      .map((c) => c.split(";")[0])
-      .join("; ");
-
-    logger.info("Cookie refreshed successfully");
-    return cookieString;
-  } catch (err: unknown) {
-    logger.error({ error: err instanceof Error ? err.message : String(err) }, "Failed to refresh cookie");
-    return null;
-  }
-}
 
 /**
  * Memory-efficient generator for lazy filtering and mapping
@@ -114,8 +50,6 @@ export const AJAX_PATH = "wp-admin/admin-ajax.php";
 export const SECONDARY_SOURCE_URL = env.SECONDARY_SOURCE_URL;
 export const SECONDARY_PUBLIC_BASE = getShinigamiPublicBase();
 export const SECONDARY_DETAIL_WINDOW_HOURS = env.SECONDARY_DETAIL_WINDOW_HOURS;
-export const IKIRU_EMPTY_PAGE_BREAK_STREAK = env.IKIRU_EMPTY_PAGE_BREAK_STREAK;
-export const IKIRU_CHAPTER_LIST_MAX_PAGES = IKIRU_CONFIG.CHAPTER_LIST_MAX_PAGES;
 export const SECONDARY_DETAIL_MAX_MANGA = SECONDARY_CONFIG.DETAIL_MAX_MANGA;
 export const SECONDARY_DETAIL_THROTTLE_MS = env.SECONDARY_DETAIL_THROTTLE_MS;
 export const SECONDARY_CHAPTER_LIST_MAX_PAGES = SECONDARY_CONFIG.CHAPTER_LIST_MAX_PAGES;
@@ -350,19 +284,6 @@ export function pickSecondaryDescription(row: Partial<{
   return text || null;
 }
 
-export function resolveChapterUrl(href: string | null | undefined, mangaUrl: string | null): string | null {
-  if (!href) return null;
-  const raw = String(href).trim();
-  if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("/")) return toAbsoluteUrl(raw, SITE_URL);
-
-  const rootBased = toAbsoluteUrl("/" + raw, SITE_URL);
-  if (rootBased) return rootBased;
-
-  return toAbsoluteUrl(raw, mangaUrl || SITE_URL);
-}
-
 export async function baseHeaders(
   extra: Record<string, string> = {},
   source = "generic"
@@ -413,15 +334,6 @@ export async function scrapeWithHeaders(
       details: { url, method: "GET", source }
     });
   }
-}
-
-export async function getFingerprintHeaders(_url: string): Promise<Record<string, string>> {
-  
-  return {};
-}
-
-export async function saveFingerprint(_url: string, _response: any): Promise<void> {
-  
 }
 
 export const getStatusColor = (status: string | null | undefined): number =>

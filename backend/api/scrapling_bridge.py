@@ -466,6 +466,7 @@ if __name__ == "__main__":
     parser.add_argument("--username")
     parser.add_argument("--password")
     parser.add_argument("--cookies", help="JSON string of cookies")
+    parser.add_argument("--skipMeta", action="store_true", help="Skip fetching metadata (rating/status/genres/description)")
     args = parser.parse_args()
     
     cookies = json.loads(args.cookies) if args.cookies else None
@@ -473,10 +474,10 @@ if __name__ == "__main__":
     
     result_data = []
     if args.action == "latest": result_data = scraper.fetch_latest(args.maxPages)
-    elif args.action == "expand": result_data = scraper.fetch_manga_page(args.url)
+    elif args.action == "expand": result_data = scraper.fetch_manga_page(args.url, skip_meta=args.skipMeta)
     elif args.action == "search": result_data = scraper.search(args.query)
     elif args.action == "metadata":
-        details = scraper.fetch_manga_details(args.url)
+        details = scraper.fetch_manga_details(args.url, skip_meta=args.skipMeta)
         result_data = details["metadata"]
     
     print(json.dumps({

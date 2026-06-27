@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const params = source === "ikiru" && url ? `url=${encodeURIComponent(url)}` : `id=${encodeURIComponent(id || "")}`;
-    const res = await fetch(`${API_BASE}/api/reader?route=manga&source=${source}&${params}`, {
+    const params = new URLSearchParams();
+    if (id) params.set("id", id);
+    if (url) params.set("url", url);
+    const res = await fetch(`${API_BASE}/api/reader?route=manga&source=${source}&${params.toString()}`, {
       signal: AbortSignal.timeout(15000),
     });
     const data = await res.json();

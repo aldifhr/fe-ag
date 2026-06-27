@@ -90,9 +90,9 @@ const envSchema = z.object({
     // Logging & Stats (Optimized for free tier - reduced TTL)
     CRON_LOG_LIST_LIMIT: z.preprocess((v) => Number(v) || 100, z.number()).default(100),        // Was 300
     CRON_LOG_LIST_TTL: z.preprocess((v) => Number(v) || 259200, z.number()).default(259200),   // 3 days (was 14)
-    // Scraper credentials (mandatory for realtime data)
-    IKIRU_EMAIL: z.string().min(1),
-    IKIRU_PASSWORD: z.string().min(1),
+    // Scraper credentials (optional - Shinigami source doesn't need them)
+    IKIRU_EMAIL: z.string().optional(),
+    IKIRU_PASSWORD: z.string().optional(),
 
 
     // Scraper tuning

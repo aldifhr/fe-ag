@@ -5,7 +5,6 @@ import { isAxiosLikeResponse, isSecondaryApiData } from "../shared/scrapers/seco
 import { fetchReaderManga } from "../shared/scrapers/secondary/reader.js";
 import { scrapeIkiruUpdatesWithMeta, fetchIkiruMetadata, fetchIkiruChapters, searchIkiru } from "../shared/scrapers/ikiru/index.js";
 import { parse } from "node-html-parser";
-import axios from "axios";
 import type { Request, Response } from "express";
 
 // ─── Router ──────────────────────────────────────────────────────────
@@ -34,12 +33,13 @@ async function handleLatest(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
   const source = (req.query.source as string) || "all";
 
-  const results: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string }[] = [];
+  const PAGE_SIZE = 50;
+  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string; chapters?: { number: string; time: string | null }[] }[] = [];
 
   if (source === "all" || source === "shinigami") {
     const rows = await fetchUpdateList(SECONDARY_SOURCE_URL, undefined);
-    for (const row of rows.slice(0, 50)) {
-      results.push({
+    for (const row of rows) {
+      all.push({
         id: String(row.manga_id),
         title: row.title || "Unknown",
         cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
@@ -47,6 +47,12 @@ async function handleLatest(req: Request, res: Response) {
         source: "shinigami",
         chapter: String(row.latest_chapter_number ?? ""),
         time: row.latest_chapter_time || row.updated_at || undefined,
+        chapters: Array.isArray((row as any).chapters)
+          ? (row as any).chapters.slice(0, 2).map((c: any) => ({
+              number: String(c.chapter_number ?? ""),
+              time: c.created_at || null,
+            }))
+          : undefined,
       });
     }
   }
@@ -54,9 +60,9 @@ async function handleLatest(req: Request, res: Response) {
   if (source === "all" || source === "ikiru") {
     const ikiruRes = await scrapeIkiruUpdatesWithMeta();
     const items = ikiruRes.results || [];
-    for (const item of items.slice(0, 50)) {
+    for (const item of items) {
       const mangaUrl = item.mangaUrl ?? item.url;
-      results.push({
+      all.push({
         id: mangaUrl,
         title: item.title,
         cover: item.cover ?? null,
@@ -68,7 +74,11 @@ async function handleLatest(req: Request, res: Response) {
     }
   }
 
-  return res.json({ results, total: results.length, page });
+  const total = all.length;
+  const start = (page - 1) * PAGE_SIZE;
+  const results = all.slice(start, start + PAGE_SIZE);
+
+  return res.json({ results, total, page, pageSize: PAGE_SIZE });
 }
 
 // ─── Search ──────────────────────────────────────────────────────────
@@ -117,7 +127,7 @@ async function handleManga(req: Request, res: Response) {
   }
 
   if (id && source === "shinigami" && id.includes("://")) {
-    const m = id.match(/(\d+)\/?$/);
+    const m = id.match(/\/([0-9a-f-]{36}|\d+)\/?$/i) || id.match(/\/([^/]+)\/?$/);
     if (m) id = m[1];
   }
 
@@ -133,8 +143,19 @@ async function handleManga(req: Request, res: Response) {
       sortOrder: i,
     }));
 
+    const statusMap: Record<number, string> = { 1: "Ongoing", 2: "Completed", 3: "Hiatus" };
+    const mangaStatus = typeof info.manga.status === "number"
+      ? (statusMap[info.manga.status] ?? "Unknown")
+      : (info.manga.status ?? "Unknown");
+
     return res.json({
-      manga: { id, ...info.manga, source: "shinigami" },
+      manga: {
+        id,
+        ...info.manga,
+        cover: info.manga.cover_image_url ?? info.manga.cover_portrait_url ?? info.manga.cover ?? null,
+        status: mangaStatus,
+        source: "shinigami",
+      },
       chapters: chapters.sort((a: any, b: any) => Number(b.number) - Number(a.number)),
     });
   }
@@ -180,14 +201,14 @@ const KNOWN_PATTERNS = [
 ];
 
 async function tryFetchPages(url: string): Promise<string[]> {
-  const { data: html } = await axios.get(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Accept": "text/html,application/xhtml+xml",
-      "Referer": new URL(url).origin,
-    },
-    timeout: 15000,
-  });
+  const response = await fetchWithRetry(url, {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "text/html,application/xhtml+xml",
+    "Referer": new URL(url).origin,
+  }, 15000);
+
+  if (!isAxiosLikeResponse(response)) return [];
+  const html = response.data as string;
 
   const root = parse(html);
   const images: string[] = [];
@@ -257,7 +278,8 @@ async function handlePages(req: Request, res: Response) {
         if (isAxiosLikeResponse(listRes)) {
           const chapters = (listRes.data as any)?.data;
           if (Array.isArray(chapters)) {
-            const match = chapters.find((c: any) => String(c.chapter_number) === String(resolvedChapterNum));
+            const normalize = (v: any) => String(v).replace(/\.0+$/, "").trim();
+            const match = chapters.find((c: any) => normalize(c.chapter_number) === normalize(resolvedChapterNum));
             if (match?.chapter_id) resolvedChapterId = match.chapter_id;
           }
         }
