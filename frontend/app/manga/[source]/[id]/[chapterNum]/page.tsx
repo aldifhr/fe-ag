@@ -11,7 +11,7 @@ function SkeletonLoader() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="skeleton w-full max-w-3xl aspect-[3/4] rounded-lg"
+          className="skeleton w-full max-w-3xl aspect-3/4 rounded-lg"
           style={{ animationDelay: `${i * 150}ms` }}
         />
       ))}
@@ -511,11 +511,11 @@ export default function ReaderPage() {
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <header className="sticky top-0 z-50 bg-[var(--color-bg)]/95 backdrop-blur-sm border-b border-[var(--color-border)]">
+      <header className="sticky top-0 z-50 bg-bg/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-2.5">
           <Link
             href={mangaHref}
-            className="flex items-center gap-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors duration-150"
+            className="flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-text transition-colors duration-150"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5" />
@@ -524,7 +524,7 @@ export default function ReaderPage() {
             <span className="hidden sm:inline">Kembali</span>
           </Link>
 
-          <span className="text-[13px] font-semibold text-[var(--color-text)] select-none">
+          <span className="text-[13px] font-semibold text-text select-none">
             Chapter {chapterNum}
           </span>
 
@@ -533,7 +533,7 @@ export default function ReaderPage() {
             <div className="relative" ref={settingsRef}>
               <button
                 onClick={() => setSettingsOpen(!settingsOpen)}
-                className="flex items-center justify-center w-7 h-7 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] border border-transparent hover:border-[var(--color-border)] transition-colors duration-150 cursor-pointer"
+                className="flex items-center justify-center w-7 h-7 rounded-md text-text-muted hover:text-text-secondary border border-transparent hover:border-border transition-colors duration-150 cursor-pointer"
                 aria-label="Pengaturan bacaan"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -542,8 +542,8 @@ export default function ReaderPage() {
                 </svg>
               </button>
               {settingsOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 shadow-lg z-50 w-56">
-                  <p className="text-[11px] text-[var(--color-text-muted)] font-medium uppercase tracking-wider mb-2">Latar Belakang</p>
+                <div className="absolute right-0 top-full mt-2 bg-surface border border-border rounded-lg p-3 shadow-lg z-50 w-56">
+                  <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider mb-2">Latar Belakang</p>
                   <div className="flex gap-2 mb-3">
                     {([
                       { key: "default" as const, color: "var(--color-bg)" },
@@ -555,14 +555,14 @@ export default function ReaderPage() {
                         key={key}
                         onClick={() => setBgColor(key)}
                         className={`w-6 h-6 rounded-full border-2 transition-all duration-150 cursor-pointer ${
-                          bgColor === key ? "border-[var(--color-accent)]" : "border-transparent"
-                        } ${key === "white" ? "ring-1 ring-[var(--color-border)]" : ""}`}
+                          bgColor === key ? "border-accent" : "border-transparent"
+                        } ${key === "white" ? "ring-1 ring-border" : ""}`}
                         style={{ backgroundColor: color }}
                         aria-label={`Latar ${key}`}
                       />
                     ))}
                   </div>
-                  <p className="text-[11px] text-[var(--color-text-muted)] font-medium uppercase tracking-wider mb-2">
+                  <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider mb-2">
                     Kecerahan: {Math.round(brightness * 100)}%
                   </p>
                   <input
@@ -572,7 +572,7 @@ export default function ReaderPage() {
                     step={5}
                     value={Math.round(brightness * 100)}
                     onChange={(e) => setBrightness(Number(e.target.value) / 100)}
-                    className="w-full accent-[var(--color-accent)]"
+                    className="w-full accent-accent"
                   />
                 </div>
               )}
@@ -580,7 +580,7 @@ export default function ReaderPage() {
 
             {/* Keyboard shortcut hint */}
             <div className="group relative hidden sm:block">
-              <button className="flex items-center justify-center w-6 h-6 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors duration-150 cursor-default" tabIndex={-1}>
+              <button className="flex items-center justify-center w-6 h-6 rounded-md text-text-muted hover:text-[var(--color-text-secondary)] transition-colors duration-150 cursor-default" tabIndex={-1}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"/>
                   <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>

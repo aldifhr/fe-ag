@@ -10,7 +10,6 @@ import { getLogger } from "../../logger.js";
 import { runScrapling } from "../../utils/scrapling-bridge.js";
 import {
   searchIkiruApi,
-  getIkiruLatestUpdates,
   getIkiruSeries,
 } from "./api.js";
 import type { IkiruSearchItem } from "./api.js";
@@ -58,71 +57,9 @@ export async function scrapeIkiruUpdatesWithMeta(
   _logger: any = null,
   _options: { skipExpansion?: boolean; maxPages?: number } = {},
 ) {
-  const sourceState: SourceState = {
-    status: "pending",
-    count: 0,
-    error: null,
-    metrics: null,
-  };
-
-  try {
-    logger.info("Fetching Ikiru latest updates via REST API");
-    const items = await getIkiruLatestUpdates();
-
-    // REST API returned data successfully
-    if (items.length > 0) {
-      const results: ChapterItem[] = items.map((item: IkiruSearchItem) => {
-        const latest = item.latest_chapters?.[0];
-        return {
-          title: item.title || "",
-          chapter: latest ? String(latest.number) : "",
-          url: latest?.permalink || item.permalink,  // Use chapter permalink for dispatch key
-          mangaUrl: item.permalink,
-          source: "ikiru",
-          updatedTime: latest?.modified_local
-            ? (parseDateWithFallback(latest.modified_local) || parseLooseRelativeTime(latest.modified_local))?.toISOString() ?? latest.modified_local
-            : null,
-          cover: item.cover || null,
-          rating: item.rating || null,
-          genres: item.genre || [],
-        };
-      });
-
-      sourceState.status = "ok";
-      sourceState.count = results.length;
-      sourceState.metrics = {
-        pagesScanned: 1,
-        stalePageStreak: 0,
-        emptyPageStreak: 0,
-        maxPages: 1,
-        preferredTitles: 0,
-        preferredUrls: 0,
-        expandedCount: 0,
-        expansionSkipped: true
-      } as ScraperMetrics;
-
-      return { results, state: sourceState };
-    }
-
-    // REST API returned empty — fall through to Scrapling fallback
-    logger.warn("REST API returned 0 items, falling back to Scrapling");
-    return await scrapeIkiruWithScrapling(_preferredIkiru, _logger, _options);
-  } catch (err: unknown) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    logger.warn({ err: error.message }, "REST API failed, falling back to Scrapling");
-    
-    // Fallback to Scrapling when REST API is blocked/unavailable
-    try {
-      return await scrapeIkiruWithScrapling(_preferredIkiru, _logger, _options);
-    } catch (fallbackErr: unknown) {
-      const fbErr = fallbackErr instanceof Error ? fallbackErr : new Error(String(fallbackErr));
-      logger.error({ err: fbErr.message }, "[scrapeIkiruUpdatesWithMeta] Both REST API and Scrapling failed");
-      sourceState.status = "error";
-      sourceState.error = `REST: ${error.message} | Scrapling: ${fbErr.message}`;
-      sourceState.errCode = classifyScraperError(fbErr);
-      return { results: [], state: sourceState };
-    }
-  }
+  // REST API (06.ikiru.wtf) returns 403 from Vercel — use Scrapling directly
+  // Scrapling bridge (Python HTML scraper) was the original working approach for cron
+  return scrapeIkiruWithScrapling(_preferredIkiru, _logger, _options);
 }
 
 export async function searchIkiru(

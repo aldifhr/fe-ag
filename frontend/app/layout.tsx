@@ -13,14 +13,14 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Manhwa Reader",
-  description: "Baca manhwa dari Shinigami",
+  title: "ManhwAGG",
+  description: "An aggregator for manga/manhwa/manhua from various sources.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
+      <body className="min-h-screen bg-bg text-text">
         {/* ClerkProvider skipped — SSL not ready on custom domain. Re-enable when Clerk JS loads. */}
         {/* <ClerkProvider> */}
           <QueryProvider>
