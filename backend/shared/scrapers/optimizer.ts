@@ -251,14 +251,18 @@ export class AdaptiveConcurrencyLimiter {
     }
     // Increase concurrency if performing well
     else if (errorRate < 0.05 && avgResponseTime < 2000) {
+      const prev = this.currentConcurrency;
       this.currentConcurrency = Math.min(
         this.maxConcurrency,
         Math.floor(this.currentConcurrency * 1.2)
       );
-      logger.info(
-        { concurrency: this.currentConcurrency, errorRate, avgResponseTime },
-        "Increased concurrency due to good performance"
-      );
+      // Log only on actual increase, and only at debug level (too noisy per-request)
+      if (this.currentConcurrency > prev) {
+        logger.debug(
+          { concurrency: this.currentConcurrency, errorRate, avgResponseTime },
+          "Concurrency increased"
+        );
+      }
     }
 
     // Reset counters periodically
