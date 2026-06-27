@@ -9,13 +9,14 @@ import {
   getRandomManga,
   getPopularToday,
   getGenres,
+  getMangaDetail,
+  getGenreManga,
   SearchResult,
   proxyCover,
 } from "@/lib/api";
 import { checkConnection } from "@/lib/connection";
 import {
   getGroupedHistory,
-  formatChapters,
   timeAgo,
   GroupedHistory,
 } from "@/lib/history";
@@ -164,7 +165,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const history = getGroupedHistory();
-    setRecentHistory(history.slice(0, 5));
+    setRecentHistory(history.slice(0, 8));
   }, []);
 
   // Reuse initialData for "Baru Diupdate" when it's already fetching all+latest
@@ -186,6 +187,30 @@ export default function HomePage() {
   const genresQuery = useQuery({
     queryKey: ["home-genres"],
     queryFn: () => getGenres(),
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const recommendationsQuery = useQuery({
+    queryKey: ["recommendations"],
+    queryFn: async () => {
+      const topIds = recentHistory.slice(0, 3);
+      if (topIds.length === 0) return [];
+      const details = await Promise.all(
+        topIds.map((h) => getMangaDetail(h.mangaId, h.source)),
+      );
+      const freq = new Map<string, number>();
+      for (const d of details) {
+        for (const g of d.manga.genres) {
+          freq.set(g, (freq.get(g) ?? 0) + 1);
+        }
+      }
+      const topGenre = [...freq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (!topGenre) return [];
+      const genreResults = await getGenreManga(topGenre, 1);
+      const historyIds = new Set(recentHistory.map((h) => h.mangaId));
+      return genreResults.filter((r) => !historyIds.has(r.id)).slice(0, 6);
+    },
+    enabled: recentHistory.length > 0,
     staleTime: 30 * 60 * 1000,
   });
 
@@ -262,6 +287,68 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
+      {/* Section 0: Sedang Dibaca (Currently Reading) */}
+      {recentHistory.length > 0 && (
+        <SectionErrorBoundary>
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-(--color-text-muted)">
+              Sedang Dibaca
+            </h2>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {recentHistory.map((h) => {
+                const latest = Math.max(...h.chapters);
+                const pct = h.totalChapters
+                  ? Math.min(100, (latest / h.totalChapters) * 100)
+                  : null;
+                return (
+                  <Link
+                    key={h.mangaId}
+                    href={`/manga/${h.source}/${encodeURIComponent(h.mangaId)}/${latest}`}
+                    className="shrink-0 w-28 rounded-lg bg-(--color-surface) border border-(--color-border) hover:border-(--color-accent) transition-colors duration-150 overflow-hidden"
+                  >
+                    <div className="w-full h-38 bg-(--color-bg)">
+                      {h.cover ? (
+                        <img
+                          src={proxyCover(h.cover)}
+                          alt={h.title}
+                          className="w-full h-full object-cover rounded-t"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-(--color-text-muted) text-[9px]">
+                          No Cover
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <p className="text-[12px] font-medium text-(--color-text) line-clamp-1">
+                        {h.title}
+                      </p>
+                      <p className="text-[10px] text-(--color-text-muted) mt-0.5">
+                        {h.totalChapters
+                          ? `Chapter ${latest} / ${h.totalChapters}`
+                          : `Chapter ${latest}`}
+                      </p>
+                      {pct !== null && (
+                        <div className="mt-1 h-1 rounded-full bg-(--color-surface)">
+                          <div
+                            className="h-1 rounded-full bg-(--color-accent)"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      )}
+                      <p className="text-[9px] text-(--color-text-muted) mt-1">
+                        {timeAgo(h.latestReadAt)}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </SectionErrorBoundary>
+      )}
+
       {/* Section 1: Baru Diupdate (Recently Updated) */}
       {updatedData && updatedData.length > 0 && (
         <SectionErrorBoundary>
@@ -357,50 +444,47 @@ export default function HomePage() {
         </SectionErrorBoundary>
       )}
 
-      {/* Section 5: Terakhir dibaca (Continue Reading) */}
-      {recentHistory.length > 0 && (
+      {/* Section 5: Kamu Mungkin Suka (You Might Like) */}
+      {recommendationsQuery.data && recommendationsQuery.data.length > 0 && (
         <SectionErrorBoundary>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h2 className="text-sm font-medium text-(--color-text-muted)">
-              Terakhir dibaca
+              Kamu Mungkin Suka
             </h2>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-              {recentHistory.map((h) => (
-                <Link
-                  key={h.mangaId}
-                  href={`/manga/shinigami/${encodeURIComponent(h.mangaId)}/${Math.max(...h.chapters)}`}
-                  className="flex gap-2.5 shrink-0 w-65 p-2 rounded-lg bg-(--color-surface) border border-(--color-border) hover:border-(--color-accent) transition-colors duration-150"
-                >
-                  {h.cover ? (
-                    <img
-                      src={proxyCover(h.cover)}
-                      alt={h.title}
-                      className="w-10 h-14 object-cover rounded shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-14 bg-(--color-bg) border border-(--color-border) rounded flex items-center justify-center text-(--color-text-muted) text-[9px]">
-                      No Cover
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <p className="text-[13px] font-medium text-(--color-text) line-clamp-1">
-                      {h.title}
-                    </p>
-                    <p className="text-[11px] text-(--color-text-muted) mt-0.5">
-                      {formatChapters(h.chapters)}
-                    </p>
-                    <p className="text-[10px] text-(--color-text-muted) mt-0.5">
-                      {timeAgo(h.latestReadAt)}
-                    </p>
-                  </div>
-                </Link>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {recommendationsQuery.data.map((item, i) => (
+                <SectionCard key={`rec-${item.id}-${i}`} item={item} />
               ))}
             </div>
           </div>
         </SectionErrorBoundary>
       )}
 
-      {/* Section 6: Semua Manga (Main Content) */}
+      {recommendationsQuery.isLoading && recentHistory.length > 0 && (
+        <SectionErrorBoundary>
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-(--color-text-muted)">
+              Kamu Mungkin Suka
+            </h2>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="shrink-0 w-40 rounded-lg bg-(--color-surface) border border-(--color-border) overflow-hidden"
+                >
+                  <div className="w-full h-50 skeleton" />
+                  <div className="p-2 space-y-2">
+                    <div className="skeleton h-3 w-2/3 rounded" />
+                    <div className="skeleton h-2.5 w-1/2 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SectionErrorBoundary>
+      )}
+
+      {/* Semua Manga (Main Content) */}
       <SectionErrorBoundary>
         {/* Header with sort + random */}
         <div>

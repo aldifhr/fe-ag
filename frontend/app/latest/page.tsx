@@ -24,21 +24,6 @@ function SkeletonGrid() {
     </div>
   );
 }
-
-type SortOption = "latest" | "popularity" | "rating";
-type SourceOption = "all" | "shinigami";
-
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "latest", label: "Terbaru" },
-  { value: "popularity", label: "Populer" },
-  { value: "rating", label: "Rating" },
-];
-
-const SOURCE_OPTIONS: { value: SourceOption; label: string }[] = [
-  { value: "all", label: "Semua" },
-  { value: "shinigami", label: "Shinigami" },
-];
-
 export default function LatestPage() {
   useEffect(() => {
     document.title = "Baru Diupdate | Manga Reader";
@@ -48,14 +33,12 @@ export default function LatestPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [extraItems, setExtraItems] = useState<SearchResult[]>([]);
-  const [sort, setSort] = useState<SortOption>("latest");
-  const [source, setSource] = useState<SourceOption>("all");
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: initialData, isLoading } = useQuery({
-    queryKey: ["latest-page", source, sort],
-    queryFn: () => getLatest(source, 1, sort),
+    queryKey: ["latest-page"],
+    queryFn: () => getLatest("all", 1, "latest"),
   });
 
   // Reset on filter change
@@ -74,7 +57,7 @@ export default function LatestPage() {
     const nextPage = page + 1;
     setLoadingMore(true);
     try {
-      const res = await getLatest(source, nextPage, sort);
+      const res = await getLatest("all", nextPage, "latest");
       setExtraItems((prev) => [...prev, ...res]);
       setPage(nextPage);
       setHasMore(res.length >= 50);
@@ -82,7 +65,7 @@ export default function LatestPage() {
       /* silent */
     }
     setLoadingMore(false);
-  }, [page, loadingMore, hasMore, sort, source]);
+  }, [page, loadingMore, hasMore]);
 
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
@@ -103,42 +86,6 @@ export default function LatestPage() {
           <h1 className="text-xl font-semibold tracking-tight">
             Baru Diupdate
           </h1>
-          {/* Sort pills */}
-          <div className="flex items-center gap-1.5 mt-2">
-            <div className="flex items-center bg-(--color-surface) rounded-lg p-0.5 border border-(--color-border)">
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSort(opt.value)}
-                  suppressHydrationWarning
-                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 ${
-                    sort === opt.value
-                      ? "bg-(--color-accent) text-white"
-                      : "text-(--color-text-muted) hover:text-(--color-text)"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Source filter pills */}
-          <div className="flex items-center gap-1.5 mt-2">
-            {SOURCE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setSource(opt.value)}
-                suppressHydrationWarning
-                className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors duration-150 ${
-                  source === opt.value
-                    ? "bg-(--color-accent) text-white"
-                    : "bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) border border-(--color-border)"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Content */}

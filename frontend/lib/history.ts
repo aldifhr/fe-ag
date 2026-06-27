@@ -5,6 +5,7 @@ export interface HistoryEntry {
   source: string;
   chapterNumber: number;
   readAt: number; // timestamp
+  totalChapters?: number; // total chapters in the manga
 }
 
 export interface GroupedHistory {
@@ -14,6 +15,7 @@ export interface GroupedHistory {
   source: string;
   chapters: number[];
   latestReadAt: number;
+  totalChapters?: number; // max totalChapters seen from entries
 }
 
 const STORAGE_KEY = "manhwa-history";
@@ -68,6 +70,7 @@ export function getGroupedHistory(): GroupedHistory[] {
       }
       existing.chapters.sort((a, b) => a - b);
       if (e.readAt > existing.latestReadAt) existing.latestReadAt = e.readAt;
+      if (e.totalChapters && (!existing.totalChapters || e.totalChapters > existing.totalChapters)) existing.totalChapters = e.totalChapters;
     } else {
       map.set(e.mangaId, {
         mangaId: e.mangaId,
@@ -76,6 +79,7 @@ export function getGroupedHistory(): GroupedHistory[] {
         source: e.source,
         chapters: [e.chapterNumber],
         latestReadAt: e.readAt,
+        totalChapters: e.totalChapters,
       });
     }
   }
