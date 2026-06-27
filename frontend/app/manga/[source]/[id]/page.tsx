@@ -61,7 +61,7 @@ export default function MangaDetailPage() {
           <span className="inline-block px-2 py-0.5 text-xs rounded bg-[var(--accent)]/20 text-[var(--accent)] capitalize mb-4">
             {manga.source}
           </span>
-          {manga.genres.length > 0 && (
+          {manga.genres?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
               {[...new Set(manga.genres)].map((g, i) => (
                 <span key={`${g}-${i}`} className="px-2 py-0.5 text-xs rounded bg-[var(--border)] text-[var(--muted)]">
