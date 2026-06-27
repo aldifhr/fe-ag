@@ -123,6 +123,13 @@ export function removeMangaHistory(mangaId: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
+/** Remove multiple manga from history at once. */
+export function removeMultipleMangaHistory(mangaIds: string[]): void {
+  const all = safeGetHistory();
+  const filtered = all.filter(e => !mangaIds.includes(e.mangaId));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+}
+
 /** Clear all history. */
 export function clearHistory(): void {
   localStorage.removeItem(STORAGE_KEY);

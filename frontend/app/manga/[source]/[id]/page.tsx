@@ -2,12 +2,19 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { getMangaDetail, MangaDetail, getLatest } from "@/lib/api";
 import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
 import { getReadChapters, getLastReadChapter, markAsRead, unmarkAsRead } from "@/lib/history";
 import { showToast } from "@/lib/toast";
 import Link from "next/link";
 import MangaCard from "@/components/MangaCard";
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return String(n);
+}
 
 function Skeleton() {
   return (
@@ -36,8 +43,6 @@ export default function MangaDetailPage() {
   const source = params.source;
   const id = params.id;
 
-  const [data, setData] = useState<MangaDetail | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [fav, setFav] = useState(false);
   const [readChapters, setReadChapters] = useState<Set<string>>(new Set());
@@ -46,27 +51,24 @@ export default function MangaDetailPage() {
   const [chapterJump, setChapterJump] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
   const [chapterSort, setChapterSort] = useState<"desc" | "asc">("desc");
-  const [recommendations, setRecommendations] = useState<{ id: string; title: string; cover: string | null; source: string }[]>([]);
   const CHAPTERS_PER_PAGE = 10;
+
+  const mangaId = useMemo(() => {
+    return id.includes("://") ? (id.match(/\/(\d+)\/?$/) || id.match(/(\d+)/))?.[1] ?? id : id;
+  }, [id]);
+
+  const { data, isLoading, error: queryError } = useQuery<MangaDetail>({
+    queryKey: ["manga", id],
+    queryFn: () => getMangaDetail(mangaId, "shinigami"),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const errorMsg = queryError ? (queryError instanceof Error ? queryError.message : String(queryError)) : null;
 
   useEffect(() => {
     setFav(isFavorite(id));
     setReadChapters(getReadChapters(id));
     setLastRead(getLastReadChapter(id));
-  }, [id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const mangaId = id.includes("://") ? (id.match(/\/(\d+)\/?$/) || id.match(/(\d+)/))?.[1] ?? id : id;
-        const result = await getMangaDetail(mangaId, "shinigami");
-        if (!cancelled) setData(result);
-      } catch (err: unknown) {
-        if (!cancelled) setErrorMsg(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => { cancelled = true; };
   }, [id]);
 
   // Sort chapters
@@ -82,25 +84,21 @@ export default function MangaDetailPage() {
   }, [chapters, chapterSort]);
 
   // Recommendations
-  useEffect(() => {
-    if (!data?.manga.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const latest = await getLatest("shinigami", 1);
-        const filtered = latest.filter((m) => m.id !== data.manga.id);
-        // Fisher-Yates shuffle
-        for (let i = filtered.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-        }
-        if (!cancelled) setRecommendations(filtered.slice(0, 6));
-      } catch {
-        // silently ignore
+  const { data: recommendations = [] } = useQuery<{ id: string; title: string; cover: string | null; source: string }[]>({
+    queryKey: ["recommendations", data?.manga.id],
+    queryFn: async () => {
+      const latest = await getLatest("shinigami", 1);
+      const filtered = latest.filter((m) => m.id !== data!.manga.id);
+      // Fisher-Yates shuffle
+      for (let i = filtered.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
       }
-    })();
-    return () => { cancelled = true; };
-  }, [data?.manga.id]);
+      return filtered.slice(0, 6);
+    },
+    enabled: !!data?.manga.id,
+    staleTime: 10 * 60 * 1000,
+  });
 
   if (errorMsg) {
     return (
@@ -156,6 +154,13 @@ export default function MangaDetailPage() {
             </span>
           </div>
 
+          {/* Alternative title */}
+          {manga.alternative_title && (
+            <p className="text-[12px] text-[var(--color-text-muted)] mb-2 italic">
+              {manga.alternative_title}
+            </p>
+          )}
+
           {/* Bookmark */}
           <button
             onClick={() => {
@@ -199,6 +204,36 @@ export default function MangaDetailPage() {
             Bagikan
           </button>
 
+          {/* Stats row */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 text-[12px]">
+            {manga.user_rate && (
+              <div className="flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-400">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                <span className="text-[var(--color-text)] font-medium">{Number(manga.user_rate).toFixed(1)}</span>
+              </div>
+            )}
+            {manga.view_count != null && (
+              <div className="flex items-center gap-1 text-[var(--color-text-muted)]">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span>{formatNumber(manga.view_count)} views</span>
+              </div>
+            )}
+            {manga.bookmark_count != null && (
+              <div className="flex items-center gap-1 text-[var(--color-text-muted)]">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                <span>{formatNumber(manga.bookmark_count)}</span>
+              </div>
+            )}
+            {manga.release_year && (
+              <span className="text-[var(--color-text-muted)]">{manga.release_year}</span>
+            )}
+            {manga.country_id && (
+              <span className="text-[var(--color-text-muted)]">{manga.country_id}</span>
+            )}
+          </div>
+
           {/* Status */}
           {manga.status && (
             <div className="flex items-center gap-2 mb-3">
@@ -220,6 +255,29 @@ export default function MangaDetailPage() {
               ))}
             </div>
           )}
+
+          {/* Artist & Author */}
+          {manga.taxonomy && (() => {
+            const artists = manga.taxonomy.Artist?.map(a => a.name) ?? [];
+            const authors = manga.taxonomy.Author?.map(a => a.name) ?? [];
+            if (artists.length === 0 && authors.length === 0) return null;
+            return (
+              <div className="flex flex-col gap-1 mb-3 text-[12px]">
+                {authors.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[var(--color-text-muted)] shrink-0">Author:</span>
+                    <span className="text-[var(--color-text-secondary)]">{authors.join(", ")}</span>
+                  </div>
+                )}
+                {artists.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[var(--color-text-muted)] shrink-0">Artist:</span>
+                    <span className="text-[var(--color-text-secondary)]">{artists.join(", ")}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Description */}
           {manga.description && (

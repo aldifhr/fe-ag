@@ -1,88 +1,152 @@
 "use client";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { searchManga, SearchResult } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
 import { addSearchHistory, getSearchHistory, clearSearchHistory } from "@/lib/searchHistory";
+
+const STATUS_OPTIONS = [
+  { label: "Semua", value: "" },
+  { label: "Ongoing", value: "ongoing" },
+  { label: "Completed", value: "completed" },
+  { label: "Hiatus", value: "hiatus" },
+] as const;
+
+const SORT_OPTIONS = [
+  { label: "Terbaru", value: "" },
+  { label: "Populer", value: "popularity" },
+  { label: "Rating", value: "rating" },
+] as const;
+
+function readLS(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  return localStorage.getItem(key) ?? fallback;
+}
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
 
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [inputFocused, setInputFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const suggestDebRef = useRef<ReturnType<typeof setTimeout>>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [sortFilter, setSortFilter] = useState(() => readLS("manhwa-search-sort", ""));
+  const [statusFilter, setStatusFilter] = useState(() => readLS("manhwa-search-status", ""));
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([]);
-      setHasSearched(false);
-      setError(null);
-      return;
-    }
-    addSearchHistory(q);
-    setSearchHistory(getSearchHistory());
-    setLoading(true);
-    setError(null);
-    setHasSearched(true);
-    try {
-      const res = await searchManga(q, "shinigami");
-      setResults(res);
-    } catch {
-      setError("Gagal mengambil data. Coba lagi.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: results = [], isLoading, error: queryError, refetch } = useQuery({
+    queryKey: ["search", debouncedQuery, sortFilter, statusFilter],
+    queryFn: () => searchManga(debouncedQuery, "shinigami", sortFilter || undefined, statusFilter || undefined),
+    enabled: debouncedQuery.trim().length >= 2,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Debounced search
+  const loading = isLoading;
+  const error = queryError?.message ?? null;
+  const hasSearched = debouncedQuery.trim().length >= 2;
+
+  // Full search debounce (300ms)
   useEffect(() => {
     if (!query.trim()) {
-      setResults([]);
-      setHasSearched(false);
-      setLoading(false);
-      setError(null);
+      setDebouncedQuery("");
       return;
     }
-    setLoading(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query), 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, doSearch]);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query]);
+
+  // Suggestions: fetch top 5 at 200ms debounce (faster than full search)
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setShowSuggestions(false);
+    if (suggestDebRef.current) clearTimeout(suggestDebRef.current);
+    suggestDebRef.current = setTimeout(async () => {
+      try {
+        const res = await searchManga(query, "shinigami");
+        setSuggestions(res.slice(0, 5));
+        setShowSuggestions(true);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 200);
+    return () => { if (suggestDebRef.current) clearTimeout(suggestDebRef.current); };
+  }, [query]);
+
+  // Hide suggestions when full results arrive
+  useEffect(() => {
+    if (hasSearched && results.length > 0) {
+      setShowSuggestions(false);
+    }
+  }, [hasSearched, results]);
+
+  // Record search history when debounced query changes
+  useEffect(() => {
+    if (hasSearched) {
+      addSearchHistory(debouncedQuery);
+      setSearchHistory(getSearchHistory());
+    }
+  }, [hasSearched, debouncedQuery]);
 
   // Load search history on mount
   useEffect(() => {
     setSearchHistory(getSearchHistory());
   }, []);
 
-  // Auto-search from URL params
+  // Persist filter choices
   useEffect(() => {
-    if (initialQuery) doSearch(initialQuery);
-  }, [initialQuery, doSearch]);
+    localStorage.setItem("manhwa-search-sort", sortFilter);
+  }, [sortFilter]);
+  useEffect(() => {
+    localStorage.setItem("manhwa-search-status", statusFilter);
+  }, [statusFilter]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (suggestDebRef.current) clearTimeout(suggestDebRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handleEnter = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      setShowSuggestions(false);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      doSearch(query);
+      setDebouncedQuery(query);
     }
   };
 
   const handleHistoryClick = (q: string) => {
     setQuery(q);
+    setShowSuggestions(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setDebouncedQuery(q);
+    inputRef.current?.focus();
+  };
+
+  const handleSuggestionClick = (item: SearchResult) => {
+    setShowSuggestions(false);
+    setQuery(item.title);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setDebouncedQuery(item.title);
     inputRef.current?.focus();
   };
 
   const showEmpty = !loading && !error && hasSearched && results.length === 0;
   const showPlaceholder = !hasSearched && !loading;
   const showHistory = inputFocused && !query && searchHistory.length > 0;
+  const shouldShowSuggestions = showSuggestions && suggestions.length > 0 && query.trim().length >= 2 && !loading;
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -109,7 +173,7 @@ export default function SearchPage() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleEnter}
           onFocus={() => setInputFocused(true)}
-          onBlur={() => setTimeout(() => setInputFocused(false), 150)}
+          onBlur={() => setTimeout(() => { setInputFocused(false); setShowSuggestions(false); }, 150)}
           placeholder="Cari judul manhwa..."
           autoFocus
           className="w-full pl-12 pr-10 py-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] text-[15px] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] transition-colors duration-150"
@@ -125,7 +189,72 @@ export default function SearchPage() {
             </svg>
           </button>
         )}
+        {/* Autocomplete suggestions */}
+        {shouldShowSuggestions && (
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            {suggestions.map((item, i) => (
+              <button
+                key={`${item.source}-${item.id}-${i}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSuggestionClick(item)}
+                className="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-[var(--color-surface-hover)] cursor-pointer text-left"
+              >
+                {item.cover ? (
+                  <img
+                    src={item.cover}
+                    alt={item.title}
+                    className="w-6 h-8 rounded object-cover shrink-0"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-6 h-8 rounded bg-[var(--color-border)] shrink-0" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] text-[var(--color-text)] truncate">{item.title}</p>
+                  {item.chapter && (
+                    <span className="text-[11px] text-[var(--color-text-muted)]">Ch. {item.chapter}</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Filters */}
+      {hasSearched && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={`sort-${opt.value}`}
+                onClick={() => setSortFilter(opt.value)}
+                className={`px-3 py-1 text-[13px] rounded-full transition-colors duration-150 ${
+                  sortFilter === opt.value
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <span className="w-px h-5 self-center bg-[var(--color-border)]" />
+            {STATUS_OPTIONS.map((opt) => (
+              <button
+                key={`status-${opt.value}`}
+                onClick={() => setStatusFilter(opt.value)}
+                className={`px-3 py-1 text-[13px] rounded-full transition-colors duration-150 ${
+                  statusFilter === opt.value
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search history */}
       {showHistory && (
@@ -156,7 +285,7 @@ export default function SearchPage() {
       {/* Results count */}
       {hasSearched && !loading && !error && (
         <p className="text-[13px] text-[var(--color-text-muted)]">
-          {results.length} hasil untuk &lsquo;{query}&rsquo;
+          {results.length} hasil untuk &lsquo;{debouncedQuery}&rsquo;
         </p>
       )}
 
@@ -164,7 +293,13 @@ export default function SearchPage() {
       {loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="skeleton rounded-lg aspect-[3/4]" />
+            <div key={i} className="flex flex-col">
+              <div className="skeleton aspect-[3/4] w-full rounded-lg" />
+              <div className="mt-2 space-y-1.5 px-0.5">
+                <div className="skeleton h-3.5 w-3/4 rounded" />
+                <div className="skeleton h-3 w-1/2 rounded" />
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -181,7 +316,7 @@ export default function SearchPage() {
           </div>
           <p className="text-sm text-[var(--color-text-secondary)] mb-3">{error}</p>
           <button
-            onClick={() => doSearch(query)}
+            onClick={() => refetch()}
             className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
           >
             Coba Lagi
@@ -200,6 +335,7 @@ export default function SearchPage() {
               source={item.source}
               id={item.id}
               time={item.time}
+              status={item.status}
             />
           ))}
         </div>
@@ -216,7 +352,7 @@ export default function SearchPage() {
             </svg>
           </div>
           <p className="text-[var(--color-text-secondary)]">
-            Tidak ditemukan hasil untuk &lsquo;{query}&rsquo;
+            Tidak ditemukan hasil untuk &lsquo;{debouncedQuery}&rsquo;
           </p>
         </div>
       )}

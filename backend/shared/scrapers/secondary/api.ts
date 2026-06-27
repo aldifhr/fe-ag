@@ -168,18 +168,22 @@ export async function fetchUpdateList(
   return all;
 }
 
-export async function searchShngm(query: string, source = "shinigami", deadline = 0): Promise<ProviderResult<ChapterItem[]>> {
+export async function searchShngm(query: string, source = "shinigami", deadline = 0, opts?: { sort?: string; status?: string }): Promise<ProviderResult<ChapterItem[]>> {
   const kw = String(query ?? "").trim().toLowerCase();
   if (!kw || !API_BASE) return { success: true, data: [] };
   const norm = normalizeSource(source);
   const typesToFetch = norm === "shinigami" ? ["project", "mirror"] as const : [norm === "mirror" ? "mirror" : "project"] as const;
   const results: ChapterItem[] = [];
-  
+
+  const sortParam = opts?.sort || "latest";
+  const statusParam = opts?.status || "";
+
   try {
     for (const type of typesToFetch) {
       if (deadline > 0 && Date.now() >= deadline - 1000) break;
-      
-      const res = await fetchWithRetry(`${API_BASE}/v1/manga/list?type=${type}&page=1&page_size=20&q=${encodeURIComponent(kw)}&sort=latest`, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT, deadline);
+
+      const extra = statusParam ? `&status=${encodeURIComponent(statusParam)}` : "";
+      const res = await fetchWithRetry(`${API_BASE}/v1/manga/list?type=${type}&page=1&page_size=20&q=${encodeURIComponent(kw)}&sort=${sortParam}${extra}`, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT, deadline);
       
       if (!isAxiosLikeResponse(res)) continue;
       

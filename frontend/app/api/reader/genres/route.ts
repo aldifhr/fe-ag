@@ -2,13 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000";
 
-export async function GET(request: NextRequest) {
-  const page = request.nextUrl.searchParams.get("page") || "1";
-  const source = request.nextUrl.searchParams.get("source") || "all";
-  const sort = request.nextUrl.searchParams.get("sort") || "latest";
-
+export async function GET(_req: NextRequest) {
   try {
-    const res = await fetch(`${API_BASE}/api/reader?route=latest&page=${page}&source=${source}&sort=${sort}`, {
+    const res = await fetch(`${API_BASE}/api/reader?route=genres`, {
       signal: AbortSignal.timeout(15000),
     });
     const data = await res.json();

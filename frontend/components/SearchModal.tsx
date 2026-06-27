@@ -176,11 +176,14 @@ export default function SearchModal({ open, onClose }: Props) {
 
           {/* Loading */}
           {loading && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="flex flex-col gap-2">
-                  <div className="skeleton aspect-[3/4] w-full rounded-lg" />
-                  <div className="skeleton h-3.5 w-3/4 rounded" />
+            <div className="max-w-2xl mx-auto flex flex-col">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2">
+                  <div className="w-9 h-[52px] skeleton rounded shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="skeleton h-3 w-3/5 rounded" />
+                    <div className="skeleton h-2.5 w-2/5 rounded" />
+                  </div>
                 </div>
               ))}
             </div>

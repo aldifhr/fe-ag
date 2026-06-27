@@ -71,8 +71,15 @@ export default function ReaderPage() {
     }
     return 1;
   });
+  const [mangaTitle, setMangaTitle] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const preloadedUrls = useRef<Set<string>>(new Set());
+
+  // Image retry state — tracks cache-busting key per image index
+  const [retryKeys, setRetryKeys] = useState<Map<number, number>>(new Map());
+  // Chapter preload state — fires once when user scrolls past 80%
+  const [nearEnd, setNearEnd] = useState(false);
 
   // Floating bubble state
   const [bubbleExpanded, setBubbleExpanded] = useState(false);
@@ -124,30 +131,50 @@ export default function ReaderPage() {
     return () => { cancelled = true; };
   }, [source, id, chapterNum, effectiveBaseUrl, effectiveChapterId]);
 
+  // Fetch manga title early for breadcrumb
+  useEffect(() => {
+    let cancelled = false;
+    getMangaDetail(id, source)
+      .then((detail) => {
+        if (!cancelled) setMangaTitle(detail.manga.title);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [id, source]);
+
   // Record reading history when images load
   useEffect(() => {
     if (images.length > 0 && !loading) {
-      // Fetch manga title for history entry (non-blocking)
-      getMangaDetail(id, source).then((detail) => {
+      // Use mangaTitle if already fetched, otherwise fetch for history
+      if (mangaTitle) {
         addHistory({
           mangaId: id,
-          title: detail.manga.title,
-          cover: detail.manga.cover,
-          source,
-          chapterNumber: Number(chapterNum),
-        });
-      }).catch(() => {
-        // Still record without title — we'll use a fallback
-        addHistory({
-          mangaId: id,
-          title: `Manga ${id.slice(0, 8)}`,
+          title: mangaTitle,
           cover: null,
           source,
           chapterNumber: Number(chapterNum),
         });
-      });
+      } else {
+        getMangaDetail(id, source).then((detail) => {
+          addHistory({
+            mangaId: id,
+            title: detail.manga.title,
+            cover: detail.manga.cover,
+            source,
+            chapterNumber: Number(chapterNum),
+          });
+        }).catch(() => {
+          addHistory({
+            mangaId: id,
+            title: `Manga ${id.slice(0, 8)}`,
+            cover: null,
+            source,
+            chapterNumber: Number(chapterNum),
+          });
+        });
+      }
     }
-  }, [images.length, loading, id, source, chapterNum]);
+  }, [images.length, loading, id, source, chapterNum, mangaTitle]);
 
   // Fetch chapter list for prev/next navigation
   useEffect(() => {
@@ -300,6 +327,67 @@ export default function ReaderPage() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [prevChapter, nextChapter, buildChapterUrl, readingMode, currentPage, images.length]);
 
+  // Preload next 3 images after each image loads
+  useEffect(() => {
+    if (images.length === 0) return;
+    for (const idx of loadedImages) {
+      for (let offset = 1; offset <= 3; offset++) {
+        const nextIdx = idx + offset;
+        if (nextIdx >= images.length) break;
+        const url = images[nextIdx];
+        if (!preloadedUrls.current.has(url)) {
+          preloadedUrls.current.add(url);
+          const img = new Image();
+          img.src = url;
+        }
+      }
+    }
+    return () => { preloadedUrls.current.clear(); };
+  }, [images, loadedImages]);
+
+  // Detect when user scrolls past 80% of chapter content
+  useEffect(() => {
+    if (!nextChapter || images.length === 0) return;
+    function onScroll() {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY;
+      const clientHeight = window.innerHeight;
+      const progress = (scrollTop + clientHeight) / scrollHeight;
+      if (progress >= 0.8) {
+        setNearEnd(true);
+      }
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [nextChapter, images.length]);
+
+  // Preload next chapter images once nearEnd triggers
+  useEffect(() => {
+    if (!nearEnd || !nextChapter) return;
+    const nextChapterNum = String(nextChapter.number);
+    try {
+      const raw = localStorage.getItem(`manhwa-meta-${source}-${id}-${nextChapterNum}`);
+      const meta = raw ? JSON.parse(raw) as { baseUrl?: string; chapterId?: string } : null;
+      const nextBaseUrl = meta?.baseUrl || "";
+      const nextChapterId = meta?.chapterId || "";
+      let chapterUrl = "";
+      if (nextBaseUrl) {
+        chapterUrl = `${nextBaseUrl.replace(/\/$/, "")}/chapter-${nextChapterNum}`;
+      }
+      getChapterPages(chapterUrl, source, nextChapterId, nextBaseUrl || undefined, nextChapterNum)
+        .then(data => {
+          data.images.forEach(url => {
+            if (!preloadedUrls.current.has(url)) {
+              preloadedUrls.current.add(url);
+              const img = new Image();
+              img.src = url;
+            }
+          });
+        })
+        .catch(() => {});
+    } catch {}
+  }, [nearEnd, nextChapter, source, id]);
+
   return (
     <div className="min-h-screen">
       {/* Top bar */}
@@ -430,6 +518,17 @@ export default function ReaderPage() {
         </div>
       </header>
 
+      {/* Breadcrumb */}
+      <nav className="max-w-4xl mx-auto px-4 py-2 text-[12px] text-[var(--color-text-muted)] flex items-center gap-1.5 flex-wrap" aria-label="Breadcrumb">
+        <Link href="/" className="hover:text-[var(--color-accent)] transition-colors duration-150">Beranda</Link>
+        <span className="select-none">&gt;</span>
+        <Link href={mangaHref} className="hover:text-[var(--color-accent)] transition-colors duration-150 line-clamp-1 max-w-[200px] sm:max-w-none">
+          {mangaTitle ?? "..."}
+        </Link>
+        <span className="select-none">&gt;</span>
+        <span className="text-[var(--color-text-secondary)]">Chapter {chapterNum}</span>
+      </nav>
+
       {/* Error */}
       {error && (
         <div className="text-center py-20 px-4">
@@ -462,6 +561,8 @@ export default function ReaderPage() {
         <div className={`flex flex-col items-center ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}>
           {images.map((src, i) => {
             const loaded = loadedImages.has(i);
+            const retryN = retryKeys.get(i);
+            const imgSrc = retryN ? `${src}?retry=${retryN}` : src;
             return (
               <div key={i} className="relative w-full max-w-3xl mx-auto" style={brightness < 1 ? { filter: `brightness(${brightness})` } : undefined}>
                 <div
@@ -471,7 +572,7 @@ export default function ReaderPage() {
                   style={{ animationDelay: `${(i % 6) * 150}ms` }}
                 />
                 <img
-                  src={src}
+                  src={imgSrc}
                   alt={`Halaman ${i + 1}`}
                   className={`w-full object-contain transition-opacity duration-500 ${
                     loaded ? "opacity-100" : "opacity-0"
@@ -490,7 +591,24 @@ export default function ReaderPage() {
                       return next;
                     });
                   }}
+                  onError={() => {
+                    const current = retryKeys.get(i) || 0;
+                    if (current < 2) {
+                      setTimeout(() => {
+                        setRetryKeys(prev => {
+                          const next = new Map(prev);
+                          next.set(i, current + 1);
+                          return next;
+                        });
+                      }, (current + 1) * 1000);
+                    }
+                  }}
                 />
+                {retryN != null && retryN > 0 && retryN < 2 && !loaded && (
+                  <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-[var(--color-text-muted)] bg-[var(--color-surface)]/80 px-2 py-0.5 rounded">
+                    Retry {retryN}/2…
+                  </p>
+                )}
               </div>
             );
           })}
@@ -502,7 +620,7 @@ export default function ReaderPage() {
         <div className={`flex flex-col items-center min-h-[70dvh] ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}>
           <div className="relative w-full max-w-3xl mx-auto flex items-center justify-center" style={brightness < 1 ? { filter: `brightness(${brightness})` } : undefined}>
             <img
-              src={images[currentPage]}
+              src={retryKeys.get(currentPage) ? `${images[currentPage]}?retry=${retryKeys.get(currentPage)}` : images[currentPage]}
               alt={`Halaman ${currentPage + 1}`}
               className="w-full object-contain cursor-pointer"
               style={{
@@ -519,6 +637,18 @@ export default function ReaderPage() {
                   return next;
                 });
               }}
+              onError={() => {
+                const current = retryKeys.get(currentPage) || 0;
+                if (current < 2) {
+                  setTimeout(() => {
+                    setRetryKeys(prev => {
+                      const next = new Map(prev);
+                      next.set(currentPage, current + 1);
+                      return next;
+                    });
+                  }, (current + 1) * 1000);
+                }
+              }}
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const clickX = e.clientX - rect.left;
@@ -529,6 +659,11 @@ export default function ReaderPage() {
                 }
               }}
             />
+            {retryKeys.get(currentPage) != null && (retryKeys.get(currentPage) || 0) > 0 && (retryKeys.get(currentPage) || 0) < 2 && (
+              <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11px] text-[var(--color-text-muted)] bg-[var(--color-surface)]/80 px-2 py-0.5 rounded">
+                Retry {retryKeys.get(currentPage)}/2…
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-center gap-4 py-4">
@@ -562,19 +697,32 @@ export default function ReaderPage() {
                 </svg>
               </button>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col items-center gap-3">
                 <span className="text-[13px] text-[var(--color-text-muted)] italic">Chapter selesai</span>
-                {prevChapter && (
-                  <button
-                    onClick={() => { window.location.href = buildChapterUrl(prevChapter); }}
-                    className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-all duration-150 shadow-md shadow-[var(--color-accent-dim)] cursor-pointer"
-                  >
-                    Prev Chapter
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
-                    </svg>
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {prevChapter && (
+                    <button
+                      onClick={() => { window.location.href = buildChapterUrl(prevChapter); }}
+                      className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] transition-all duration-150 cursor-pointer"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+                      </svg>
+                      Chapter Sebelumnya
+                    </button>
+                  )}
+                  {nextChapter && (
+                    <button
+                      onClick={() => { window.location.href = buildChapterUrl(nextChapter); }}
+                      className="flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-all duration-150 shadow-md shadow-[var(--color-accent-dim)] cursor-pointer"
+                    >
+                      Chapter Selanjutnya
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>

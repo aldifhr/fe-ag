@@ -108,6 +108,10 @@ body {
   filter: none;
 }
 
+/* ── Scrollbar hide ────────────────────────── */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* ── Transition ────────────────────────────── */
 html.theme-transition,
 html.theme-transition *,

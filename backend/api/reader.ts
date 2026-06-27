@@ -18,7 +18,11 @@ export default async function handler(req: Request, res: Response) {
       case "search":  return await handleSearch(req, res);
       case "manga":   return await handleManga(req, res);
       case "pages":   return await handlePages(req, res);
+      case "health":  return await handleHealth(req, res);
       case "debug":   return await handleDebug(req, res);
+      case "genres":  return await handleGenres(req, res);
+      case "genre-manga": return await handleGenreManga(req, res);
+      case "random":  return await handleRandom(req, res);
       default:        return res.status(404).json({ error: `Unknown route: ${route}` });
     }
   } catch (err: unknown) {
@@ -32,26 +36,52 @@ export default async function handler(req: Request, res: Response) {
 async function handleLatest(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
   const source = (req.query.source as string) || "all";
+  const sort = (req.query.sort as string) || "latest";
 
   const PAGE_SIZE = 50;
-  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string }[] = [];
+  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string; status?: string | number | null; chapters?: { number: string; time: string | null }[] }[] = [];
 
   if (source === "all" || source === "shinigami") {
-    const rows = await fetchUpdateList(SECONDARY_SOURCE_URL, undefined);
-    for (const row of rows) {
-      all.push({
-        id: String(row.manga_id),
-        title: row.title || "Unknown",
-        cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
-        url: row.direct_series_url || null,
-        source: "shinigami",
-        chapter: String(row.latest_chapter_number ?? ""),
-        time: row.latest_chapter_time || row.updated_at || undefined,
-      });
+    if (sort === "latest") {
+      const rows = await fetchUpdateList(SECONDARY_SOURCE_URL, undefined);
+      for (const row of rows) {
+        all.push({
+          id: String(row.manga_id),
+          title: row.title || "Unknown",
+          cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
+          url: row.direct_series_url || null,
+          source: "shinigami",
+          chapter: String(row.latest_chapter_number ?? ""),
+          time: row.latest_chapter_time || row.updated_at || undefined,
+          status: row.status ?? null,
+          chapters: (row as any).chapters?.slice(0, 2).map((c: any) => ({ number: String(c.chapter_number), time: c.created_at ?? null })),
+        });
+      }
+    } else {
+      // popularity / rating — use /v1/manga/list with sort param (no is_update filter)
+      const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE), sort });
+      const endpoint = `${SECONDARY_SOURCE_URL}/v1/manga/list?${params}`;
+      const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
+      if (isAxiosLikeResponse(apiRes)) {
+        const raw = ((apiRes as any).data?.data ?? []) as any[];
+        for (const row of raw) {
+          all.push({
+            id: String(row.manga_id ?? row.id ?? ""),
+            title: row.title || "Unknown",
+            cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
+            url: row.direct_series_url || null,
+            source: "shinigami",
+            chapter: String(row.latest_chapter_number ?? ""),
+            time: row.latest_chapter_time || row.updated_at || undefined,
+            status: row.status ?? null,
+            chapters: row.chapters?.slice(0, 2).map((c: any) => ({ number: String(c.chapter_number), time: c.created_at ?? null })),
+          });
+        }
+      }
     }
   }
 
-  if (source === "all" || source === "ikiru") {
+  if (sort === "latest" && (source === "all" || source === "ikiru")) {
     const ikiruRes = await scrapeIkiruUpdatesWithMeta();
     const items = ikiruRes.results || [];
     for (const item of items) {
@@ -69,8 +99,8 @@ async function handleLatest(req: Request, res: Response) {
   }
 
   const total = all.length;
-  const start = (page - 1) * PAGE_SIZE;
-  const results = all.slice(start, start + PAGE_SIZE);
+  // For popularity/rating the API already paginated; for latest we slice client-side
+  const results = sort === "latest" ? all.slice((page - 1) * PAGE_SIZE, (page - 1) * PAGE_SIZE + PAGE_SIZE) : all;
 
   return res.json({ results, total, page, pageSize: PAGE_SIZE });
 }
@@ -80,6 +110,8 @@ async function handleLatest(req: Request, res: Response) {
 async function handleSearch(req: Request, res: Response) {
   const q = (req.query.q as string)?.trim();
   const source = (req.query.source as string) || "all";
+  const sort = (req.query.sort as string) || "";
+  const status = (req.query.status as string) || "";
 
   if (!q || q.length < 1) {
     return res.status(400).json({ error: "Query parameter 'q' required" });
@@ -88,7 +120,7 @@ async function handleSearch(req: Request, res: Response) {
   const results: { id: string; title: string; cover: string | null; url: string; source: string }[] = [];
 
   if (source === "all" || source === "shinigami") {
-    const shngm = await searchShngm(q, "shinigami");
+    const shngm = await searchShngm(q, "shinigami", 0, { sort: sort || undefined, status: status || undefined });
     if (shngm.success && shngm.data) {
       for (const item of shngm.data) {
         results.push({ id: item.mangaId ? String(item.mangaId) : item.url, title: item.title, cover: item.cover ?? null, url: item.mangaUrl ?? item.url, source: "shinigami" });
@@ -259,8 +291,9 @@ async function handlePages(req: Request, res: Response) {
   if (isShinigamiUrl) {
     let resolvedChapterId = chapterId;
 
-    // Extract mangaId from baseUrl or url (old frontend only sends url)
-    const mangaIdMatch = (baseUrl || url || "").match(/\/series\/([0-9a-f-]{36})/i);
+    // Extract mangaId from baseUrl or url (matches /series/, /manga/, or bare UUID)
+    const mangaIdMatch = (baseUrl || url || "").match(/\/(?:series|manga)\/([0-9a-f-]{36})/i)
+      || (url || "").match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
     // Extract chapter number from url if not provided (e.g. .../series/{id}/239 or .../chapter-239)
     const resolvedChapterNum = chapterNum || (url || "").match(/\/chapter-(\d+)\s*\/?$/i)?.[1] || (url || "").match(/\/(\d+)\s*\/?$/)?.[1] || "";
 
@@ -326,6 +359,102 @@ async function handlePages(req: Request, res: Response) {
   }
 
   return res.json({ images: [], total: 0, url: urlsToTry[0] || url, note: "No images extracted from any URL pattern" });
+}
+
+// ─── Genres ──────────────────────────────────────────────────────────
+
+async function handleGenres(req: Request, res: Response) {
+  const endpoint = `${SECONDARY_SOURCE_URL}/v1/genre/list`;
+  const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
+
+  if (!isAxiosLikeResponse(apiRes)) {
+    return res.status(502).json({ error: "Failed to fetch genres from Shinigami API" });
+  }
+
+  const payload = (apiRes.data as any)?.data ?? [];
+  return res.json({ genres: payload });
+}
+
+async function handleGenreManga(req: Request, res: Response) {
+  const genre = req.query.genre as string;
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.page_size as string) || 20;
+  const sort = (req.query.sort as string) || "latest";
+
+  if (!genre) {
+    return res.status(400).json({ error: "Query parameter 'genre' (slug) required" });
+  }
+
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    genre_include: genre,
+    genre_include_mode: "and",
+    sort,
+  });
+
+  const endpoint = `${SECONDARY_SOURCE_URL}/v1/manga/list?${params}`;
+  const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
+
+  if (!isAxiosLikeResponse(apiRes)) {
+    return res.status(502).json({ error: "Failed to fetch genre manga from Shinigami API" });
+  }
+
+  const raw = (apiRes.data as any)?.data ?? [];
+  const results = raw.map((item: any) => ({
+    id: String(item.manga_id ?? item.id ?? ""),
+    title: item.title || "Unknown",
+    cover: item.cover_portrait_url || item.cover_image_url || item.cover || null,
+    source: "shinigami",
+    chapter: String(item.latest_chapter_number ?? ""),
+    time: item.latest_chapter_time || item.updated_at || undefined,
+  }));
+
+  return res.json({ results, total: (apiRes.data as any)?.total ?? results.length, page, pageSize });
+}
+
+// ─── Random ──────────────────────────────────────────────────────────
+
+async function handleRandom(_req: Request, res: Response) {
+  const randomPage = Math.floor(Math.random() * 50) + 1;
+  const params = new URLSearchParams({ page: String(randomPage), page_size: "1", sort: "latest" });
+  const endpoint = `${SECONDARY_SOURCE_URL}/v1/manga/list?${params}`;
+  const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, SECONDARY_CONFIG.REQUEST_TIMEOUT);
+
+  if (!isAxiosLikeResponse(apiRes)) {
+    return res.status(502).json({ error: "Failed to fetch random manga" });
+  }
+
+  const raw = ((apiRes.data as any)?.data ?? []) as any[];
+  if (!raw.length) {
+    return res.status(404).json({ error: "No manga found" });
+  }
+
+  const row = raw[0];
+  const result = {
+    id: String(row.manga_id ?? row.id ?? ""),
+    title: row.title || "Unknown",
+    cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
+    source: "shinigami",
+    chapter: String(row.latest_chapter_number ?? ""),
+    time: row.latest_chapter_time || row.updated_at || undefined,
+  };
+
+  return res.json({ result });
+}
+
+// ─── Health ──────────────────────────────────────────────────────────
+
+async function handleHealth(_req: Request, res: Response) {
+  let shinigami: "ok" | "error" = "error";
+  try {
+    const endpoint = `${SECONDARY_SOURCE_URL}/v1/manga/list?page=1&page_size=1`;
+    const apiRes = await fetchWithRetry(endpoint, JSON_HEADERS, 8000);
+    shinigami = isAxiosLikeResponse(apiRes) ? "ok" : "error";
+  } catch {
+    shinigami = "error";
+  }
+  return res.json({ shinigami, timestamp: Date.now() });
 }
 
 // ─── Debug ───────────────────────────────────────────────────────────

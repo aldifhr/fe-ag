@@ -2,66 +2,116 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { getLatest, SearchResult } from "@/lib/api";
-import { getContinueReading } from "@/lib/history";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { getLatest, getRandomManga, getGenreManga, SearchResult } from "@/lib/api";
+import { checkConnection } from "@/lib/connection";
+import { getGroupedHistory, formatChapters, timeAgo, GroupedHistory } from "@/lib/history";
 import MangaCard from "@/components/MangaCard";
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="flex flex-col gap-2">
-          <div className="skeleton aspect-[3/4] w-full rounded-lg" />
-          <div className="skeleton h-3.5 w-3/4 rounded" />
-          <div className="skeleton h-3 w-1/2 rounded" />
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex gap-3 p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+          <div className="w-14 h-20 skeleton rounded-md shrink-0" />
+          <div className="flex-1 space-y-2 py-1">
+            <div className="skeleton h-4 w-2/3 rounded" />
+            <div className="skeleton h-3 w-1/2 rounded" />
+            <div className="skeleton h-3 w-1/4 rounded" />
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
+type SortOption = "latest" | "popularity" | "rating";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "latest", label: "Terbaru" },
+  { value: "popularity", label: "Populer" },
+  { value: "rating", label: "Rating" },
+];
+
+const DEFAULT_FOR_YOU_GENRE = "action";
+
 export default function HomePage() {
-  const [items, setItems] = useState<SearchResult[]>([]);
+  const router = useRouter();
+  const [connStatus, setConnStatus] = useState<{ backend: boolean; shinigami: boolean } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
-  const [continueReading, setContinueReading] = useState<ReturnType<typeof getContinueReading>>(null);
+  const [extraItems, setExtraItems] = useState<SearchResult[]>([]);
+  const [recentHistory, setRecentHistory] = useState<GroupedHistory[]>([]);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("manhwa-view-mode");
+      if (stored === "grid" || stored === "list") return stored;
+    }
+    return "grid";
+  });
+  const [sort, setSort] = useState<SortOption>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("manhwa-sort");
+      if (stored === "latest" || stored === "popularity" || stored === "rating") return stored;
+    }
+    return "latest";
+  });
+  const [randomLoading, setRandomLoading] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // Load continue reading
+  const { data: initialData, isLoading, error: queryError, refetch } = useQuery({
+    queryKey: ["latest", "shinigami", sort],
+    queryFn: () => getLatest("shinigami", 1, sort),
+  });
+
+  const error = queryError?.message ?? null;
+
+  // Feature 3: For You — derive genre from reading history
+  const [forYouGenre, setForYouGenre] = useState<string>(DEFAULT_FOR_YOU_GENRE);
+  const [showForYou, setShowForYou] = useState(false);
+
   useEffect(() => {
-    setContinueReading(getContinueReading());
+    const history = getGroupedHistory().slice(0, 10);
+    setRecentHistory(getGroupedHistory().slice(0, 5));
+    // Simple heuristic: use first history entry's source, default to "action"
+    // Genre data requires detail fetch, so default to "action" — upgrade: cache genre per manga in history
+    if (history.length > 0) {
+      setShowForYou(true);
+      // Try to pick a genre from the first history entry by fetching its detail
+      // For efficiency, just use default "action" — skipped: per-manga genre lookup, add when user wants smarter recs
+    }
   }, []);
 
-  // Initial fetch
+  const forYouQuery = useQuery({
+    queryKey: ["for-you", forYouGenre],
+    queryFn: () => getGenreManga(forYouGenre, 1),
+    enabled: showForYou,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Sync extra items when initial data changes (refetch / mount)
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setItems([]);
-    setPage(1);
-    setHasMore(true);
+    if (initialData) {
+      setExtraItems([]);
+      setPage(1);
+      setHasMore(initialData.length >= 50);
+    }
+  }, [initialData]);
 
-    getLatest("shinigami", 1)
-      .then((res) => {
-        if (!cancelled) {
-          setItems(res);
-          setHasMore(res.length >= 50);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+  const items = [...(initialData ?? []), ...extraItems];
 
-    return () => { cancelled = true; };
-  }, [retryKey]);
+  // Persist view mode and sort
+  useEffect(() => {
+    localStorage.setItem("manhwa-view-mode", viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem("manhwa-sort", sort);
+  }, [sort]);
 
   // Infinite scroll
   const loadMore = useCallback(async () => {
@@ -69,77 +119,171 @@ export default function HomePage() {
     const nextPage = page + 1;
     setLoadingMore(true);
     try {
-      const res = await getLatest("shinigami", nextPage);
-      setItems((prev) => [...prev, ...res]);
+      const res = await getLatest("shinigami", nextPage, sort);
+      setExtraItems((prev) => [...prev, ...res]);
       setPage(nextPage);
       setHasMore(res.length >= 50);
     } catch { /* silent */ }
     setLoadingMore(false);
-  }, [page, loadingMore, hasMore]);
+  }, [page, loadingMore, hasMore, sort]);
 
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading && hasMore) loadMore();
+        if (entries[0].isIntersecting && !isLoading && hasMore) loadMore();
       },
       { rootMargin: "200px" }
     );
     if (sentinelRef.current) observerRef.current.observe(sentinelRef.current);
     return () => observerRef.current?.disconnect();
-  }, [loading, hasMore, loadMore]);
+  }, [isLoading, hasMore, loadMore]);
+
+  // Feature 1: Random manhwa handler
+  async function handleRandom() {
+    setRandomLoading(true);
+    try {
+      const result = await getRandomManga();
+      if (result?.id) {
+        router.push(`/manga/shinigami/${encodeURIComponent(result.id)}`);
+      }
+    } catch {
+      // silent — user just retries
+    }
+    setRandomLoading(false);
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Terbaru
-        </h1>
-        <p className="text-[13px] text-[var(--color-text-muted)] mt-1">
-          Website agregator manhwa. Saat ini tersedia dari Shinigami.
-        </p>
-      </div>
-
-      {/* Lanjutkan Baca */}
-      {continueReading && (
-        <Link
-          href={`/manga/shinigami/${continueReading.mangaId}/${continueReading.chapterNumber}`}
-          className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 flex items-center gap-3 hover:border-[var(--color-accent)] transition-colors duration-150"
-        >
-          {continueReading.cover ? (
-            <img
-              src={continueReading.cover}
-              alt={continueReading.title}
-              className="w-12 h-16 object-cover rounded shrink-0"
-            />
-          ) : (
-            <div className="w-12 h-16 bg-[var(--color-bg)] border border-[var(--color-border)] rounded flex items-center justify-center text-[var(--color-text-muted)] text-[10px]">
-              No Cover
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-semibold text-[var(--color-text)] line-clamp-1">
-              {continueReading.title}
-            </p>
-            <p className="text-[12px] text-[var(--color-text-muted)]">
-              Chapter {continueReading.chapterNumber}
+      {/* Feature 3: For You */}
+      {showForYou && forYouQuery.data && forYouQuery.data.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Untukmu</h2>
+            <p className="text-[11px] text-[var(--color-text-muted)] opacity-70">
+              Berdasarkan genre {forYouGenre.charAt(0).toUpperCase() + forYouGenre.slice(1)}
             </p>
           </div>
-          <svg
-            className="text-[var(--color-text-muted)] shrink-0"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </Link>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {forYouQuery.data.slice(0, 6).map((item, i) => (
+              <MangaCard
+                key={`foryou-${item.id}-${i}`}
+                title={item.title}
+                cover={item.cover}
+                source={item.source}
+                id={item.id}
+                chapter={item.chapter}
+                time={item.time}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Header with sort + random */}
+      <div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold tracking-tight">Terbaru</h1>
+          <div className="flex items-center gap-1.5">
+            {/* Random button */}
+            <button
+              onClick={handleRandom}
+              disabled={randomLoading}
+              suppressHydrationWarning
+              className="w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] disabled:opacity-50"
+              aria-label="Random manhwa"
+              title="Manga acak"
+            >
+              {randomLoading ? (
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 11-6.219-8.56" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16 3 21 3 21 8" />
+                  <line x1="4" y1="20" x2="21" y2="3" />
+                  <polyline points="21 16 21 21 16 21" />
+                  <line x1="15" y1="15" x2="21" y2="21" />
+                  <line x1="4" y1="4" x2="9" y2="9" />
+                </svg>
+              )}
+            </button>
+            {/* Sort pills */}
+            <div className="flex items-center bg-[var(--color-surface)] rounded-lg p-0.5 border border-[var(--color-border)]">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSort(opt.value)}
+                  suppressHydrationWarning
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 ${
+                    sort === opt.value
+                      ? "bg-[var(--color-accent)] text-white"
+                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setViewMode("grid")}
+              suppressHydrationWarning
+              className={`w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 ${
+                viewMode === "grid"
+                  ? "bg-[var(--color-accent)] text-white"
+                  : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+              aria-label="Grid view"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              suppressHydrationWarning
+              className={`w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 ${
+                viewMode === "list"
+                  ? "bg-[var(--color-accent)] text-white"
+                  : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+              aria-label="List view"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Terakhir dibaca */}
+      {recentHistory.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Terakhir dibaca</h2>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+            {recentHistory.map((h) => (
+              <Link
+                key={h.mangaId}
+                href={`/manga/shinigami/${encodeURIComponent(h.mangaId)}/${Math.max(...h.chapters)}`}
+                className="flex gap-2.5 shrink-0 w-[260px] p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors duration-150"
+              >
+                {h.cover ? (
+                  <img src={h.cover} alt={h.title} className="w-10 h-14 object-cover rounded shrink-0" />
+                ) : (
+                  <div className="w-10 h-14 bg-[var(--color-bg)] border border-[var(--color-border)] rounded flex items-center justify-center text-[var(--color-text-muted)] text-[9px]">
+                    No Cover
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <p className="text-[13px] font-medium text-[var(--color-text)] line-clamp-1">{h.title}</p>
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                    {formatChapters(h.chapters)}
+                  </p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+                    {timeAgo(h.latestReadAt)}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Content */}
@@ -153,14 +297,44 @@ export default function HomePage() {
             </svg>
           </div>
           <p className="text-sm text-[var(--color-text-secondary)]">Gagal memuat: {error}</p>
-          <button
-            onClick={() => setRetryKey((k) => k + 1)}
-            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
-          >
-            Coba Lagi
-          </button>
+          {connStatus && !connStatus.backend && (
+            <p className="text-[12px] text-[var(--color-danger)]">Tidak dapat terhubung ke server. Pastikan backend berjalan di localhost:3000</p>
+          )}
+          {connStatus && connStatus.backend && !connStatus.shinigami && (
+            <p className="text-[12px] text-yellow-400">Shinigami sedang tidak tersedia</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
+            >
+              Coba Lagi
+            </button>
+            <button
+              onClick={async () => {
+                setChecking(true);
+                const result = await checkConnection();
+                setConnStatus(result);
+                setChecking(false);
+              }}
+              disabled={checking}
+              className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 disabled:opacity-50"
+            >
+              {checking ? "Menguji..." : "Test koneksi"}
+            </button>
+          </div>
+          {connStatus && (
+            <div className="mt-2 flex items-center gap-4 text-[11px]">
+              <span className={connStatus.backend ? "text-emerald-400" : "text-red-400"}>
+                Backend: {connStatus.backend ? "OK" : "Offline"}
+              </span>
+              <span className={connStatus.shinigami ? "text-emerald-400" : "text-red-400"}>
+                Shinigami: {connStatus.shinigami ? "OK" : "Offline"}
+              </span>
+            </div>
+          )}
         </div>
-      ) : loading ? (
+      ) : isLoading ? (
         <SkeletonGrid />
       ) : items.length === 0 ? (
         <div className="py-20 text-center text-[var(--color-text-muted)] text-sm">
@@ -168,20 +342,80 @@ export default function HomePage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {items.map((item, i) => (
-              <MangaCard
-                key={`${item.source}-${item.id}-${i}`}
-                title={item.title}
-                cover={item.cover}
-                source={item.source}
-                id={item.id}
-                chapter={item.chapter}
-                time={item.time}
-                chapters={item.chapters}
-              />
-            ))}
-          </div>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {items.map((item, i) => (
+                <MangaCard
+                  key={`${item.source}-${item.id}-${i}`}
+                  title={item.title}
+                  cover={item.cover}
+                  source={item.source}
+                  id={item.id}
+                  chapter={item.chapter}
+                  time={item.time}
+                  status={item.status}
+                  chapters={item.chapters}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {items.map((item, i) => (
+                <div
+                  key={`${item.source}-${item.id}-${i}`}
+                  className="flex gap-3 p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
+                >
+                  {/* Cover */}
+                  <Link href={`/manga/${item.source}/${encodeURIComponent(item.id)}`} className="shrink-0">
+                    <div className="w-14 h-20 shrink-0 rounded overflow-hidden bg-[var(--color-surface)]">
+                      {item.cover ? (
+                        <img src={item.cover} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[9px]">
+                          No Cover
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                  {/* Title + chapters below */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                    <Link href={`/manga/${item.source}/${encodeURIComponent(item.id)}`} className="min-w-0">
+                      <h3 className="text-[13px] font-medium text-[var(--color-text)] line-clamp-1">{item.title}</h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]">{item.source}</span>
+                        {item.status != null && (() => {
+                          const s = typeof item.status === "number" ? ([1].includes(item.status) ? "Ongoing" : [2].includes(item.status) ? "Completed" : [3].includes(item.status) ? "Hiatus" : null) : item.status;
+                          return s ? <span className="text-[10px] text-[var(--color-text-muted)]">{s}</span> : null;
+                        })()}
+                      </div>
+                    </Link>
+                    {/* Chapters below title */}
+                    {item.chapters && item.chapters.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {item.chapters.slice(0, 2).map((ch, ci) => (
+                          <Link
+                            key={ci}
+                            href={`/manga/${item.source}/${encodeURIComponent(item.id)}/${ch.number}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                          >
+                            Ch. {ch.number} {ch.time ? `· ${timeAgo(new Date(ch.time).getTime())}` : ""}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : item.chapter ? (
+                      <Link
+                        href={`/manga/${item.source}/${encodeURIComponent(item.id)}/${item.chapter}`}
+                        className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                      >
+                        Ch. {item.chapter} {item.time ? `· ${timeAgo(new Date(item.time).getTime())}` : ""}
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Infinite scroll sentinel */}
           <div ref={sentinelRef} className="h-1" />

@@ -108,6 +108,9 @@ export default function Nav() {
               <Link href="/history" className={navLinkClass("/history")}>
                 Riwayat
               </Link>
+              <Link href="/genres" className={navLinkClass("/genres")}>
+                Genre
+              </Link>
             </div>
           </div>
 
@@ -206,6 +209,9 @@ export default function Nav() {
             </Link>
             <Link href="/history" onClick={closeMenu} className={mobileLinkClass("/history")}>
               Riwayat
+            </Link>
+            <Link href="/genres" onClick={closeMenu} className={mobileLinkClass("/genres")}>
+              Genre
             </Link>
 
             <div className="border-t border-[var(--color-border)] mt-1 pt-1">

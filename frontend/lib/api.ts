@@ -2,12 +2,13 @@ export interface SearchResult {
   id: string;
   title: string;
   cover: string | null;
-  url: string;
+  url?: string;
   source: string;
-  description?: string | null;
   chapter?: string;
+  description?: string | null;
   time?: string;
   chapters?: { number: string; time: string | null }[];
+  status?: string | number | null;
 }
 
 export interface MangaDetail {
@@ -20,6 +21,13 @@ export interface MangaDetail {
     url: string | null;
     source: string;
     genres: string[];
+    user_rate?: number | string | null;
+    view_count?: number | null;
+    bookmark_count?: number | null;
+    release_year?: string | null;
+    country_id?: string | null;
+    alternative_title?: string | null;
+    taxonomy?: Record<string, { name: string; slug?: string }[]>;
   };
   chapters: {
     id: string | number;
@@ -45,8 +53,11 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
-export async function searchManga(q: string, source = "all"): Promise<SearchResult[]> {
-  const data = await fetchJson<{ results: SearchResult[] }>(`/api/reader/search?q=${encodeURIComponent(q)}&source=${source}`);
+export async function searchManga(q: string, source = "all", sort?: string, status?: string): Promise<SearchResult[]> {
+  const params = new URLSearchParams({ q, source });
+  if (sort) params.set("sort", sort);
+  if (status) params.set("status", status);
+  const data = await fetchJson<{ results: SearchResult[] }>(`/api/reader/search?${params.toString()}`);
   return data.results;
 }
 
@@ -69,7 +80,31 @@ export async function getChapterList(id: string, source = "shinigami"): Promise<
   return detail.chapters;
 }
 
-export async function getLatest(source = "all", page = 1): Promise<SearchResult[]> {
-  const data = await fetchJson<{ results: SearchResult[] }>(`/api/reader/latest?source=${source}&page=${page}`);
+export async function getLatest(source = "all", page = 1, sort = "latest"): Promise<SearchResult[]> {
+  const data = await fetchJson<{ results: SearchResult[] }>(`/api/reader/latest?source=${source}&page=${page}&sort=${sort}`);
   return data.results;
+}
+
+export interface Genre {
+  taxonomy_id: number;
+  slug: string;
+  name: string;
+  type: string;
+}
+
+export async function getGenres(): Promise<Genre[]> {
+  const data = await fetchJson<{ genres: Genre[] }>(`/api/reader/genres`);
+  return data.genres;
+}
+
+export async function getGenreManga(slug: string, page = 1): Promise<SearchResult[]> {
+  const data = await fetchJson<{ results: SearchResult[] }>(
+    `/api/reader/genre-manga?genre=${encodeURIComponent(slug)}&page=${page}&page_size=20`
+  );
+  return data.results;
+}
+
+export async function getRandomManga(): Promise<SearchResult> {
+  const data = await fetchJson<{ result: SearchResult }>("/api/reader/random");
+  return data.result;
 }
