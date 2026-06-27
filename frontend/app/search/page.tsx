@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { searchManga, SearchResult } from "@/lib/api";
@@ -25,6 +25,14 @@ function readLS(key: string, fallback: string): string {
 }
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="max-w-5xl mx-auto space-y-5"><div className="text-center py-20 text-[var(--color-text-muted)] text-sm">Loading...</div></div>}>
+      <SearchContent />
+    </Suspense>
+  );
+}
+
+function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
 
