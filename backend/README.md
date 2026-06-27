@@ -1,254 +1,185 @@
-# Manhwa Scanner
+# Manhwa Aggregator
 
-A Discord bot for manga/manhwa update notifications. Scrape updates from Indonesian manga sources and send notifications to subscribed Discord channels.
-
-## Tech Stack
-
-- **Runtime**: Node.js + TypeScript (ESM)
-- **Framework**: Express.js (dev) / Vercel Functions (production)
-- **Storage**: Supabase (PostgreSQL)
-- **Discord**: Discord Interactions API
-
-## Features
-
-- Slash commands for manga subscription management
-- Automatic scraping from multiple manga sources (Ikiru, Shinigami)
-- Discord channel notifications for new chapters
-- Rate limiting and retry mechanisms
-- Health monitoring and observability
-- Dashboard with real-time stats
-- Source health tracking with circuit breaker
-- Adaptive rate limiting
-
-## Quick Start
-
-### 1. Create Discord Application
-
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create new application
-3. Go to Bot → Reset Token → Copy token
-4. Enable Message Content Intent in Bot → Privileged Gateway Intents
-5. Go to OAuth2 → URL Generator:
-   - Scopes: `bot`
-   - Bot Permissions: `Send Messages`, `Manage Channels`, `Embed Links`
-6. Copy generated URL and invite bot to server
-
-### 2. Configure Environment
-
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your values:
-
-```env
-# Discord (required)
-DISCORD_PUBLIC_KEY=
-DISCORD_BOT_TOKEN=
-DISCORD_APPLICATION_ID=
-
-# Security (required)
-DASHBOARD_PASSWORD=      # Password for dashboard access
-DASHBOARD_SESSION_SECRET=  # Generate random string
-CRON_SECRET=             # Generate random string
-
-# Supabase (required)
-SUPABASE_URL=https://your-supabase-project.supabase.co
-SUPABASE_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-
-# Optional
-DISCORD_OWNER_ID=        # Your Discord user ID for owner commands
-ALLOW_DASHBOARD_CRON=true
-```
-
-### 4. Run Locally
-
-```bash
-npm install
-npm run dev
-```
-
-- Dashboard: http://localhost:3000
-- Status page: http://localhost:3000/status/
-
-### 5. Deploy to Vercel
-
-```bash
-npm install -g vercel
-vercel deploy --prod
-```
+Manga/manhwa update aggregator with Discord bot notifications and a reader API. Scrapes updates from Indonesian manga sources (Ikiru, Shinigami) and delivers them to subscribed Discord channels.
 
 ## Project Structure
 
 ```
-ikiru-bot/
-├── api/                    # Vercel API routes
-├── docs/                   # Documentation (architecture & audit reports)
-├── lib/                    # Core business logic
-│   ├── auth/              # Authentication modules
-│   ├── commands/          # Discord slash commands
-│   ├── config/            # System configuration & environment values
-│   ├── cron/              # Cron job modules & execution
-│   ├── discord/           # Discord API utilities
-│   ├── providers/         # Manga scrapers providers
-│   ├── scrapers/          # Scraper engines (Ikiru, Shinigami)
-│   ├── services/          # Whitelist, storage, tracker & dispatch services
-│   ├── types/             # TypeScript types
-│   └── utils/             # Helper utilities
-├── public/                 # Static assets for dashboard & status page
-├── scripts/                # Utility & admin CLI scripts
-└── README.md               # This file
+manhwa-aggregator/
+├── backend/                    # Unified backend (1 Vercel deployment)
+│   ├── api/
+│   │   ├── reader.ts          # Reader API (latest, search, manga, pages, debug)
+│   │   ├── cron.ts            # Cron/sync orchestrator
+│   │   ├── cron-task.ts       # Background cron runner
+│   │   ├── interactive.ts     # Discord slash command handler
+│   │   ├── dashboard-snapshot.ts
+│   │   ├── health-status.ts
+│   │   ├── history.ts
+│   │   ├── incidents.ts
+│   │   ├── cleanup-dispatch.ts
+│   │   ├── qstash-worker.ts
+│   │   ├── auth.ts
+│   │   └── whitelist.ts
+│   ├── lib/                   # Discord bot logic
+│   │   ├── auth/              # Authentication
+│   │   ├── commands/          # Slash commands
+│   │   ├── cron/              # Cron job modules
+│   │   ├── discord/           # Discord API utilities
+│   │   └── services/          # Storage, dispatch, notifications
+│   ├── reader/                # Reader-specific config
+│   │   └── config.ts
+│   ├── shared/                # Shared code (scrapers, types, utils)
+│   │   ├── scrapers/          # Scraper engines (Ikiru, Shinigami)
+│   │   ├── providers/         # Provider registry
+│   │   ├── types/             # TypeScript types
+│   │   └── config/            # Environment config
+│   ├── supabase/              # Database migrations
+│   ├── public/                # Dashboard static assets
+│   └── vercel.json            # Vercel deployment config
+│
+└── frontend/                  # Next.js reader UI (separate deployment)
+    ├── app/
+    │   ├── page.tsx           # Home / latest updates
+    │   ├── search/            # Search page
+    │   └── manga/             # Manga detail + chapter reader
+    ├── components/
+    └── lib/
 ```
 
-## Environment Variables
+## Tech Stack
 
-### Required
+- **Runtime**: Node.js + TypeScript (ESM)
+- **Backend**: Express.js (dev) / Vercel Functions (production)
+- **Frontend**: Next.js 15 + Tailwind CSS
+- **Storage**: Supabase (PostgreSQL)
+- **Discord**: Discord Interactions API
+- **Queue**: Upstash QStash
+
+## Quick Start
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/aldifhr/manhwa-aggregator.git
+cd manhwa-aggregator
+
+# Backend
+cd backend && npm install
+
+# Frontend
+cd ../frontend && npm install
+```
+
+### 2. Configure Environment
+
+Copy and edit `.env` in `backend/`:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Required variables:
 
 | Variable | Description |
 |----------|-------------|
 | `DISCORD_PUBLIC_KEY` | Discord application public key |
 | `DISCORD_BOT_TOKEN` | Discord bot token |
 | `DISCORD_APPLICATION_ID` | Discord application ID |
-| `DASHBOARD_PASSWORD` | Password for dashboard access |
-| `DASHBOARD_SESSION_SECRET` | Random string for session signing |
-| `CRON_SECRET` | Secret for cron API authorization |
+| `DASHBOARD_PASSWORD` | Dashboard access password |
+| `DASHBOARD_SESSION_SECRET` | Session signing secret (min 32 chars) |
+| `CRON_SECRET` | Cron API authorization secret |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 
-### Optional
+### 3. Run Locally
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DISCORD_OWNER_ID` | Your Discord user ID | - |
-| `ALLOW_DASHBOARD_CRON` | Allow manual cron from dashboard | `false` |
-| `SESSION_TTL_SECONDS` | Session duration (seconds) | 43200 (12h) |
-| `CHAPTER_TTL_SECONDS` | Chapter cache duration | 604800 (7 days) |
+```bash
+# Backend (port 3000)
+cd backend
+npm run dev
 
-## Commands
+# Frontend (port 3001)
+cd frontend
+npm run dev
+```
 
-### Discord Slash Commands
+- Dashboard: http://localhost:3000
+- Reader UI: http://localhost:3001
 
-| Command | Description |
-|---------|-------------|
-| `/add url <link>` | Add a manga to the whitelist from a URL (supports Ikiru and Shinigami) |
-| `/remove <query>` | Remove a manga/source from the whitelist by title, URL, or list index |
-| `/setchannel <channel>` | Set the Discord channel for update notifications |
-| `/follow list [page]` | View the list of mangas you are personally following |
-| `/follow unfollow <title>` | Unfollow a manga to stop receiving personal mentions |
-| `/list [page] [search]` | View the full list of whitelisted mangas (allows searching) |
-| `/status` | View the current whitelist status, last checks, and provider health |
-| `/permission <add/remove/list>` | Manage user permissions for adding/removing mangas |
-| `/sync` | Force a manual sync to check for updates (Admin only) |
+### 4. Deploy to Vercel
 
-### Dashboard
+**Backend** (1 Vercel project):
+```bash
+cd backend
+vercel --prod
+```
 
-| Action | URL | Method |
-|--------|-----|--------|
-| Dashboard | `/` | GET (password protected) |
-| Status | `/status/` | GET |
-| Health | `/api/health-status` | GET |
-| Whitelist | `/api/whitelist` | GET/POST/DELETE/PATCH |
-| Cron | `/api/cron` | POST |
-| Admin Actions | `/api/admin-actions` | POST |
+**Frontend** (1 Vercel project):
+```bash
+cd frontend
+# Set NEXT_PUBLIC_API_URL to your backend Vercel URL
+vercel --prod
+```
 
 ## API Endpoints
 
-### Public Endpoints
+### Reader API (public)
 
 | Endpoint | Description |
+|----------|-------------|
+| `GET /api/latest?source=all&page=1` | Latest updates from all sources |
+| `GET /api/search?q=naruto&source=all` | Search manga by title |
+| `GET /api/manga/:id?source=shinigami` | Manga detail + chapters |
+| `GET /api/pages?url=<chapter-url>` | Extract chapter page images |
+
+### Discord Bot API (protected)
+
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `POST /api/interactive` | Discord signature | Slash command handler |
+| `POST /api/cron` | `CRON_SECRET` | Trigger sync/scan |
+| `POST /api/cron-task` | `CRON_SECRET` | Background cron runner |
+| `GET /api/dashboard-snapshot` | Session/`CRON_SECRET` | Dashboard stats |
+| `GET /api/health-status` | Public | Service health |
+| `GET /api/incidents` | Public | Incident logs |
+| `GET /api/history` | Session | Dispatch history |
+| `GET/POST /api/whitelist` | Session | Whitelist management |
+| `POST /api/cleanup-dispatch` | `CRON_SECRET` | Cleanup expired dispatches |
+| `POST /api/qstash-worker` | QStash signature | Queue worker |
+| `GET /api/auth` | - | Auth endpoints |
+
+## Discord Slash Commands
+
+| Command | Description |
 |---------|-------------|
-| `/api/health-status` | Service health status |
-| `/api/incidents` | Incident logs |
-| `/api/interactive` | Discord slash interaction handler |
-
-### Protected Endpoints (Requires `CRON_SECRET` or session cookie)
-
-| Endpoint | Description | Auth |
-|----------|-------------|------|
-| `/api/dashboard-snapshot` | Complete dashboard stats and snapshot | Bearer `CRON_SECRET` or `DASHBOARD_PASSWORD` |
-| `/api/whitelist` | GET/POST/DELETE/PATCH whitelist management | Bearer token |
-| `/api/cron` | Trigger sync/scan | Bearer token |
-| `/api/cron-task` | Background cron runner task | Bearer token |
-| `/api/history` | Dispatch/notification history | Bearer token |
-| `/api/admin-actions` | Admin operations (clear whitelist/caches) | Bearer token |
-| `/api/qstash-worker` | Upstash QStash worker endpoint | Bearer token |
-
-### Using API
-
-```bash
-# With CRON_SECRET
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://your-app.vercel.app/api/dashboard-snapshot
-
-# With DASHBOARD_PASSWORD  
-curl -H "Authorization: Bearer YOUR_PASSWORD" https://your-app.vercel.app/api/dashboard-snapshot
-```
+| `/add url <link>` | Add manga to whitelist |
+| `/remove <query>` | Remove manga from whitelist |
+| `/setchannel <channel>` | Set notification channel |
+| `/follow list [page]` | View followed mangas |
+| `/follow unfollow <title>` | Unfollow a manga |
+| `/list [page] [search]` | View whitelist |
+| `/status` | Check system status |
+| `/permission <add/remove/list>` | Manage permissions |
+| `/sync` | Force manual sync (admin) |
 
 ## Development
 
 ```bash
-npm run dev          # Start local dev server with tsx watch
-npm run dev:vercel  # Start with Vercel dev server locally
-npm run lint        # Run ESLint check
-npm run type-check  # Run TypeScript type check
+# Backend
+cd backend
+npm run dev          # tsx watch
+npm run dev:vercel   # Vercel dev server
+npm run lint         # ESLint
+npm run type-check   # tsc --noEmit
+npm run test         # Vitest
+
+# Frontend
+cd frontend
+npm run dev          # Next.js dev server
+npm run build        # Production build
 ```
-
-## Production
-
-```bash
-npm run check        # Run ESLint linting and type-checking
-vercel deploy        # Deploy to Vercel
-```
-
-## Available Scripts
-
-| Command | Description |
-|---------|-------------|
-| `dev` | Start development server |
-| `dev:vercel` | Start with Vercel dev server locally |
-| `check` | Run lint and type check |
-| `lint` | Run ESLint check |
-| `lint:fix` | Fix automatically fixable ESLint issues |
-| `type-check` | TypeScript type checking (no emit) |
-| `track:fresh24h` | Track freshness of whitelisted mangas over 24 hours |
-| `cleanup:health` | Clean up old health monitoring metrics from database |
-| `test:daily` | Test daily stats calculation |
-
-## Troubleshooting
-
-### Bot not responding
-
-1. Check Discord developer portal → Application → Bot → Public Key is set in env
-2. Verify Interactions Endpoint URL is set (for Vercel: `https://<app>.vercel.app/api/interactive`)
-3. Check bot has correct permissions in server
-
-### Dashboard not loading
-
-1. Check `DASHBOARD_PASSWORD` is set
-2. Check `DASHBOARD_SESSION_SECRET` is set (minimum 32 characters)
-3. Clear browser localStorage and try again
-
-### No chapters being sent
-
-1. Check source URLs in whitelist are valid
-2. Check Discord channel ID is correct format (18 digits)
-3. Check bot has permission to send messages in channel
-4. Check `/api/cron` returns data
-
-### Supabase errors
-
-1. Verify `SUPABASE_URL` and `SUPABASE_KEY` are correct
-2. Check Supabase console for rate limits
-3. Verify Supabase database is active
-
-### Health check failures
-
-1. Source may be temporarily down
-2. Check circuit breaker status in dashboard
-3. Circuit breaker auto-resets after cooldown period
 
 ## License
 
