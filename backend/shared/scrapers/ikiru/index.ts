@@ -3,7 +3,7 @@ import { IKIRU_CONFIG } from "../../../lib/config.js";
 import { ChapterItem, ScraperMetrics, SourceState, ScraperProvider } from "../../types.js";
 
 import { getLogger } from "../../logger.js";
-import { fetchIkiruMangaDetail } from "./scraper.js";
+import { fetchIkiruLatest, fetchIkiruMangaDetail } from "./scraper.js";
 import {
   searchIkiruApi,
   getIkiruSeries,
@@ -61,19 +61,64 @@ export async function scrapeIkiruUpdatesWithMeta(
     metrics: null,
   };
 
-  const maxPages = _options.maxPages ?? IKIRU_CONFIG.MAX_PAGES ?? 1;
+  const maxPages = _options.maxPages ?? IKIRU_CONFIG.MAX_PAGES ?? 2;
 
-  // Use REST API instead of cheerio HTML scraping (CF blocks HTML from Vercel)
-  let rawItems: IkiruSearchItem[] = [];
+  // Strategy: HTML cheerio first (2 pages, more coverage), REST API fallback (24 items, limited)
+  let rawHtmlItems: Awaited<ReturnType<typeof fetchIkiruLatest>> = [];
+  let htmlOk = false;
   try {
-    rawItems = await getIkiruLatestUpdates();
-    logger.info({ count: rawItems.length }, "[scrapeIkiruUpdatesWithMeta] REST API success");
+    rawHtmlItems = await fetchIkiruLatest(maxPages);
+    htmlOk = rawHtmlItems.length > 0;
+    logger.info({ count: rawHtmlItems.length, maxPages }, "[scrapeIkiruUpdatesWithMeta] HTML scrape success");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ err: msg }, "[scrapeIkiruUpdatesWithMeta] REST API failed");
+    logger.warn({ err: msg }, "[scrapeIkiruUpdatesWithMeta] HTML scrape failed (CF block?)");
   }
 
-  const results: ChapterItem[] = rawItems.map((item) => {
+  // HTML results → ChapterItem[]
+  if (htmlOk) {
+    const results: ChapterItem[] = rawHtmlItems.map((item) => ({
+      title: item.title || "",
+      chapter: item.chapter || "",
+      url: item.url || "",
+      mangaUrl: item.mangaUrl || "",
+      source: "ikiru" as const,
+      updatedTime: item.updatedTime
+        ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() ?? item.updatedTime
+        : null,
+      cover: item.cover || null,
+      rating: item.rating || null,
+      genres: item.genres || [],
+    }));
+
+    sourceState.status = results.length > 0 ? "ok" : "empty";
+    sourceState.count = results.length;
+    sourceState.metrics = {
+      pagesScanned: maxPages,
+      stalePageStreak: 0,
+      emptyPageStreak: results.length === 0 ? 1 : 0,
+      maxPages,
+      preferredTitles: 0,
+      preferredUrls: 0,
+      expandedCount: 0,
+      expansionSkipped: true,
+    } as ScraperMetrics;
+
+    return { results, state: sourceState };
+  }
+
+  // Fallback: REST API (works from Vercel, but only 24 items)
+  logger.info("[scrapeIkiruUpdatesWithMeta] Falling back to REST API");
+  let apiItems: IkiruSearchItem[] = [];
+  try {
+    apiItems = await getIkiruLatestUpdates();
+    logger.info({ count: apiItems.length }, "[scrapeIkiruUpdatesWithMeta] REST API fallback success");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: msg }, "[scrapeIkiruUpdatesWithMeta] REST API fallback also failed");
+  }
+
+  const results: ChapterItem[] = apiItems.map((item) => {
     const latest = item.latest_chapters?.[0];
     return {
       title: item.title || "",
@@ -93,10 +138,10 @@ export async function scrapeIkiruUpdatesWithMeta(
   sourceState.status = results.length > 0 ? "ok" : "empty";
   sourceState.count = results.length;
   sourceState.metrics = {
-    pagesScanned: maxPages,
+    pagesScanned: 0,
     stalePageStreak: 0,
     emptyPageStreak: results.length === 0 ? 1 : 0,
-    maxPages,
+    maxPages: 0,
     preferredTitles: 0,
     preferredUrls: 0,
     expandedCount: 0,
@@ -121,7 +166,7 @@ export async function searchIkiru(
       return {
         title: item.title || "",
         chapter: latest ? String(latest.number) : "",
-        url: latest?.permalink || item.permalink,  // Use chapter permalink for dispatch key
+        url: latest?.permalink || item.permalink,
         mangaUrl: item.permalink,
         source: "ikiru",
         updatedTime: latest?.modified_local
