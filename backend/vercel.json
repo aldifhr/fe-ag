@@ -23,19 +23,19 @@
     },
     {
       "source": "/api/manga/:id",
-      "destination": "/api/reader/manga"
+      "destination": "/api/reader?route=manga&id=$1"
     },
     {
       "source": "/api/search",
-      "destination": "/api/reader/search"
+      "destination": "/api/reader?route=search"
     },
     {
       "source": "/api/latest",
-      "destination": "/api/reader/latest"
+      "destination": "/api/reader?route=latest"
     },
     {
       "source": "/api/pages",
-      "destination": "/api/reader/pages"
+      "destination": "/api/reader?route=pages"
     }
   ],
   "headers": [
