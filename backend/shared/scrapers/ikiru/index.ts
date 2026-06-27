@@ -74,7 +74,7 @@ export async function scrapeIkiruUpdatesWithMeta(
       return {
         title: item.title || "",
         chapter: latest ? String(latest.number) : "",
-        url: item.permalink,
+        url: latest?.permalink || item.permalink,  // Use chapter permalink for dispatch key
         mangaUrl: item.permalink,
         source: "ikiru",
         updatedTime: latest?.modified_local
@@ -127,7 +127,7 @@ export async function searchIkiru(
       return {
         title: item.title || "",
         chapter: latest ? String(latest.number) : "",
-        url: item.permalink,
+        url: latest?.permalink || item.permalink,  // Use chapter permalink for dispatch key
         mangaUrl: item.permalink,
         source: "ikiru",
         updatedTime: latest?.modified_local

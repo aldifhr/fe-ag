@@ -15,6 +15,7 @@ import { loadWhitelist, saveWhitelist, invalidateWhitelistCache } from "./storag
 import { batchGetMangaMetadata, setMangaMetadata, deleteMangaMetadata } from "./storage/metadata.js";
 import { supabasePing } from "./storage/stats.js";
 import { supabase } from "../supabase.js";
+import { normalizeSourceUrl } from "../../shared/domain.js";
 
 
 export { loadWhitelist, saveWhitelist, invalidateWhitelistCache };
@@ -307,10 +308,11 @@ export async function batchCheckDispatchedChapters(chapterUrls: string[]): Promi
 
 export async function recordDispatchToSupabase(chapter: ChapterItem, titleKey: string): Promise<void> {
   const now = new Date().toISOString();
+  const normalizedUrl = normalizeSourceUrl(chapter.url);
   try {
     await Promise.all([
       supabase.from('dispatch_history').upsert({
-        chapter_url: chapter.url,
+        chapter_url: normalizedUrl,
         title_key: titleKey,
         source: chapter.source,
         chapter_title: chapter.chapter,
@@ -318,7 +320,7 @@ export async function recordDispatchToSupabase(chapter: ChapterItem, titleKey: s
         metadata: { cover: chapter.cover, updatedTime: chapter.updatedTime },
       }),
       supabase.from('dispatch_claims').upsert({
-        chapter_url: chapter.url,
+        chapter_url: normalizedUrl,
         status: "sent",
         sent_at: now,
       }, { onConflict: "chapter_url" }),

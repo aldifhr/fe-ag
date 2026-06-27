@@ -70,7 +70,12 @@ export default async function handler(req: Request, res: Response) {
     }
 
     // Safety check: skip if already sent (handles QStash retries)
-    const keysToCheck = [task.chapter.key, task.chapter.duplicateKey].filter(Boolean) as string[];
+    // Strip "chapter:" prefix since dispatch_history stores normalized URLs without prefix
+    // Exclude dedup keys (chapter:dedupe:...) — they don't appear in dispatch_history
+    const keysToCheck = [task.chapter.key]
+      .filter((k): k is string => !!k)
+      .map(k => k.startsWith("chapter:") ? k.slice("chapter:".length) : k)
+      .filter(k => !k.includes(":"));
     if (keysToCheck.length > 0) {
       let alreadySent = false;
       let reason = "already_sent";
@@ -83,8 +88,9 @@ export default async function handler(req: Request, res: Response) {
         
         if (!error && data && data.length > 0) {
           alreadySent = true;
+          const normalizedKey = task.chapter.key?.startsWith("chapter:") ? task.chapter.key.slice("chapter:".length) : task.chapter.key;
           const sentUrls = data.map(d => d.chapter_url);
-          reason = sentUrls.includes(task.chapter.key || "") ? "already_sent" : "cross_source_duplicate";
+          reason = sentUrls.includes(normalizedKey || "") ? "already_sent" : "cross_source_duplicate";
         }
       } catch (err) {
         logger.error({ err }, "Supabase error in safety check");
