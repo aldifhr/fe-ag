@@ -119,7 +119,7 @@ vercel --prod
 **Frontend** (1 Vercel project):
 ```bash
 cd frontend
-# Set NEXT_PUBLIC_API_URL to your backend Vercel URL
+# Set NEXT_PUBLIC_API_BASE to your backend Vercel URL
 vercel --prod
 ```
 

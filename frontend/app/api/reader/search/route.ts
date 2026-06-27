@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/reader-search?q=${encodeURIComponent(q)}&source=${source}`, {
+    const res = await fetch(`${API_BASE}/api/reader?route=search&q=${encodeURIComponent(q)}&source=${source}`, {
       signal: AbortSignal.timeout(10000),
     });
     const data = await res.json();

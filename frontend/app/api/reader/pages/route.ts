@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let apiUrl = `${API_BASE}/api/reader-pages?url=${encodeURIComponent(url || "")}`;
+    let apiUrl = `${API_BASE}/api/reader?route=pages&url=${encodeURIComponent(url || "")}`;
     if (baseUrl && chapterNum) {
       apiUrl += `&baseUrl=${encodeURIComponent(baseUrl)}&chapter=${encodeURIComponent(chapterNum)}`;
     }

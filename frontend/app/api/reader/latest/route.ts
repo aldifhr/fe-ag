@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get("source") || "all";
 
   try {
-    const res = await fetch(`${API_BASE}/api/reader-latest?page=${page}&source=${source}`, {
+    const res = await fetch(`${API_BASE}/api/reader?route=latest&page=${page}&source=${source}`, {
       signal: AbortSignal.timeout(15000),
     });
     const data = await res.json();
