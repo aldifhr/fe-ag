@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { searchManga, SearchResult } from "@/lib/api";
+import { searchManga, SearchResult, proxyCover } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
 import { addSearchHistory, getSearchHistory, clearSearchHistory } from "@/lib/searchHistory";
 
@@ -11,12 +11,14 @@ const STATUS_OPTIONS = [
   { label: "Ongoing", value: "ongoing" },
   { label: "Completed", value: "completed" },
   { label: "Hiatus", value: "hiatus" },
+  { label: "Cancelled", value: "cancelled" },
 ] as const;
 
 const SORT_OPTIONS = [
   { label: "Terbaru", value: "" },
   { label: "Populer", value: "popularity" },
   { label: "Rating", value: "rating" },
+  { label: "A-Z", value: "az" },
 ] as const;
 
 function readLS(key: string, fallback: string): string {
@@ -48,12 +50,16 @@ function SearchContent() {
   const [sortFilter, setSortFilter] = useState(() => readLS("manhwa-search-sort", ""));
   const [statusFilter, setStatusFilter] = useState(() => readLS("manhwa-search-status", ""));
 
-  const { data: results = [], isLoading, error: queryError, refetch } = useQuery({
+  const { data: rawResults = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ["search", debouncedQuery, sortFilter, statusFilter],
-    queryFn: () => searchManga(debouncedQuery, "shinigami", sortFilter || undefined, statusFilter || undefined),
+    queryFn: () => searchManga(debouncedQuery, "shinigami", sortFilter === "az" ? undefined : (sortFilter || undefined), statusFilter || undefined),
     enabled: debouncedQuery.trim().length >= 2,
     staleTime: 5 * 60 * 1000,
   });
+
+  const results = sortFilter === "az"
+    ? [...rawResults].sort((a, b) => a.title.localeCompare(b.title, "id"))
+    : rawResults;
 
   const loading = isLoading;
   const error = queryError?.message ?? null;
@@ -209,7 +215,7 @@ function SearchContent() {
               >
                 {item.cover ? (
                   <img
-                    src={item.cover}
+                    src={proxyCover(item.cover)}
                     alt={item.title}
                     className="w-6 h-8 rounded object-cover shrink-0"
                     loading="lazy"
@@ -344,6 +350,7 @@ function SearchContent() {
               id={item.id}
               time={item.time}
               status={item.status}
+              rating={item.rating}
             />
           ))}
         </div>

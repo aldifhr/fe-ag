@@ -9,6 +9,7 @@ export interface SearchResult {
   time?: string;
   chapters?: { number: string; time: string | null }[];
   status?: string | number | null;
+  rating?: string | number | null;
 }
 
 export interface MangaDetail {
@@ -107,4 +108,42 @@ export async function getGenreManga(slug: string, page = 1): Promise<SearchResul
 export async function getRandomManga(): Promise<SearchResult> {
   const data = await fetchJson<{ result: SearchResult }>("/api/reader/random");
   return data.result;
+}
+
+export interface FilterType {
+  slug: string;
+  name: string;
+  count: number;
+}
+
+export interface FilterGenre {
+  slug: string;
+  name: string;
+  count: number;
+}
+
+export interface FiltersResult {
+  types: FilterType[];
+  genres: FilterGenre[];
+}
+
+export async function getPopularToday(): Promise<SearchResult[]> {
+  const data = await fetchJson<{ results: SearchResult[] }>("/api/reader/popular");
+  return data.results;
+}
+
+export async function getFilters(): Promise<FiltersResult> {
+  return fetchJson<FiltersResult>("/api/reader/filters");
+}
+
+/** Proxy cover images from domains that block hotlinking */
+export function proxyCover(url: string | null): string {
+  if (!url) return "";
+  try {
+    const hostname = new URL(url).hostname;
+    const needsProxy = ["06.ikiru.wtf", "03.ikiru.wtf"].includes(hostname);
+    return needsProxy ? `/api/reader/image?src=${encodeURIComponent(url)}` : url;
+  } catch {
+    return url;
+  }
 }

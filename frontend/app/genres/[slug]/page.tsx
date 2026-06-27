@@ -132,6 +132,7 @@ export default function GenreMangaPage() {
                 chapter={item.chapter}
                 time={item.time}
                 status={item.status}
+                rating={item.rating}
                 chapters={item.chapters}
               />
             ))}

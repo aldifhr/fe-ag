@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { getGroupedHistory, removeMangaHistory, removeMultipleMangaHistory, clearHistory, formatChapters, timeAgo, GroupedHistory } from "@/lib/history";
 import { showToast } from "@/lib/toast";
 import Link from "next/link";
+import { proxyCover } from "@/lib/api";
 
 export default function HistoryPage() {
   const [items, setItems] = useState<GroupedHistory[]>([]);
@@ -255,7 +256,7 @@ function HistoryRow({
       <div className="w-14 shrink-0 rounded-md overflow-hidden bg-[var(--color-bg)]">
         {item.cover ? (
           <img
-            src={item.cover}
+            src={proxyCover(item.cover)}
             alt={item.title}
             className="w-full h-full object-cover"
           />

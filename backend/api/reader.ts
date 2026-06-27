@@ -4,6 +4,7 @@ import { fetchWithRetry, JSON_HEADERS, fetchUpdateList, searchShngm } from "../s
 import { isAxiosLikeResponse, isSecondaryApiData } from "../shared/scrapers/secondary/types.js";
 import { fetchReaderManga } from "../shared/scrapers/secondary/reader.js";
 import { scrapeIkiruUpdatesWithMeta, fetchIkiruMetadata, fetchIkiruChapters, searchIkiru } from "../shared/scrapers/ikiru/index.js";
+import { getIkiruChapterImages, getIkiruPopularToday, getIkiruFilters, getIkiruSeries } from "../shared/scrapers/ikiru/api.js";
 import { parse } from "node-html-parser";
 import type { Request, Response } from "express";
 
@@ -20,6 +21,8 @@ export default async function handler(req: Request, res: Response) {
       case "pages":   return await handlePages(req, res);
       case "health":  return await handleHealth(req, res);
       case "debug":   return await handleDebug(req, res);
+      case "popular":  return await handlePopular(req, res);
+      case "filters":  return await handleFilters(req, res);
       case "genres":  return await handleGenres(req, res);
       case "genre-manga": return await handleGenreManga(req, res);
       case "random":  return await handleRandom(req, res);
@@ -39,7 +42,7 @@ async function handleLatest(req: Request, res: Response) {
   const sort = (req.query.sort as string) || "latest";
 
   const PAGE_SIZE = 50;
-  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string; status?: string | number | null; chapters?: { number: string; time: string | null }[] }[] = [];
+  const all: { id: string; title: string; cover: string | null; url: string | null; source: string; chapter?: string; time?: string; status?: string | number | null; rating?: string | number | null; chapters?: { number: string; time: string | null }[] }[] = [];
 
   if (source === "all" || source === "shinigami") {
     if (sort === "latest") {
@@ -54,6 +57,7 @@ async function handleLatest(req: Request, res: Response) {
           chapter: String(row.latest_chapter_number ?? ""),
           time: row.latest_chapter_time || row.updated_at || undefined,
           status: row.status ?? null,
+          rating: row.user_rate ?? null,
           chapters: (row as any).chapters?.slice(0, 2).map((c: any) => ({ number: String(c.chapter_number), time: c.created_at ?? null })),
         });
       }
@@ -74,6 +78,7 @@ async function handleLatest(req: Request, res: Response) {
             chapter: String(row.latest_chapter_number ?? ""),
             time: row.latest_chapter_time || row.updated_at || undefined,
             status: row.status ?? null,
+            rating: row.user_rate ?? null,
             chapters: row.chapters?.slice(0, 2).map((c: any) => ({ number: String(c.chapter_number), time: c.created_at ?? null })),
           });
         }
@@ -81,20 +86,41 @@ async function handleLatest(req: Request, res: Response) {
     }
   }
 
-  if (sort === "latest" && (source === "all" || source === "ikiru")) {
-    const ikiruRes = await scrapeIkiruUpdatesWithMeta();
-    const items = ikiruRes.results || [];
-    for (const item of items) {
-      const mangaUrl = item.mangaUrl ?? item.url;
-      all.push({
-        id: mangaUrl,
-        title: item.title,
-        cover: item.cover ?? null,
-        url: mangaUrl,
-        source: "ikiru",
-        chapter: item.chapter,
-        time: item.updatedTime || undefined,
-      });
+  if (source === "all" || source === "ikiru") {
+    if (sort === "popularity") {
+      const items = await getIkiruPopularToday();
+      for (const item of items) {
+        const mangaUrl = item.permalink;
+        const slug = mangaUrl?.match(/\/manga\/([^/]+)/)?.[1] || "";
+        const latest = item.latest_chapters?.[0];
+        all.push({
+          id: slug || mangaUrl || "",
+          title: item.title,
+          cover: item.cover ?? null,
+          url: mangaUrl,
+          source: "ikiru",
+          chapter: latest ? String(latest.number) : "",
+          time: latest?.modified_local || undefined,
+          rating: item.rating ?? null,
+        });
+      }
+    } else {
+      const ikiruRes = await scrapeIkiruUpdatesWithMeta();
+      const items = ikiruRes.results || [];
+      for (const item of items) {
+        const mangaUrl = item.mangaUrl ?? item.url;
+        const slug = mangaUrl?.match(/\/manga\/([^/]+)/)?.[1] || "";
+        all.push({
+          id: slug || mangaUrl || "",
+          title: item.title,
+          cover: item.cover ?? null,
+          url: mangaUrl,
+          source: "ikiru",
+          chapter: item.chapter,
+          time: item.updatedTime || undefined,
+          rating: item.rating ?? null,
+        });
+      }
     }
   }
 
@@ -117,13 +143,13 @@ async function handleSearch(req: Request, res: Response) {
     return res.status(400).json({ error: "Query parameter 'q' required" });
   }
 
-  const results: { id: string; title: string; cover: string | null; url: string; source: string }[] = [];
+  const results: { id: string; title: string; cover: string | null; url: string; source: string; rating?: string | number | null }[] = [];
 
   if (source === "all" || source === "shinigami") {
     const shngm = await searchShngm(q, "shinigami", 0, { sort: sort || undefined, status: status || undefined });
     if (shngm.success && shngm.data) {
       for (const item of shngm.data) {
-        results.push({ id: item.mangaId ? String(item.mangaId) : item.url, title: item.title, cover: item.cover ?? null, url: item.mangaUrl ?? item.url, source: "shinigami" });
+        results.push({ id: item.mangaId ? String(item.mangaId) : item.url, title: item.title, cover: item.cover ?? null, url: item.mangaUrl ?? item.url, source: "shinigami", rating: item.rating ?? null });
       }
     }
   }
@@ -133,7 +159,9 @@ async function handleSearch(req: Request, res: Response) {
     if (ikiru.success && ikiru.data) {
       for (const item of ikiru.data) {
         const mangaUrl = item.mangaUrl ?? item.url;
-        results.push({ id: mangaUrl, title: item.title, cover: item.cover ?? null, url: mangaUrl, source: "ikiru" });
+        // Use slug as ID for cleaner URLs (e.g., "one-piece" instead of full URL)
+        const slug = mangaUrl?.match(/\/manga\/([^/]+)/)?.[1] || mangaUrl || "";
+        results.push({ id: slug, title: item.title, cover: item.cover ?? null, url: mangaUrl, source: "ikiru", rating: item.rating ?? null });
       }
     }
   }
@@ -186,29 +214,49 @@ async function handleManga(req: Request, res: Response) {
     });
   }
 
-  if (source === "ikiru" && url) {
-    const normalizedUrl = normalizeIkiruUrl(url);
-    const meta = await fetchIkiruMetadata(normalizedUrl);
-    const chapters = await fetchIkiruChapters(normalizedUrl);
+  if (source === "ikiru" && (url || id)) {
+    const targetUrl = url || id;
+    const normalizedUrl = normalizeIkiruUrl(targetUrl);
+    // Extract slug from URL (e.g., https://06.ikiru.wtf/manga/one-piece/ → one-piece)
+    // Or use id directly if it's already a slug (e.g., "one-piece")
+    const slug = targetUrl?.match(/\/manga\/([^/]+)/)?.[1] || (targetUrl && !targetUrl.includes("://") ? targetUrl : "") || "";
+    const fullUrl = normalizedUrl?.includes("://") ? normalizedUrl : (slug ? `https://06.ikiru.wtf/manga/${slug}/` : "");
+
+    // Use REST API for metadata (fast, clean JSON)
+    const series = slug ? await getIkiruSeries(slug) : null;
+    const meta = series
+      ? { title: series.title, description: series.description, genres: series.genre, status: null, rating: series.rating, cover: series.cover }
+      : await fetchIkiruMetadata(fullUrl);
+
+    // Keep Scrapling for full chapter list (REST API only gives latest chapters)
+    const chapters = await fetchIkiruChapters(fullUrl);
 
     return res.json({
       manga: {
-        id: normalizedUrl,
+        id: slug || normalizedUrl,
         title: meta?.title || "Unknown",
         cover: meta?.cover || null,
         description: meta?.description || null,
         status: meta?.status || null,
-        url: normalizedUrl,
+        url: fullUrl,
         source: "ikiru",
         genres: meta?.genres || [],
       },
-      chapters: (chapters || []).map((c: any) => ({
-        id: c.chapter,
-        number: c.chapter,
-        title: c.title || `Chapter ${c.chapter}`,
-        url: c.url,
-        createdAt: c.updatedTime || null,
-      })),
+      chapters: (chapters || []).map((c: any) => {
+        const rawNum = String(c.chapter ?? "");
+        const numOnly = rawNum.replace(/^chapter\s+/i, "").trim() || rawNum;
+        const rawTitle = String(c.title ?? "");
+        const cleanTitle = rawTitle.replace(/^chapter\s+/i, "").trim();
+        // Extract real Ikiru chapter ID from URL pattern: chapter-{num}.{id}/
+        const realId = c.url?.match(/chapter-[\w.-]+\.(\d+)/)?.[1] || numOnly;
+        return {
+          id: realId,
+          number: numOnly,
+          title: cleanTitle && cleanTitle !== numOnly ? rawTitle : "",
+          url: c.url,
+          createdAt: c.updatedTime || null,
+        };
+      }),
     });
   }
 
@@ -240,12 +288,21 @@ async function tryFetchPages(url: string): Promise<string[]> {
   const images: string[] = [];
   const seen = new Set<string>();
 
+  // Patterns that identify banner/ad images, not real manga content
+  const BANNER_RE = /\.(gif)(\?|$)/i;
+  const AD_PATH_RE = /\/wp-content\/uploads\/.*\.(gif|png|jpg)(\?|$)/i;
+  const AD_KEYWORDS = /banner|slot|casino|sport|betting|koko|pentaslot|ikiru.*\.(gif)/i;
+
   const addUrl = (u: string) => {
     const clean = u.startsWith("//") ? `https:${u}` : u;
-    if (clean && !seen.has(clean) && !clean.includes("icon") && !clean.includes("logo") && !clean.includes("avatar")) {
-      seen.add(clean);
-      images.push(clean);
-    }
+    if (
+      !clean || seen.has(clean)
+      || /icon|logo|avatar/i.test(clean)
+      || BANNER_RE.test(clean)
+      || (AD_PATH_RE.test(clean) && AD_KEYWORDS.test(clean))
+    ) return;
+    seen.add(clean);
+    images.push(clean);
   };
 
   for (const img of root.querySelectorAll("img[src], img[data-src], img[data-lazy-src]")) {
@@ -332,6 +389,43 @@ async function handlePages(req: Request, res: Response) {
     }
   }
 
+  // Ikiru: use REST API for chapter images
+  const isIkiruUrl = source === "ikiru" || (url && /ikiru\.wtf/i.test(url)) || (baseUrl && /ikiru\.wtf/i.test(baseUrl));
+  if (isIkiruUrl) {
+    let resolvedId = chapterId;
+
+    // Auto-resolve: extract chapter ID from URL pattern chapter-{num}.{id}/
+    if (!resolvedId) {
+      const urlToCheck = url || baseUrl || "";
+      const idFromUrl = urlToCheck.match(/chapter-[\w.-]+\.(\d+)/)?.[1];
+      if (idFromUrl) resolvedId = idFromUrl;
+    }
+
+    // Auto-resolve: look up from series endpoint by chapter number
+    if (!resolvedId && chapterNum) {
+      const slugFromUrl = (url || baseUrl || "").match(/\/manga\/([^/]+)/)?.[1];
+      if (slugFromUrl) {
+        try {
+          const series = await getIkiruSeries(slugFromUrl);
+          if (series?.latest_chapters?.length) {
+            const match = series.latest_chapters.find((c: any) => String(c.number) === String(chapterNum));
+            if (match?.id) resolvedId = String(match.id);
+          }
+        } catch { /* fall through */ }
+      }
+    }
+
+    if (resolvedId) {
+      try {
+        const chapterDetail = await getIkiruChapterImages(resolvedId);
+        if (chapterDetail?.images?.length) {
+          const images = chapterDetail.images.sort((a, b) => a.page - b.page).map(img => img.url);
+          return res.json({ images, total: images.length, url });
+        }
+      } catch { /* fall through to HTML scraping */ }
+    }
+  }
+
   if (!url && (!baseUrl || !chapterNum)) {
     return res.status(400).json({ error: "Need 'url' OR ('baseUrl' + 'chapter')" });
   }
@@ -359,6 +453,39 @@ async function handlePages(req: Request, res: Response) {
   }
 
   return res.json({ images: [], total: 0, url: urlsToTry[0] || url, note: "No images extracted from any URL pattern" });
+}
+
+// ─── Popular (Ikiru) ─────────────────────────────────────────────────
+
+async function handlePopular(_req: Request, res: Response) {
+  try {
+    const items = await getIkiruPopularToday();
+    const results = items.map(item => ({
+      id: String(item.id),
+      title: item.title,
+      cover: item.cover || null,
+      url: item.permalink,
+      source: "ikiru",
+      chapter: item.latest_chapters?.[0] ? String(item.latest_chapters[0].number) : "",
+      time: item.latest_chapters?.[0]?.modified_local || null,
+    }));
+    return res.json({ results, total: results.length });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return res.json({ results: [], total: 0, error: message });
+  }
+}
+
+// ─── Filters (Ikiru) ─────────────────────────────────────────────────
+
+async function handleFilters(_req: Request, res: Response) {
+  try {
+    const filters = await getIkiruFilters();
+    return res.json(filters);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return res.json({ types: [], genres: [], error: message });
+  }
 }
 
 // ─── Genres ──────────────────────────────────────────────────────────

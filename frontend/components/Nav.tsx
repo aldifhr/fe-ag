@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+// import { SignInButton, SignUpButton, UserButton, Show } from "@clerk/nextjs"; // SKIPPED: Clerk disabled for local dev
 import SearchModal from "@/components/SearchModal";
 import { useTheme } from "@/components/ThemeProvider";
 import { getFavorites } from "@/lib/favorites";
@@ -111,11 +112,38 @@ export default function Nav() {
               <Link href="/genres" className={navLinkClass("/genres")}>
                 Genre
               </Link>
+              <Link href="/stats" className={navLinkClass("/stats")}>
+                Statistik
+              </Link>
             </div>
           </div>
 
           {/* Right group */}
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            {/* Auth controls — Clerk skipped for local dev. Re-enable when SSL ready. */}
+            {/* <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="px-3 py-1.5 text-[13px] font-medium rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] transition-colors duration-150">
+                  Masuk
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="px-3 py-1.5 text-[13px] font-medium rounded-md bg-[var(--color-accent)] text-white hover:opacity-90 transition-colors duration-150">
+                  Daftar
+                </button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8",
+                  },
+                }}
+              />
+            </Show> */}
+
             <button
               onClick={toggle}
               className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-md transition-colors duration-150"
@@ -213,6 +241,33 @@ export default function Nav() {
             <Link href="/genres" onClick={closeMenu} className={mobileLinkClass("/genres")}>
               Genre
             </Link>
+            <Link href="/stats" onClick={closeMenu} className={mobileLinkClass("/stats")}>
+              Statistik
+            </Link>
+
+            {/* Mobile auth controls — Clerk skipped for local dev */}
+            {/*
+            <Show when="signed-out">
+              <div className="border-t border-[var(--color-border)] mt-1 pt-1 flex gap-2">
+                <SignInButton mode="modal">
+                  <button className="flex-1 px-4 py-3 text-[15px] font-medium rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] transition-colors duration-150">
+                    Masuk
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="flex-1 px-4 py-3 text-[15px] font-medium rounded-lg bg-[var(--color-accent)] text-white hover:opacity-90 transition-colors duration-150">
+                    Daftar
+                  </button>
+                </SignUpButton>
+              </div>
+            </Show>
+            <Show when="signed-in">
+              <div className="border-t border-[var(--color-border)] mt-1 pt-2 flex items-center gap-3 px-4">
+                <UserButton />
+                <span className="text-[13px] text-[var(--color-text-muted)]">Akun saya</span>
+              </div>
+            </Show>
+            */}
 
             <div className="border-t border-[var(--color-border)] mt-1 pt-1">
               <button

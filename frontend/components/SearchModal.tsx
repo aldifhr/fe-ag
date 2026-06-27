@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { searchManga, SearchResult } from "@/lib/api";
+import { searchManga, SearchResult, proxyCover } from "@/lib/api";
 import Link from "next/link";
 
 interface Props {
@@ -216,7 +216,7 @@ export default function SearchModal({ open, onClose }: Props) {
                   <div className="w-10 h-13 shrink-0 rounded overflow-hidden bg-white/5">
                     {item.cover ? (
                       <img
-                        src={item.cover}
+                        src={proxyCover(item.cover)}
                         alt={item.title}
                         className="w-full h-full object-cover"
                         loading="lazy"

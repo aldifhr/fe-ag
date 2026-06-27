@@ -4,6 +4,7 @@ import { useState } from "react";
 import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
 import { showToast } from "@/lib/toast";
 import { timeAgo } from "@/lib/history";
+import { proxyCover } from "@/lib/api";
 
 interface Props {
   title: string;
@@ -13,14 +14,14 @@ interface Props {
   chapter?: string;
   time?: string;
   status?: string | number | null;
+  rating?: string | number | null;
   chapters?: { number: string; time: string | null }[];
 }
 
-export default function MangaCard({ title, cover, source, id, chapter, time, status, chapters }: Props) {
+export default function MangaCard({ title, cover, source, id, chapter, time, status, rating, chapters }: Props) {
   const [imgErr, setImgErr] = useState(false);
   const [fav, setFav] = useState(() => isFavorite(id));
   const [imgLoaded, setImgLoaded] = useState(false);
-  const blurBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMCwsKCwsMDQ4SEA0OEQ4LCxAWEBETFBUVFQ4PFx8WFBgSFBUU/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBL/wAARCAAEAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAFRABAQAAAAAAAAAAAAAAAAAAAAf/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AKwA//9k=";
 
   // Normalize status
   const statusLabel: string | null =
@@ -35,7 +36,10 @@ export default function MangaCard({ title, cover, source, id, chapter, time, sta
     : statusLabel === "Hiatus" ? "bg-yellow-400"
     : "";
 
-  // "Baru" badge: updated within 24h
+  // Normalize rating
+  const ratingNum = rating != null && rating !== "" ? Number(rating) : null;
+  const hasRating = ratingNum !== null && !isNaN(ratingNum) && ratingNum > 0;
+
   const isNew = time ? (Date.now() - new Date(time).getTime()) < 24 * 60 * 60 * 1000 : false;
 
   function toggleFav(e: React.MouseEvent) {
@@ -84,26 +88,18 @@ export default function MangaCard({ title, cover, source, id, chapter, time, sta
           </button>
 
           {cover && !imgErr ? (
-            <>
-              {/* Blur placeholder */}
-              <div
-                className="absolute inset-0 transition-opacity duration-500"
-                style={{
-                  backgroundImage: `url(${blurBase64})`,
-                  backgroundSize: 'cover',
-                  filter: 'blur(20px)',
-                  opacity: imgLoaded ? 0 : 1,
-                }}
-              />
-              <img
-                src={cover}
-                alt={title}
-                className={`relative w-full h-full object-cover transition-opacity duration-500 group-hover:scale-[1.03] ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-                onError={() => setImgErr(true)}
-                onLoad={() => setImgLoaded(true)}
-                loading="lazy"
-              />
-            </>
+            <img
+              src={proxyCover(cover)}
+              alt={title}
+              className="relative w-full h-full object-cover transition-[filter,transform] duration-300 group-hover:scale-[1.03]"
+              style={{
+                filter: imgLoaded ? 'none' : 'blur(10px)',
+                transform: imgLoaded ? 'none' : 'scale(1.1)',
+              }}
+              onError={() => setImgErr(true)}
+              onLoad={() => setImgLoaded(true)}
+              loading="lazy"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-[var(--color-surface)] text-[var(--color-text-muted)] text-sm p-3 text-center leading-relaxed">
               {title}
@@ -143,11 +139,14 @@ export default function MangaCard({ title, cover, source, id, chapter, time, sta
         ) : null}
       </div>
 
-      {/* Source + Status badges — always at bottom */}
+      {/* Rating + Status badges — always at bottom */}
       <div className="px-3 pb-2.5 flex items-center gap-1.5 flex-wrap">
-        <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider rounded text-[var(--color-text-muted)] bg-[var(--color-surface-hover)]">
-          {source}
-        </span>
+        {hasRating && (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded text-amber-500 bg-amber-500/10">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            {ratingNum!.toFixed(1)}
+          </span>
+        )}
         {statusLabel && (
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded text-[var(--color-text-muted)] bg-[var(--color-surface-hover)]">
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />

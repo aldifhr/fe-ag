@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { getMangaDetail, MangaDetail, getLatest } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getMangaDetail, MangaDetail, getGenreManga, SearchResult, proxyCover } from "@/lib/api";
 import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
-import { getReadChapters, getLastReadChapter, markAsRead, unmarkAsRead } from "@/lib/history";
+import { getReadChapters, getLastReadChapter, markAsRead, unmarkAsRead, getContinueReading } from "@/lib/history";
 import { showToast } from "@/lib/toast";
+import { cleanDescription } from "@/lib/descriptionFilter";
 import Link from "next/link";
 import MangaCard from "@/components/MangaCard";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -51,17 +53,36 @@ export default function MangaDetailPage() {
   const [chapterJump, setChapterJump] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
   const [chapterSort, setChapterSort] = useState<"desc" | "asc">("desc");
+  const [chapterSearch, setChapterSearch] = useState("");
+  const [showAllChapters, setShowAllChapters] = useState(false);
+  const continueReading = getContinueReading();
   const CHAPTERS_PER_PAGE = 10;
 
   const mangaId = useMemo(() => {
-    return id.includes("://") ? (id.match(/\/(\d+)\/?$/) || id.match(/(\d+)/))?.[1] ?? id : id;
-  }, [id]);
+    // For Ikiru: id is a slug (e.g., "high-class"), no extraction needed
+    if (source === "ikiru") return id;
+    // For Shinigami: id may be a full URL — extract the UUID or numeric ID
+    return id.includes("://") ? (id.match(/\/([0-9a-f-]{36}|\d+)\/?$/i) || id.match(/\/([^/]+)\/?$/))?.[1] ?? id : id;
+  }, [id, source]);
 
   const { data, isLoading, error: queryError } = useQuery<MangaDetail>({
     queryKey: ["manga", id],
-    queryFn: () => getMangaDetail(mangaId, "shinigami"),
+    queryFn: () => getMangaDetail(mangaId, source),
     staleTime: 5 * 60 * 1000,
   });
+
+  const queryClient = useQueryClient();
+
+  // Prefetch genre-based recommendations so "Serupa" section loads instantly
+  useEffect(() => {
+    if (data?.manga.genres?.[0]) {
+      queryClient.prefetchQuery({
+        queryKey: ["genre-manga", data.manga.genres[0], 1],
+        queryFn: () => getGenreManga(data.manga.genres[0], 1),
+        staleTime: 10 * 60 * 1000,
+      });
+    }
+  }, [data?.manga.genres, queryClient]);
 
   const errorMsg = queryError ? (queryError instanceof Error ? queryError.message : String(queryError)) : null;
 
@@ -83,13 +104,32 @@ export default function MangaDetailPage() {
     return sorted;
   }, [chapters, chapterSort]);
 
-  // Recommendations
-  const { data: recommendations = [] } = useQuery<{ id: string; title: string; cover: string | null; source: string }[]>({
-    queryKey: ["recommendations", data?.manga.id],
+  // Filter chapters by search
+  const filteredChapters = useMemo(() => {
+    const q = chapterSearch.trim();
+    return q ? sortedChapters.filter(ch => String(ch.number).includes(q)) : sortedChapters;
+  }, [sortedChapters, chapterSearch]);
+
+  // Virtualize: show first 100 by default
+  const visibleChapters = showAllChapters ? filteredChapters : filteredChapters.slice(0, 100);
+
+  // Reset pagination when search changes
+  useEffect(() => { setChapterPage(1); }, [chapterSearch]);
+
+  // Genre-based recommendations (fallback to random if no genres)
+  const firstGenre = data?.manga.genres?.[0] ?? null;
+
+  const { data: recommendations = [] } = useQuery<SearchResult[]>({
+    queryKey: firstGenre ? ["similar", data?.manga.id, firstGenre] : ["recommendations", data?.manga.id],
     queryFn: async () => {
+      if (firstGenre) {
+        const results = await getGenreManga(firstGenre, 1);
+        return results.filter((m) => m.id !== data!.manga.id).slice(0, 6);
+      }
+      // Fallback: fetch latest and shuffle
+      const { getLatest } = await import("@/lib/api");
       const latest = await getLatest("shinigami", 1);
       const filtered = latest.filter((m) => m.id !== data!.manga.id);
-      // Fisher-Yates shuffle
       for (let i = filtered.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
@@ -127,12 +167,13 @@ export default function MangaDetailPage() {
   return (
     <div>
       {/* Hero section */}
+      <SectionErrorBoundary>
       <div className="flex flex-col md:flex-row gap-6 md:gap-8 mb-10">
         {/* Cover */}
         <div className="w-36 md:w-48 shrink-0 mx-auto md:mx-0">
           {manga.cover ? (
             <img
-              src={manga.cover}
+              src={proxyCover(manga.cover)}
               alt={manga.title}
               className="w-full rounded-lg shadow-lg shadow-black/30"
             />
@@ -146,7 +187,7 @@ export default function MangaDetailPage() {
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2 flex-wrap mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tright">
               {manga.title}
             </h1>
             <span className="shrink-0 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]">
@@ -283,9 +324,9 @@ export default function MangaDetailPage() {
           {manga.description && (
             <div>
               <p className={`text-[13px] leading-relaxed text-[var(--color-text-secondary)] ${!descExpanded ? "line-clamp-4" : ""}`}>
-                {manga.description}
+                {cleanDescription(manga.description)}
               </p>
-              {manga.description.length > 200 && (
+              {cleanDescription(manga.description).length > 200 && (
                 <button
                   onClick={() => setDescExpanded((p) => !p)}
                   className="text-[12px] text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] font-medium mt-1 transition-colors"
@@ -297,11 +338,13 @@ export default function MangaDetailPage() {
           )}
         </div>
       </div>
+      </SectionErrorBoundary>
 
       {/* Chapter list */}
+      <SectionErrorBoundary>
       <div>
         <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
-          Chapter <span className="text-[var(--color-text-muted)] font-normal">({sortedChapters.length})</span>
+          Chapter <span className="text-[var(--color-text-muted)] font-normal">({filteredChapters.length})</span>
           <span className="text-[var(--color-text-muted)]">·</span>
           <button
             onClick={() => {
@@ -313,6 +356,17 @@ export default function MangaDetailPage() {
             {chapterSort === "desc" ? "↑ Terlama" : "↓ Terbaru"}
           </button>
         </h2>
+
+        {/* Chapter search */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Cari chapter..."
+            value={chapterSearch}
+            onChange={(e) => setChapterSearch(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+          />
+        </div>
 
         {/* Lanjut dari Chapter X banner */}
         {lastRead !== null && sortedChapters.length > 0 && (() => {
@@ -342,7 +396,7 @@ export default function MangaDetailPage() {
           );
         })()}
 
-        {sortedChapters.length === 0 ? (
+        {filteredChapters.length === 0 ? (
           <p className="text-[var(--color-text-muted)] py-10 text-center text-[13px]">Belum ada chapter tersedia.</p>
         ) : (
           <>
@@ -376,7 +430,7 @@ export default function MangaDetailPage() {
             </div>
 
             <div className="flex flex-col">
-              {sortedChapters.slice((chapterPage - 1) * CHAPTERS_PER_PAGE, chapterPage * CHAPTERS_PER_PAGE).map((ch) => (
+              {visibleChapters.slice((chapterPage - 1) * CHAPTERS_PER_PAGE, chapterPage * CHAPTERS_PER_PAGE).map((ch) => (
                 <Link
                   key={`${ch.id}`}
                   id={`chapter-${ch.number}`}
@@ -420,9 +474,9 @@ export default function MangaDetailPage() {
                       <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
                     )}
                     <span className={`text-[13px] font-medium transition-colors ${readChapters.has(String(ch.number)) ? "text-[var(--color-text-muted)] opacity-60 group-hover:text-[var(--color-text-secondary)]" : "text-[var(--color-text)] group-hover:text-white"}`}>
-                      Chapter {ch.number}
+                      {String(ch.number).match(/^chapter\s/i) ? ch.number : `Chapter ${ch.number}`}
                     </span>
-                    {ch.title && (
+                    {ch.title && ch.title !== `Chapter ${ch.number}` && (
                       <span className="text-[13px] text-[var(--color-text-muted)] ml-2">
                         {ch.title}
                       </span>
@@ -438,7 +492,7 @@ export default function MangaDetailPage() {
             </div>
 
             {/* Pagination */}
-            {Math.ceil(sortedChapters.length / CHAPTERS_PER_PAGE) > 1 && (
+            {Math.ceil(visibleChapters.length / CHAPTERS_PER_PAGE) > 1 && (
               <div className="flex items-center justify-center gap-2 mt-4 pt-4">
                 <button
                   onClick={() => setChapterPage((p) => Math.max(1, p - 1))}
@@ -448,30 +502,58 @@ export default function MangaDetailPage() {
                   &laquo; Prev
                 </button>
                 <span className="text-[12px] text-[var(--color-text-muted)] tabular-nums">
-                  {chapterPage} / {Math.ceil(sortedChapters.length / CHAPTERS_PER_PAGE)}
+                  {chapterPage} / {Math.ceil(visibleChapters.length / CHAPTERS_PER_PAGE)}
                 </span>
                 <button
-                  onClick={() => setChapterPage((p) => Math.min(Math.ceil(sortedChapters.length / CHAPTERS_PER_PAGE), p + 1))}
-                  disabled={chapterPage === Math.ceil(sortedChapters.length / CHAPTERS_PER_PAGE)}
+                  onClick={() => setChapterPage((p) => Math.min(Math.ceil(visibleChapters.length / CHAPTERS_PER_PAGE), p + 1))}
+                  disabled={chapterPage === Math.ceil(visibleChapters.length / CHAPTERS_PER_PAGE)}
                   className="px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   Next &raquo;
                 </button>
               </div>
             )}
+
+            {/* Tampilkan Semua button */}
+            {!showAllChapters && filteredChapters.length > 100 && (
+              <button
+                onClick={() => setShowAllChapters(true)}
+                className="w-full py-3 mt-2 text-sm font-medium text-[var(--color-accent)] bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-surface)] transition-colors cursor-pointer"
+              >
+                Tampilkan Semua ({filteredChapters.length} chapter)
+              </button>
+            )}
           </>
         )}
       </div>
+      </SectionErrorBoundary>
 
-      {/* Manga Lainnya */}
+      {/* Similar */}
+      <SectionErrorBoundary>
       {recommendations.length > 0 && (
         <div className="mt-10">
-          <h2 className="text-base font-semibold mb-4">Manga Lainnya</h2>
+          <h2 className="text-base font-semibold mb-4">Serupa</h2>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             {recommendations.map((m) => (
               <MangaCard key={m.id} id={m.id} title={m.title} cover={m.cover} source={m.source} />
             ))}
           </div>
+        </div>
+      )}
+      </SectionErrorBoundary>
+
+      {/* Floating "Lanjutkan Baca" CTA */}
+      {continueReading && continueReading.mangaId === id && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+          <Link
+            href={`/manga/${source}/${encodeURIComponent(id)}/${continueReading.chapterNumber}`}
+            className="flex items-center gap-2 px-5 py-3 rounded-full bg-[var(--color-accent)] text-white font-medium text-sm shadow-lg shadow-[var(--color-accent-dim)] hover:bg-[var(--color-accent-hover)] transition-all duration-150"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Lanjutkan Baca — Chapter {continueReading.chapterNumber}
+          </Link>
         </div>
       )}
     </div>

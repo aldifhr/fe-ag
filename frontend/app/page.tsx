@@ -4,10 +4,11 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getLatest, getRandomManga, getGenreManga, SearchResult } from "@/lib/api";
+import { getLatest, getRandomManga, getGenreManga, getPopularToday, SearchResult, proxyCover } from "@/lib/api";
 import { checkConnection } from "@/lib/connection";
 import { getGroupedHistory, formatChapters, timeAgo, GroupedHistory } from "@/lib/history";
 import MangaCard from "@/components/MangaCard";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 
 function SkeletonGrid() {
   return (
@@ -26,12 +27,20 @@ function SkeletonGrid() {
   );
 }
 
-type SortOption = "latest" | "popularity" | "rating";
+type SortOption = "latest" | "popularity" | "rating" | "az";
+type SourceOption = "all" | "shinigami" | "ikiru";
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "latest", label: "Terbaru" },
   { value: "popularity", label: "Populer" },
   { value: "rating", label: "Rating" },
+  { value: "az", label: "A-Z" },
+];
+
+const SOURCE_OPTIONS: { value: SourceOption; label: string }[] = [
+  { value: "all", label: "Semua" },
+  { value: "shinigami", label: "Shinigami" },
+  { value: "ikiru", label: "Ikiru" },
 ];
 
 const DEFAULT_FOR_YOU_GENRE = "action";
@@ -55,17 +64,24 @@ export default function HomePage() {
   const [sort, setSort] = useState<SortOption>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("manhwa-sort");
-      if (stored === "latest" || stored === "popularity" || stored === "rating") return stored;
+      if (stored === "latest" || stored === "popularity" || stored === "rating" || stored === "az") return stored;
     }
     return "latest";
+  });
+  const [source, setSource] = useState<SourceOption>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("manhwa-source");
+      if (stored === "all" || stored === "shinigami" || stored === "ikiru") return stored;
+    }
+    return "all";
   });
   const [randomLoading, setRandomLoading] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: initialData, isLoading, error: queryError, refetch } = useQuery({
-    queryKey: ["latest", "shinigami", sort],
-    queryFn: () => getLatest("shinigami", 1, sort),
+    queryKey: ["latest", source, sort],
+    queryFn: () => getLatest(source, 1, sort === "az" ? "latest" : sort),
   });
 
   const error = queryError?.message ?? null;
@@ -75,14 +91,12 @@ export default function HomePage() {
   const [showForYou, setShowForYou] = useState(false);
 
   useEffect(() => {
-    const history = getGroupedHistory().slice(0, 10);
-    setRecentHistory(getGroupedHistory().slice(0, 5));
-    // Simple heuristic: use first history entry's source, default to "action"
-    // Genre data requires detail fetch, so default to "action" — upgrade: cache genre per manga in history
+    const history = getGroupedHistory();
+    setRecentHistory(history.slice(0, 5));
     if (history.length > 0) {
       setShowForYou(true);
-      // Try to pick a genre from the first history entry by fetching its detail
-      // For efficiency, just use default "action" — skipped: per-manga genre lookup, add when user wants smarter recs
+      const genres = ["action", "romance", "fantasy"];
+      setForYouGenre(genres[history.length % genres.length]);
     }
   }, []);
 
@@ -90,6 +104,18 @@ export default function HomePage() {
     queryKey: ["for-you", forYouGenre],
     queryFn: () => getGenreManga(forYouGenre, 1),
     enabled: showForYou,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const updatedQuery = useQuery({
+    queryKey: ["home-updated"],
+    queryFn: () => getLatest("all", 1, "latest"),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const popularQuery = useQuery({
+    queryKey: ["home-popular"],
+    queryFn: () => getPopularToday(),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -102,7 +128,10 @@ export default function HomePage() {
     }
   }, [initialData]);
 
-  const items = [...(initialData ?? []), ...extraItems];
+  const rawItems = [...(initialData ?? []), ...extraItems];
+  const items = sort === "az"
+    ? [...rawItems].sort((a, b) => a.title.localeCompare(b.title, "id"))
+    : rawItems;
 
   // Persist view mode and sort
   useEffect(() => {
@@ -113,19 +142,23 @@ export default function HomePage() {
     localStorage.setItem("manhwa-sort", sort);
   }, [sort]);
 
+  useEffect(() => {
+    localStorage.setItem("manhwa-source", source);
+  }, [source]);
+
   // Infinite scroll
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     const nextPage = page + 1;
     setLoadingMore(true);
     try {
-      const res = await getLatest("shinigami", nextPage, sort);
+      const res = await getLatest(source, nextPage, sort);
       setExtraItems((prev) => [...prev, ...res]);
       setPage(nextPage);
       setHasMore(res.length >= 50);
     } catch { /* silent */ }
     setLoadingMore(false);
-  }, [page, loadingMore, hasMore, sort]);
+  }, [page, loadingMore, hasMore, sort, source]);
 
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
@@ -153,284 +186,378 @@ export default function HomePage() {
     setRandomLoading(false);
   }
 
+  // Helper for horizontal scroll item cards (reused by updated + popular sections)
+  function SectionCard({ item }: { item: SearchResult }) {
+    return (
+      <Link
+        href={`/manga/${item.source}/${encodeURIComponent(item.id)}`}
+        className="shrink-0 w-[160px] rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors duration-150 overflow-hidden"
+      >
+        <div className="w-full h-[200px] bg-[var(--color-bg)]">
+          {item.cover ? (
+            <img src={proxyCover(item.cover)} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[10px]">No Cover</div>
+          )}
+        </div>
+        <div className="p-2">
+          <p className="text-[12px] font-medium text-[var(--color-text)] line-clamp-2 leading-tight">{item.title}</p>
+          <div className="flex items-center gap-2 mt-1">
+            {item.chapter && (
+              <p className="text-[10px] text-[var(--color-text-muted)]">Ch. {item.chapter}</p>
+            )}
+            {item.rating != null && Number(item.rating) > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                {Number(item.rating).toFixed(1)}
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Feature 3: For You */}
+      {/* Section 1: Untukmu (For You) */}
       {showForYou && forYouQuery.data && forYouQuery.data.length > 0 && (
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Untukmu</h2>
-            <p className="text-[11px] text-[var(--color-text-muted)] opacity-70">
-              Berdasarkan genre {forYouGenre.charAt(0).toUpperCase() + forYouGenre.slice(1)}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {forYouQuery.data.slice(0, 6).map((item, i) => (
-              <MangaCard
-                key={`foryou-${item.id}-${i}`}
-                title={item.title}
-                cover={item.cover}
-                source={item.source}
-                id={item.id}
-                chapter={item.chapter}
-                time={item.time}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Header with sort + random */}
-      <div>
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">Terbaru</h1>
-          <div className="flex items-center gap-1.5">
-            {/* Random button */}
-            <button
-              onClick={handleRandom}
-              disabled={randomLoading}
-              suppressHydrationWarning
-              className="w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] disabled:opacity-50"
-              aria-label="Random manhwa"
-              title="Manga acak"
-            >
-              {randomLoading ? (
-                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 11-6.219-8.56" />
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="16 3 21 3 21 8" />
-                  <line x1="4" y1="20" x2="21" y2="3" />
-                  <polyline points="21 16 21 21 16 21" />
-                  <line x1="15" y1="15" x2="21" y2="21" />
-                  <line x1="4" y1="4" x2="9" y2="9" />
-                </svg>
-              )}
-            </button>
-            {/* Sort pills */}
-            <div className="flex items-center bg-[var(--color-surface)] rounded-lg p-0.5 border border-[var(--color-border)]">
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSort(opt.value)}
-                  suppressHydrationWarning
-                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 ${
-                    sort === opt.value
-                      ? "bg-[var(--color-accent)] text-white"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+        <SectionErrorBoundary>
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Untukmu</h2>
+              <p className="text-[11px] text-[var(--color-text-muted)] opacity-70">
+                Berdasarkan genre {forYouGenre.charAt(0).toUpperCase() + forYouGenre.slice(1)}
+              </p>
             </div>
-            <button
-              onClick={() => setViewMode("grid")}
-              suppressHydrationWarning
-              className={`w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 ${
-                viewMode === "grid"
-                  ? "bg-[var(--color-accent)] text-white"
-                  : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-              }`}
-              aria-label="Grid view"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              suppressHydrationWarning
-              className={`w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 ${
-                viewMode === "list"
-                  ? "bg-[var(--color-accent)] text-white"
-                  : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-              }`}
-              aria-label="List view"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Terakhir dibaca */}
-      {recentHistory.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Terakhir dibaca</h2>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-            {recentHistory.map((h) => (
-              <Link
-                key={h.mangaId}
-                href={`/manga/shinigami/${encodeURIComponent(h.mangaId)}/${Math.max(...h.chapters)}`}
-                className="flex gap-2.5 shrink-0 w-[260px] p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors duration-150"
-              >
-                {h.cover ? (
-                  <img src={h.cover} alt={h.title} className="w-10 h-14 object-cover rounded shrink-0" />
-                ) : (
-                  <div className="w-10 h-14 bg-[var(--color-bg)] border border-[var(--color-border)] rounded flex items-center justify-center text-[var(--color-text-muted)] text-[9px]">
-                    No Cover
-                  </div>
-                )}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <p className="text-[13px] font-medium text-[var(--color-text)] line-clamp-1">{h.title}</p>
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                    {formatChapters(h.chapters)}
-                  </p>
-                  <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
-                    {timeAgo(h.latestReadAt)}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      {error ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <div className="w-12 h-12 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 8v4"/>
-              <path d="M12 16h.01"/>
-            </svg>
-          </div>
-          <p className="text-sm text-[var(--color-text-secondary)]">Gagal memuat: {error}</p>
-          {connStatus && !connStatus.backend && (
-            <p className="text-[12px] text-[var(--color-danger)]">Tidak dapat terhubung ke server. Pastikan backend berjalan di localhost:3000</p>
-          )}
-          {connStatus && connStatus.backend && !connStatus.shinigami && (
-            <p className="text-[12px] text-yellow-400">Shinigami sedang tidak tersedia</p>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
-            >
-              Coba Lagi
-            </button>
-            <button
-              onClick={async () => {
-                setChecking(true);
-                const result = await checkConnection();
-                setConnStatus(result);
-                setChecking(false);
-              }}
-              disabled={checking}
-              className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 disabled:opacity-50"
-            >
-              {checking ? "Menguji..." : "Test koneksi"}
-            </button>
-          </div>
-          {connStatus && (
-            <div className="mt-2 flex items-center gap-4 text-[11px]">
-              <span className={connStatus.backend ? "text-emerald-400" : "text-red-400"}>
-                Backend: {connStatus.backend ? "OK" : "Offline"}
-              </span>
-              <span className={connStatus.shinigami ? "text-emerald-400" : "text-red-400"}>
-                Shinigami: {connStatus.shinigami ? "OK" : "Offline"}
-              </span>
-            </div>
-          )}
-        </div>
-      ) : isLoading ? (
-        <SkeletonGrid />
-      ) : items.length === 0 ? (
-        <div className="py-20 text-center text-[var(--color-text-muted)] text-sm">
-          Tidak ada manga ditemukan untuk source ini.
-        </div>
-      ) : (
-        <>
-          {viewMode === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {items.map((item, i) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 max-w-[960px]">
+              {forYouQuery.data.slice(0, 6).map((item, i) => (
                 <MangaCard
-                  key={`${item.source}-${item.id}-${i}`}
+                  key={`foryou-${item.id}-${i}`}
                   title={item.title}
                   cover={item.cover}
                   source={item.source}
                   id={item.id}
                   chapter={item.chapter}
                   time={item.time}
-                  status={item.status}
-                  chapters={item.chapters}
+                  rating={item.rating}
                 />
               ))}
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {items.map((item, i) => (
-                <div
-                  key={`${item.source}-${item.id}-${i}`}
-                  className="flex gap-3 p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
-                >
-                  {/* Cover */}
-                  <Link href={`/manga/${item.source}/${encodeURIComponent(item.id)}`} className="shrink-0">
-                    <div className="w-14 h-20 shrink-0 rounded overflow-hidden bg-[var(--color-surface)]">
-                      {item.cover ? (
-                        <img src={item.cover} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[9px]">
-                          No Cover
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  {/* Title + chapters below */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                    <Link href={`/manga/${item.source}/${encodeURIComponent(item.id)}`} className="min-w-0">
-                      <h3 className="text-[13px] font-medium text-[var(--color-text)] line-clamp-1">{item.title}</h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]">{item.source}</span>
-                        {item.status != null && (() => {
-                          const s = typeof item.status === "number" ? ([1].includes(item.status) ? "Ongoing" : [2].includes(item.status) ? "Completed" : [3].includes(item.status) ? "Hiatus" : null) : item.status;
-                          return s ? <span className="text-[10px] text-[var(--color-text-muted)]">{s}</span> : null;
-                        })()}
-                      </div>
-                    </Link>
-                    {/* Chapters below title */}
-                    {item.chapters && item.chapters.length > 0 ? (
-                      <div className="flex flex-col gap-0.5">
-                        {item.chapters.slice(0, 2).map((ch, ci) => (
-                          <Link
-                            key={ci}
-                            href={`/manga/${item.source}/${encodeURIComponent(item.id)}/${ch.number}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
-                          >
-                            Ch. {ch.number} {ch.time ? `· ${timeAgo(new Date(ch.time).getTime())}` : ""}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : item.chapter ? (
-                      <Link
-                        href={`/manga/${item.source}/${encodeURIComponent(item.id)}/${item.chapter}`}
-                        className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
-                      >
-                        Ch. {item.chapter} {item.time ? `· ${timeAgo(new Date(item.time).getTime())}` : ""}
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
+          </div>
+        </SectionErrorBoundary>
+      )}
+
+      {/* Section 2: Baru Diupdate (Recently Updated) */}
+      {updatedQuery.data && updatedQuery.data.length > 0 && (
+        <SectionErrorBoundary>
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Baru Diupdate</h2>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {updatedQuery.data.slice(0, 6).map((item, i) => (
+                <SectionCard key={`upd-${item.id}-${i}`} item={item} />
               ))}
             </div>
-          )}
-
-          {/* Infinite scroll sentinel */}
-          <div ref={sentinelRef} className="h-1" />
-          {loadingMore && (
-            <div className="flex justify-center py-6">
-              <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-muted)]">
-                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 11-6.219-8.56"/>
-                </svg>
-                Memuat...
-              </div>
-            </div>
-          )}
-        </>
+          </div>
+        </SectionErrorBoundary>
       )}
+
+      {/* Section 3: Populer (Popular/Trending) */}
+      {popularQuery.data && popularQuery.data.length > 0 && (
+        <SectionErrorBoundary>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Populer</h2>
+              <button
+                onClick={() => setSort("popularity")}
+                className="text-[12px] text-[var(--color-accent)] hover:underline"
+              >
+                Lihat Semua &rarr;
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {popularQuery.data.slice(0, 6).map((item, i) => (
+                <SectionCard key={`pop-${item.id}-${i}`} item={item} />
+              ))}
+            </div>
+          </div>
+        </SectionErrorBoundary>
+      )}
+
+      {/* Section 4: Terakhir dibaca (Continue Reading) */}
+      {recentHistory.length > 0 && (
+        <SectionErrorBoundary>
+          <div className="space-y-2">
+            <h2 className="text-sm font-medium text-[var(--color-text-muted)]">Terakhir dibaca</h2>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+              {recentHistory.map((h) => (
+                <Link
+                  key={h.mangaId}
+                  href={`/manga/shinigami/${encodeURIComponent(h.mangaId)}/${Math.max(...h.chapters)}`}
+                  className="flex gap-2.5 shrink-0 w-[260px] p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors duration-150"
+                >
+                  {h.cover ? (
+                    <img src={proxyCover(h.cover)} alt={h.title} className="w-10 h-14 object-cover rounded shrink-0" />
+                  ) : (
+                    <div className="w-10 h-14 bg-[var(--color-bg)] border border-[var(--color-border)] rounded flex items-center justify-center text-[var(--color-text-muted)] text-[9px]">
+                      No Cover
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <p className="text-[13px] font-medium text-[var(--color-text)] line-clamp-1">{h.title}</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                      {formatChapters(h.chapters)}
+                    </p>
+                    <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+                      {timeAgo(h.latestReadAt)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </SectionErrorBoundary>
+      )}
+
+      {/* Section 5: Semua Manga (Main Content) */}
+      <SectionErrorBoundary>
+        {/* Header with sort + random */}
+        <div>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold tracking-tight">Semua Manga</h1>
+            <div className="flex items-center gap-1.5">
+              {/* Random button */}
+              <button
+                onClick={handleRandom}
+                disabled={randomLoading}
+                suppressHydrationWarning
+                className="w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] disabled:opacity-50"
+                aria-label="Random manhwa"
+                title="Manga acak"
+              >
+                {randomLoading ? (
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 11-6.219-8.56" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="16 3 21 3 21 8" />
+                    <line x1="4" y1="20" x2="21" y2="3" />
+                    <polyline points="21 16 21 21 16 21" />
+                    <line x1="15" y1="15" x2="21" y2="21" />
+                    <line x1="4" y1="4" x2="9" y2="9" />
+                  </svg>
+                )}
+              </button>
+              {/* Sort pills */}
+              <div className="flex items-center bg-[var(--color-surface)] rounded-lg p-0.5 border border-[var(--color-border)]">
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSort(opt.value)}
+                    suppressHydrationWarning
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 ${
+                      sort === opt.value
+                        ? "bg-[var(--color-accent)] text-white"
+                        : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setViewMode("grid")}
+                suppressHydrationWarning
+                className={`w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 ${
+                  viewMode === "grid"
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                }`}
+                aria-label="Grid view"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                suppressHydrationWarning
+                className={`w-7 h-7 rounded flex items-center justify-center transition-colors duration-150 ${
+                  viewMode === "list"
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                }`}
+                aria-label="List view"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+          {/* Source filter pills */}
+          <div className="flex items-center gap-1.5 mt-2">
+            {SOURCE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSource(opt.value)}
+                suppressHydrationWarning
+                className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors duration-150 ${
+                  source === opt.value
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        {error ? (
+          <div className="flex flex-col items-center gap-3 py-20 text-center">
+            <div className="w-12 h-12 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4"/>
+                <path d="M12 16h.01"/>
+              </svg>
+            </div>
+            <p className="text-sm text-[var(--color-text-secondary)]">Gagal memuat: {error}</p>
+            {connStatus && !connStatus.backend && (
+              <p className="text-[12px] text-[var(--color-danger)]">Tidak dapat terhubung ke server. Pastikan backend berjalan di localhost:3000</p>
+            )}
+            {connStatus && connStatus.backend && !connStatus.shinigami && (
+              <p className="text-[12px] text-yellow-400">Shinigami sedang tidak tersedia</p>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
+              >
+                Coba Lagi
+              </button>
+              <button
+                onClick={async () => {
+                  setChecking(true);
+                  const result = await checkConnection();
+                  setConnStatus(result);
+                  setChecking(false);
+                }}
+                disabled={checking}
+                className="px-4 py-2 text-[13px] font-medium rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-colors duration-150 disabled:opacity-50"
+              >
+                {checking ? "Menguji..." : "Test koneksi"}
+              </button>
+            </div>
+            {connStatus && (
+              <div className="mt-2 flex items-center gap-4 text-[11px]">
+                <span className={connStatus.backend ? "text-emerald-400" : "text-red-400"}>
+                  Backend: {connStatus.backend ? "OK" : "Offline"}
+                </span>
+                <span className={connStatus.shinigami ? "text-emerald-400" : "text-red-400"}>
+                  Shinigami: {connStatus.shinigami ? "OK" : "Offline"}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : isLoading ? (
+          <SkeletonGrid />
+        ) : items.length === 0 ? (
+          <div className="py-20 text-center text-[var(--color-text-muted)] text-sm">
+            Tidak ada manga ditemukan untuk source ini.
+          </div>
+        ) : (
+          <>
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {items.map((item, i) => (
+                  <MangaCard
+                    key={`${item.source}-${item.id}-${i}`}
+                    title={item.title}
+                    cover={item.cover}
+                    source={item.source}
+                    id={item.id}
+                    chapter={item.chapter}
+                    time={item.time}
+                    status={item.status}
+                    rating={item.rating}
+                    chapters={item.chapters}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {items.map((item, i) => (
+                  <div
+                    key={`${item.source}-${item.id}-${i}`}
+                    className="flex gap-3 p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] transition-colors duration-150"
+                  >
+                    {/* Cover */}
+                    <Link href={`/manga/${item.source}/${encodeURIComponent(item.id)}`} className="shrink-0">
+                      <div className="w-14 h-20 shrink-0 rounded overflow-hidden bg-[var(--color-surface)]">
+                        {item.cover ? (
+                          <img src={proxyCover(item.cover)} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[9px]">
+                            No Cover
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                    {/* Title + chapters below */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                      <Link href={`/manga/${item.source}/${encodeURIComponent(item.id)}`} className="min-w-0">
+                        <h3 className="text-[13px] font-medium text-[var(--color-text)] line-clamp-1">{item.title}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]">{item.source}</span>
+                          {item.status != null && (() => {
+                            const s = typeof item.status === "number" ? ([1].includes(item.status) ? "Ongoing" : [2].includes(item.status) ? "Completed" : [3].includes(item.status) ? "Hiatus" : null) : item.status;
+                            return s ? <span className="text-[10px] text-[var(--color-text-muted)]">{s}</span> : null;
+                          })()}
+                        </div>
+                      </Link>
+                      {/* Chapters below title */}
+                      {item.chapters && item.chapters.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {item.chapters.slice(0, 2).map((ch, ci) => (
+                            <Link
+                              key={ci}
+                              href={`/manga/${item.source}/${encodeURIComponent(item.id)}/${ch.number}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                            >
+                              Ch. {ch.number} {ch.time ? `· ${timeAgo(new Date(ch.time).getTime())}` : ""}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : item.chapter ? (
+                        <Link
+                          href={`/manga/${item.source}/${encodeURIComponent(item.id)}/${item.chapter}`}
+                          className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                        >
+                          Ch. {item.chapter} {item.time ? `· ${timeAgo(new Date(item.time).getTime())}` : ""}
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="flex justify-center py-6">
+                <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-muted)]">
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                  </svg>
+                  Memuat...
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </SectionErrorBoundary>
     </div>
   );
 }

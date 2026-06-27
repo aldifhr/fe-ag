@@ -24,7 +24,7 @@ export default function ReaderPage() {
   const searchParams = useSearchParams();
   const source = params.source;
   const id = decodeURIComponent(params.id);
-  const chapterNum = params.chapterNum;
+  const chapterNum = params.chapterNum.replace(/^chapter\s+/i, "").trim() || params.chapterNum;
   const baseUrl = searchParams.get("baseUrl") || "";
   const chapterId = searchParams.get("chapterId") || "";
 
@@ -35,7 +35,9 @@ export default function ReaderPage() {
       return raw ? (JSON.parse(raw) as { baseUrl?: string; chapterId?: string }) : null;
     } catch { return null; }
   }
-  const storedMeta = typeof window !== "undefined" ? getStoredMeta(source, id, chapterNum) : null;
+  const storedMeta = typeof window !== "undefined"
+    ? getStoredMeta(source, id, chapterNum) || getStoredMeta(source, id, params.chapterNum)
+    : null;
   const effectiveBaseUrl = baseUrl || storedMeta?.baseUrl || "";
   const effectiveChapterId = chapterId || storedMeta?.chapterId || "";
 
@@ -72,6 +74,7 @@ export default function ReaderPage() {
     return 1;
   });
   const [mangaTitle, setMangaTitle] = useState<string | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const preloadedUrls = useRef<Set<string>>(new Set());
@@ -88,6 +91,26 @@ export default function ReaderPage() {
   const bubbleMoved = useRef(false);
   const bubbleStartPos = useRef({ x: 0, y: 0 });
   const bubbleStartOffset = useRef({ x: 0, y: 0 });
+
+  // Pinch-to-zoom state (strip mode)
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [zoomedImageIdx, setZoomedImageIdx] = useState<number | null>(null);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lastTapRef = useRef<{ time: number; idx: number }>({ time: 0, idx: -1 });
+  const pinchStartRef = useRef<{ dist: number; zoom: number }>({ dist: 0, zoom: 1 });
+  const panStartRef = useRef<{ x: number; y: number; ox: number; oy: number }>({ x: 0, y: 0, ox: 0, oy: 0 });
+
+  // Chapter preloading indicator
+  const [preloading, setPreloading] = useState(false);
+  const [preloadDone, setPreloadDone] = useState(false);
+
+  // Strip mode drag-scroll refs
+  const stripDragRef = useRef({ dragging: false, startY: 0, startScrollY: 0 });
+
+  // Paged mode swipe refs
+  const pagedDragRef = useRef({ startX: 0, startY: 0, dragging: false, moved: false, offsetX: 0 });
+  const [pagedDragOffset, setPagedDragOffset] = useState(0);
 
   const mangaHref = `/manga/${source}/${encodeURIComponent(id)}`;
 
@@ -257,6 +280,54 @@ export default function ReaderPage() {
     }
   }, []);
 
+  // --- Strip mode drag-to-scroll ---
+  const handleStripPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    stripDragRef.current = { dragging: true, startY: e.clientY, startScrollY: window.scrollY };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const handleStripPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!stripDragRef.current.dragging) return;
+    const delta = e.clientY - stripDragRef.current.startY;
+    window.scrollTo(0, stripDragRef.current.startScrollY - delta);
+  }, []);
+
+  const handleStripPointerUp = useCallback(() => {
+    stripDragRef.current.dragging = false;
+  }, []);
+
+  // --- Paged mode swipe-to-navigate ---
+  const handlePagedPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    pagedDragRef.current = { startX: e.clientX, startY: e.clientY, dragging: true, moved: false, offsetX: 0 };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const handlePagedPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pagedDragRef.current.dragging) return;
+    const dx = e.clientX - pagedDragRef.current.startX;
+    const dy = e.clientY - pagedDragRef.current.startY;
+    // If initial movement is mostly vertical, let native scroll handle it
+    if (!pagedDragRef.current.moved && Math.abs(dy) > Math.abs(dx)) return;
+    if (Math.abs(dx) > 10) pagedDragRef.current.moved = true;
+    if (!pagedDragRef.current.moved) return;
+    pagedDragRef.current.offsetX = dx;
+    setPagedDragOffset(dx);
+  }, []);
+
+  const handlePagedPointerUp = useCallback(() => {
+    if (!pagedDragRef.current.dragging) return;
+    pagedDragRef.current.dragging = false;
+    const dx = pagedDragRef.current.offsetX;
+    if (dx < -30 && currentPage < images.length - 1) {
+      setCurrentPage(p => p + 1);
+    } else if (dx > 30 && currentPage > 0) {
+      setCurrentPage(p => p - 1);
+    }
+    setPagedDragOffset(0);
+  }, [currentPage, images.length]);
+
   const scrollToNextImage = useCallback(() => {
     const imgs = document.querySelectorAll("img[alt^='Halaman']");
     for (const img of Array.from(imgs)) {
@@ -279,6 +350,22 @@ export default function ReaderPage() {
       setCurrentPage(0);
     }
   }, [readingMode]);
+
+  // Strip mode scroll progress bar
+  useEffect(() => {
+    if (readingMode !== "strip" || images.length === 0) { setScrollProgress(0); return; }
+    let rafId: number;
+    function onScroll() {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        setScrollProgress(max > 0 ? Math.min((window.scrollY / max) * 100, 100) : 0);
+      });
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(rafId); };
+  }, [readingMode, images.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -361,9 +448,36 @@ export default function ReaderPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [nextChapter, images.length]);
 
+  // Reset pinch-to-zoom when zoomed image scrolls out of viewport
+  useEffect(() => {
+    if (zoomedImageIdx === null || readingMode !== "strip") return;
+    const idx = zoomedImageIdx;
+    function checkScroll() {
+      const imgs = document.querySelectorAll("img[alt^='Halaman']");
+      const img = imgs[idx] as HTMLElement | undefined;
+      if (!img) { setZoomLevel(1); setZoomedImageIdx(null); setPanOffset({ x: 0, y: 0 }); return; }
+      const rect = img.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
+        setZoomLevel(1);
+        setZoomedImageIdx(null);
+        setPanOffset({ x: 0, y: 0 });
+      }
+    }
+    window.addEventListener("scroll", checkScroll, { passive: true });
+    return () => window.removeEventListener("scroll", checkScroll);
+  }, [zoomedImageIdx, readingMode]);
+
+  // Reset zoom when switching reading modes
+  useEffect(() => {
+    setZoomLevel(1);
+    setZoomedImageIdx(null);
+    setPanOffset({ x: 0, y: 0 });
+  }, [readingMode]);
+
   // Preload next chapter images once nearEnd triggers
   useEffect(() => {
     if (!nearEnd || !nextChapter) return;
+    setPreloading(true);
     const nextChapterNum = String(nextChapter.number);
     try {
       const raw = localStorage.getItem(`manhwa-meta-${source}-${id}-${nextChapterNum}`);
@@ -383,9 +497,12 @@ export default function ReaderPage() {
               img.src = url;
             }
           });
+          setPreloading(false);
+          setPreloadDone(true);
+          setTimeout(() => setPreloadDone(false), 1500);
         })
-        .catch(() => {});
-    } catch {}
+        .catch(() => { setPreloading(false); });
+    } catch { setPreloading(false); }
   }, [nearEnd, nextChapter, source, id]);
 
   return (
@@ -518,6 +635,14 @@ export default function ReaderPage() {
         </div>
       </header>
 
+      {/* Reading progress bar */}
+      <div className="h-[2px] bg-transparent">
+        <div
+          className="h-full bg-[var(--color-accent)] transition-[width] duration-100"
+          style={{ width: readingMode === "paged" ? `${((currentPage + 1) / Math.max(images.length, 1)) * 100}%` : `${scrollProgress}%` }}
+        />
+      </div>
+
       {/* Breadcrumb */}
       <nav className="max-w-4xl mx-auto px-4 py-2 text-[12px] text-[var(--color-text-muted)] flex items-center gap-1.5 flex-wrap" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-[var(--color-accent)] transition-colors duration-150">Beranda</Link>
@@ -558,13 +683,104 @@ export default function ReaderPage() {
 
       {/* Images — strip mode */}
       {!loading && !error && images.length > 0 && readingMode === "strip" && (
-        <div className={`flex flex-col items-center ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}>
+        <div
+          className={`flex flex-col items-center select-none cursor-grab active:cursor-grabbing ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}
+          style={{ touchAction: "pan-y" }}
+          onPointerDown={handleStripPointerDown}
+          onPointerMove={handleStripPointerMove}
+          onPointerUp={handleStripPointerUp}
+        >
           {images.map((src, i) => {
             const loaded = loadedImages.has(i);
             const retryN = retryKeys.get(i);
             const imgSrc = retryN ? `${src}?retry=${retryN}` : src;
             return (
-              <div key={i} className="relative w-full max-w-3xl mx-auto" style={brightness < 1 ? { filter: `brightness(${brightness})` } : undefined}>
+              <div
+                key={i}
+                className={`relative w-full max-w-3xl mx-auto ${zoomedImageIdx === i ? 'overflow-hidden' : ''}`}
+                style={{
+                  ...(brightness < 1 ? { filter: `brightness(${brightness})` } : {}),
+                  touchAction: zoomedImageIdx === i ? "none" : "pan-y",
+                }}
+                onTouchStart={(e) => {
+                  if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    pinchStartRef.current = { dist: Math.sqrt(dx * dx + dy * dy), zoom: zoomLevel };
+                  } else if (e.touches.length === 1) {
+                    if (zoomedImageIdx === i && zoomLevel > 1) {
+                      panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, ox: panOffset.x, oy: panOffset.y };
+                    } else {
+                      const now = Date.now();
+                      const last = lastTapRef.current;
+                      if (now - last.time < 300 && last.idx === i) {
+                        if (zoomLevel > 1) {
+                          setZoomLevel(1);
+                          setZoomedImageIdx(null);
+                          setPanOffset({ x: 0, y: 0 });
+                        } else {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setZoomOrigin({
+                            x: ((e.touches[0].clientX - rect.left) / rect.width) * 100,
+                            y: ((e.touches[0].clientY - rect.top) / rect.height) * 100,
+                          });
+                          setZoomLevel(2);
+                          setZoomedImageIdx(i);
+                        }
+                        lastTapRef.current = { time: 0, idx: -1 };
+                      } else {
+                        lastTapRef.current = { time: now, idx: i };
+                      }
+                    }
+                  }
+                }}
+                onTouchMove={(e) => {
+                  if (e.touches.length === 2 && pinchStartRef.current.dist > 0) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const newZoom = Math.min(3, Math.max(1, pinchStartRef.current.zoom * (dist / pinchStartRef.current.dist)));
+                    setZoomLevel(newZoom);
+                    setZoomedImageIdx(newZoom > 1 ? i : null);
+                    if (newZoom <= 1) setPanOffset({ x: 0, y: 0 });
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setZoomOrigin({
+                      x: ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) / rect.width * 100,
+                      y: ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) / rect.height * 100,
+                    });
+                  } else if (e.touches.length === 1 && zoomedImageIdx === i && zoomLevel > 1) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - panStartRef.current.x;
+                    const dy = e.touches[0].clientY - panStartRef.current.y;
+                    setPanOffset({ x: panStartRef.current.ox + dx, y: panStartRef.current.oy + dy });
+                  }
+                }}
+                onTouchEnd={() => {
+                  if (zoomLevel > 1 && zoomLevel < 1.1) {
+                    setZoomLevel(1);
+                    setZoomedImageIdx(null);
+                    setPanOffset({ x: 0, y: 0 });
+                  }
+                  pinchStartRef.current = { dist: 0, zoom: zoomLevel };
+                }}
+                onWheel={(e) => {
+                  if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    const delta = -e.deltaY * 0.01;
+                    const newZoom = Math.min(3, Math.max(1, zoomLevel + delta));
+                    setZoomLevel(newZoom);
+                    setZoomedImageIdx(newZoom > 1 ? i : null);
+                    if (newZoom <= 1) setPanOffset({ x: 0, y: 0 });
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setZoomOrigin({
+                      x: ((e.clientX - rect.left) / rect.width) * 100,
+                      y: ((e.clientY - rect.top) / rect.height) * 100,
+                    });
+                  }
+                }}
+              >
                 <div
                   className={`skeleton w-full aspect-[3/4] rounded-lg transition-opacity duration-300 ${
                     loaded ? "opacity-0 absolute inset-0" : "opacity-100"
@@ -574,10 +790,13 @@ export default function ReaderPage() {
                 <img
                   src={imgSrc}
                   alt={`Halaman ${i + 1}`}
-                  className={`w-full object-contain transition-opacity duration-500 ${
+                  className={`w-full object-contain ${
                     loaded ? "opacity-100" : "opacity-0"
                   }`}
                   style={{
+                    transition: "opacity 0.5s ease, transform 0.2s ease",
+                    transform: zoomedImageIdx === i ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})` : undefined,
+                    transformOrigin: zoomedImageIdx === i ? `${zoomOrigin.x}% ${zoomOrigin.y}%` : undefined,
                     maxWidth: fitMode === "width" ? "48rem" : undefined,
                     height: fitMode === "height" ? "100dvh" : "auto",
                     width: fitMode === "height" ? "auto" : undefined,
@@ -618,16 +837,18 @@ export default function ReaderPage() {
       {/* Images — paged mode */}
       {!loading && !error && images.length > 0 && readingMode === "paged" && (
         <div className={`flex flex-col items-center min-h-[70dvh] ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}>
-          <div className="relative w-full max-w-3xl mx-auto flex items-center justify-center" style={brightness < 1 ? { filter: `brightness(${brightness})` } : undefined}>
+          <div className="relative w-full max-w-3xl mx-auto flex items-center justify-center select-none" style={{ touchAction: "pan-y", ...(brightness < 1 ? { filter: `brightness(${brightness})` } : {}) }}>
             <img
               src={retryKeys.get(currentPage) ? `${images[currentPage]}?retry=${retryKeys.get(currentPage)}` : images[currentPage]}
               alt={`Halaman ${currentPage + 1}`}
-              className="w-full object-contain cursor-pointer"
+              className="w-full object-contain cursor-grab active:cursor-grabbing"
               style={{
                 maxWidth: fitMode === "width" ? "48rem" : undefined,
                 height: fitMode === "height" ? "100dvh" : "auto",
                 width: fitMode === "height" ? "auto" : undefined,
                 objectFit: "contain",
+                transform: `translateX(${pagedDragOffset}px)`,
+                transition: pagedDragOffset === 0 ? "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",
               }}
               loading="eager"
               onLoad={() => {
@@ -649,15 +870,9 @@ export default function ReaderPage() {
                   }, (current + 1) * 1000);
                 }
               }}
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                if (clickX < rect.width / 2) {
-                  if (currentPage > 0) setCurrentPage(p => p - 1);
-                } else {
-                  if (currentPage < images.length - 1) setCurrentPage(p => p + 1);
-                }
-              }}
+              onPointerDown={handlePagedPointerDown}
+              onPointerMove={handlePagedPointerMove}
+              onPointerUp={handlePagedPointerUp}
             />
             {retryKeys.get(currentPage) != null && (retryKeys.get(currentPage) || 0) > 0 && (retryKeys.get(currentPage) || 0) < 2 && (
               <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11px] text-[var(--color-text-muted)] bg-[var(--color-surface)]/80 px-2 py-0.5 rounded">
@@ -782,6 +997,21 @@ export default function ReaderPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Preloading indicator toast */}
+      {preloading && nextChapter && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-[var(--color-surface)]/90 backdrop-blur-sm border border-[var(--color-border)] shadow-lg text-[var(--color-text-secondary)] text-xs flex items-center gap-2 animate-[fadeIn_0.2s_ease]">
+          <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+          </svg>
+          Memuat chapter berikutnya...
+        </div>
+      )}
+      {preloadDone && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-xs flex items-center gap-2 animate-[fadeIn_0.2s_ease]">
+          ✓ Siap!
+        </div>
       )}
 
       {/* Floating bubble (iOS AssistiveTouch style) */}

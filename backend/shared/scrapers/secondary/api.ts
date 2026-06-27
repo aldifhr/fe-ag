@@ -195,6 +195,7 @@ export async function searchShngm(query: string, source = "shinigami", deadline 
         url: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`,
         mangaUrl: `${SECONDARY_PUBLIC_BASE}/series/${r.manga_id}`, 
         updatedTime: parseDateWithFallback(r.latest_chapter_time ?? r.updated_at)?.toISOString() ?? null, 
+        rating: r.user_rate ?? null,
         source: norm
       } as ChapterItem));
       results.push(...mapped);
