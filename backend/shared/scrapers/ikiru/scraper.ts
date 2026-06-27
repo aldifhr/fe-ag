@@ -99,7 +99,17 @@ async function fetchPage(url: string, referer?: string): Promise<string | null> 
     const res = await fetch(url, {
       headers: {
         "User-Agent": CHROME_UA,
-        Referer: referer || getBaseUrl(),
+        "Referer": referer || getBaseUrl(),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
       },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
