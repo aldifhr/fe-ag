@@ -114,7 +114,11 @@ async function fetchPage(url: string, referer?: string): Promise<string | null> 
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {
-      logger.warn({ url, status: res.status }, "fetchPage non-200");
+      // DEBUG: log response headers dan body snippet
+      const headers: Record<string, string> = {};
+      res.headers.forEach((v, k) => { headers[k] = v; });
+      const bodySnippet = (await res.text()).slice(0, 300);
+      logger.warn({ url, status: res.status, headers, bodySnippet }, "fetchPage non-200");
       return null;
     }
     return await res.text();
