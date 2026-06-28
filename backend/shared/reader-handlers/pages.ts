@@ -169,13 +169,21 @@ export async function handlePages(req: Request, res: Response) {
       const slugFromUrl = (url || baseUrl || "").match(/\/manga\/([^/]+)/)?.[1];
       if (slugFromUrl) {
         try {
-          const wpData = await wpFetch<any[]>(`/chapter?search=${encodeURIComponent(slugFromUrl.replace(/-/g, " "))} chapter ${chapterNum}&_fields=id,title,slug&per_page=5`);
-          if (wpData?.length) {
-            const match = wpData.find((c: any) => {
-              const t = (c.title?.rendered || "").toLowerCase();
-              return t.includes(`chapter ${chapterNum}`);
-            });
-            if (match?.id) resolvedId = String(match.id);
+          // Search by slug (more reliable than title search)
+          const chapterSlug = `${slugFromUrl}-chapter-${chapterNum}`;
+          const wpData = await wpFetch<any[]>(`/chapter?slug=${encodeURIComponent(chapterSlug)}&_fields=id,title,slug&per_page=1`);
+          if (wpData?.length && wpData[0]?.id) {
+            resolvedId = String(wpData[0].id);
+          } else {
+            // Fallback: title search
+            const wpData2 = await wpFetch<any[]>(`/chapter?search=${encodeURIComponent(slugFromUrl.replace(/-/g, " "))} chapter ${chapterNum}&_fields=id,title,slug&per_page=5`);
+            if (wpData2?.length) {
+              const match = wpData2.find((c: any) => {
+                const t = (c.title?.rendered || "").toLowerCase();
+                return t.includes(`chapter ${chapterNum}`);
+              });
+              if (match?.id) resolvedId = String(match.id);
+            }
           }
         } catch { /* fall through */ }
       }
