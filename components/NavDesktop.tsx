@@ -63,7 +63,7 @@ export default function NavDesktop({
           href="/"
           className="font-semibold text-[15px] tracking-tight text-(--color-text)"
         >
-          <span className="text-(--color-accent)">Aggregator</span>
+          Aggregator<span className="text-(--color-accent)">.</span>
         </Link>
 
         {/* Desktop links */}
