@@ -174,10 +174,9 @@ function proxyUrl(url: string | null | undefined, requireHttp?: boolean): string
   try {
     const parsed = new URL(url);
     if (requireHttp && !["http:", "https:"].includes(parsed.protocol)) return url;
-    const needsProxy = parsed.hostname.endsWith("ikiru.wtf");
-    return needsProxy
-      ? `/api/reader/image?src=${encodeURIComponent(url)}`
-      : url;
+    // Proxy all external images — avoids CORS/referrer issues from localhost
+    // and enables WebP conversion for CDN images
+    return `/api/reader/image?src=${encodeURIComponent(url)}`;
   } catch {
     return url;
   }

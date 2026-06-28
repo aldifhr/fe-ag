@@ -277,7 +277,6 @@ async function startServer() {
   });
 
   app.listen(PORT, () => {
-    log.info("========================================");
     log.info(
       {
         port: PORT,
@@ -288,7 +287,6 @@ async function startServer() {
       },
       "Server ready",
     );
-    log.info("========================================");
   });
 }
 

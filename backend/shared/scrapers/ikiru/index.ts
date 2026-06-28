@@ -69,10 +69,10 @@ export async function scrapeIkiruUpdatesWithMeta(
   try {
     rawHtmlItems = await fetchIkiruLatest(maxPages);
     htmlOk = rawHtmlItems.length > 0;
-    logger.info({ count: rawHtmlItems.length, maxPages }, "[scrapeIkiruUpdatesWithMeta] HTML scrape success");
+    logger.info({ count: rawHtmlItems.length, maxPages }, "HTML scrape success");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: msg }, "[scrapeIkiruUpdatesWithMeta] HTML scrape failed (CF block?)");
+    logger.warn({ err: msg }, "HTML scrape failed (CF block?)");
   }
 
   // HTML results → ChapterItem[]
@@ -109,14 +109,14 @@ export async function scrapeIkiruUpdatesWithMeta(
   }
 
   // Fallback: REST API (works from Vercel, but only 24 items)
-  logger.info("[scrapeIkiruUpdatesWithMeta] Falling back to REST API");
+  logger.info("Falling back to REST API");
   let apiItems: IkiruSearchItem[] = [];
   try {
     apiItems = await getIkiruLatestUpdates();
-    logger.info({ count: apiItems.length }, "[scrapeIkiruUpdatesWithMeta] REST API fallback success");
+    logger.info({ count: apiItems.length }, "REST API fallback success");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ err: msg }, "[scrapeIkiruUpdatesWithMeta] REST API fallback also failed");
+    logger.error({ err: msg }, "REST API fallback also failed");
   }
 
   const results: ChapterItem[] = apiItems.map((item) => {
@@ -182,7 +182,7 @@ export async function searchIkiru(
     return { success: true, data: results };
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
-    logger.error({ query, err: error.message }, "[searchIkiru] REST API failed");
+    logger.error({ query, err: error.message }, "REST API search failed");
     return { success: false, data: [] };
   }
 }
@@ -198,7 +198,7 @@ export async function fetchIkiruChapters(mangaUrl: string): Promise<ChapterItem[
       updatedTime: item.updatedTime ? (parseDateWithFallback(item.updatedTime) || parseLooseRelativeTime(item.updatedTime))?.toISOString() : null
     }));
   } catch (err: unknown) {
-    logger.error({ mangaUrl, err: String(err) }, "[fetchIkiruChapters] Cheerio scraper failed");
+    logger.error({ mangaUrl, err: String(err) }, "Cheerio scraper failed");
     return [];
   }
 }

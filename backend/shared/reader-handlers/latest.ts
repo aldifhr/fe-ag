@@ -2,8 +2,6 @@ import { SECONDARY_SOURCE_URL } from "../../shared/scrapers/shared.js";
 import { SECONDARY_CONFIG } from "../../reader/config.js";
 import { fetchWithRetry, JSON_HEADERS, fetchUpdateList } from "../../shared/scrapers/secondary/api.js";
 import { isAxiosLikeResponse } from "../../shared/scrapers/secondary/types.js";
-import { scrapeIkiruUpdatesWithMeta } from "../../shared/scrapers/ikiru/index.js";
-import { getIkiruPopularToday } from "../../shared/scrapers/ikiru/api.js";
 import { pickCover, pickTime } from "./helpers.js";
 import type { Request, Response } from "express";
 
@@ -203,46 +201,7 @@ export async function handleLatest(req: Request, res: Response) {
     return items;
   })() : Promise.resolve<LatestResultItem[]>([]);
 
-  const ikiruPromise = (source === "all" || source === "ikiru") ? (async (): Promise<LatestResultItem[]> => {
-    const items: LatestResultItem[] = [];
-    if (sort === "popularity") {
-      const popularItems = await getIkiruPopularToday();
-      for (const item of popularItems) {
-        const mangaUrl = item.permalink;
-        const slug = mangaUrl?.match(/\/manga\/([^/]+)/)?.[1] || "";
-        const latest = item.latest_chapters?.[0];
-        items.push({
-          id: slug || mangaUrl || "",
-          title: item.title,
-          cover: item.cover ?? null,
-          url: mangaUrl,
-          source: "ikiru",
-          chapter: latest ? String(latest.number) : "",
-          time: latest?.modified_local || undefined,
-          rating: item.rating ?? null,
-        });
-      }
-    } else {
-      const ikiruRes = await scrapeIkiruUpdatesWithMeta();
-      const ikiruItems = ikiruRes.results || [];
-      for (const item of ikiruItems) {
-        const mangaUrl = item.mangaUrl ?? item.url;
-        const slug = mangaUrl?.match(/\/manga\/([^/]+)/)?.[1] || "";
-        items.push({
-          id: slug || mangaUrl || "",
-          title: item.title,
-          cover: item.cover ?? null,
-          url: mangaUrl,
-          source: "ikiru",
-          chapter: item.chapter,
-          time: item.updatedTime || undefined,
-          rating: item.rating ?? null,
-          status: item.status ?? null,
-        });
-      }
-    }
-    return items;
-  })() : Promise.resolve<LatestResultItem[]>([]);
+  const ikiruPromise = Promise.resolve<LatestResultItem[]>([]); // Ikiru disabled
 
   const [rawShinigami, rawIkiru] = await Promise.all([shinigamiPromise, ikiruPromise]);
   // Within-source dedup: group by manga ID, merge chapters

@@ -44,7 +44,7 @@ export function HomeClient({
   const hydrated = useRef(false);
   useEffect(() => {
     setViewMode(readLS<"grid" | "list">("manhwa-view-mode", ["grid", "list"], "grid"));
-    setSource(readLS<SourceOption>("manhwa-source", ["all", "shinigami", "ikiru"], "all"));
+    setSource(readLS<SourceOption>("manhwa-source", ["all", "shinigami"], "all"));
     hydrated.current = true;
   }, []);
 

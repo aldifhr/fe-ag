@@ -94,7 +94,54 @@ class SimpleConsoleLogger implements Logger {
       };
     }
 
-    console.log(JSON.stringify(payload));
+    const isDev = (env.NODE_ENV || "development") === "development";
+
+    if (isDev) {
+      this.logPretty(level, payload);
+    } else {
+      console.log(JSON.stringify(payload));
+    }
+  }
+
+  private logPretty(level: Level, payload: Record<string, any>) {
+    // Colors: dim timestamp, colored level, cyan scope, white message
+    const LEVEL_COLORS: Record<string, string> = {
+      trace: "\x1b[90m",   // gray
+      debug: "\x1b[36m",   // cyan
+      info: "\x1b[32m",    // green
+      warn: "\x1b[33m",    // yellow
+      error: "\x1b[31m",   // red
+      fatal: "\x1b[35m",   // magenta
+    };
+    const RESET = "\x1b[0m";
+    const DIM = "\x1b[2m";
+    const BOLD = "\x1b[1m";
+    const CYAN = "\x1b[36m";
+
+    const time = new Date(payload.time).toLocaleTimeString("en-GB", { hour12: false });
+    const color = LEVEL_COLORS[level] || "";
+    const levelTag = `${color}${level.toUpperCase().padEnd(5)}${RESET}`;
+    const scope = payload.scope || payload.module || "";
+    const scopeTag = scope ? `${CYAN}${scope}${RESET} ` : "";
+
+    // Extract extra key=value pairs (skip internal fields)
+    const SKIP = new Set(["level", "time", "msg", "pid", "env", "scope", "module", "correlationId", "requestId", "err"]);
+    const extras = Object.entries(payload)
+      .filter(([k, v]) => !SKIP.has(k) && v !== undefined && v !== null)
+      .map(([k, v]) => {
+        const val = typeof v === "object" ? JSON.stringify(v) : v;
+        return `${DIM}${k}=${val}${RESET}`;
+      });
+
+    const parts = [
+      `${DIM}${time}${RESET}`,
+      levelTag,
+      scopeTag,
+      BOLD + payload.msg + RESET,
+    ];
+    if (extras.length) parts.push(extras.join(" "));
+
+    console.log(parts.join(" "));
   }
 
   public trace(msg: string, ...args: any[]): void;

@@ -1,5 +1,5 @@
 export type SortOption = "latest" | "popularity" | "rating" | "az";
-export type SourceOption = "all" | "shinigami" | "ikiru";
+export type SourceOption = "all" | "shinigami";
 
 export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "latest", label: "Terbaru" },
@@ -11,5 +11,4 @@ export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 export const SOURCE_OPTIONS: { value: SourceOption; label: string }[] = [
   { value: "all", label: "Semua" },
   { value: "shinigami", label: "Shinigami" },
-  { value: "ikiru", label: "Ikiru" },
 ];
