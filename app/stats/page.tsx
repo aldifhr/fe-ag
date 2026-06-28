@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { computeStats, formatMinutes, type ReadingStats } from "@/lib/stats";
-import { getGroupedHistory } from "@/lib/history";
+import { getGroupedHistory, syncHistoryFromApi } from "@/lib/history";
 import { proxyCover } from "@/lib/api";
 
 const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
@@ -151,13 +151,16 @@ export default function StatsPage() {
   const [topManga, setTopManga] = useState<{ title: string; cover: string | null; count: number }[]>([]);
 
   useEffect(() => {
-    setStats(computeStats());
-    const grouped = getGroupedHistory();
+    (async () => {
+      await syncHistoryFromApi();
+      setStats(computeStats());
+      const grouped = getGroupedHistory();
     const sorted = [...grouped]
       .sort((a, b) => b.chapters.length - a.chapters.length)
       .slice(0, 5)
       .map((g) => ({ title: g.title, cover: g.cover, count: g.chapters.length }));
     setTopManga(sorted);
+    })();
   }, []);
 
   if (!stats) {
