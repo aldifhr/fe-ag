@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ManhwAGG",
+  title: "Manhwa.agg",
   description: "An aggregator for manga/manhwa/manhua from various sources.",
 };
 
