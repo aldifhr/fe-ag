@@ -20,9 +20,8 @@ export async function GET(request: NextRequest) {
     let apiUrl = `${API_BASE}/api/reader?route=pages&url=${encodeURIComponent(url || "")}`;
     if (source) apiUrl += `&source=${encodeURIComponent(source)}`;
     if (chapterId) apiUrl += `&chapterId=${encodeURIComponent(chapterId)}`;
-    if (baseUrl && chapterNum) {
-      apiUrl += `&baseUrl=${encodeURIComponent(baseUrl)}&chapter=${encodeURIComponent(chapterNum)}`;
-    }
+    if (chapterNum) apiUrl += `&chapter=${encodeURIComponent(chapterNum)}`;
+    if (baseUrl) apiUrl += `&baseUrl=${encodeURIComponent(baseUrl)}`;
     const res = await fetch(apiUrl, { signal: AbortSignal.timeout(20000) });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
