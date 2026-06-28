@@ -24,9 +24,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
-      <html lang="id" className={inter.variable} suppressHydrationWarning>
-        <body className="min-h-screen bg-bg text-text">
+    <html lang="id" className={inter.variable} suppressHydrationWarning>
+      <body className="min-h-screen bg-bg text-text">
+        <ClerkProvider>
           <QueryProvider>
             <ThemeProvider>
               <Nav />
@@ -35,8 +35,8 @@ export default function RootLayout({
               </main>
             </ThemeProvider>
           </QueryProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }
