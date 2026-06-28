@@ -6,24 +6,13 @@ import {
   getChapterList,
   getMangaDetail,
   MangaDetail,
-  proxyImage,
 } from "@/lib/api";
 import { addHistory } from "@/lib/history";
-import Link from "next/link";
-
-function SkeletonLoader() {
-  return (
-    <div className="flex flex-col items-center gap-4 py-4">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="skeleton w-full max-w-3xl aspect-3/4 rounded-lg"
-          style={{ animationDelay: `${i * 150}ms` }}
-        />
-      ))}
-    </div>
-  );
-}
+import { SkeletonLoader } from "./reader/SkeletonLoader";
+import { ReaderHeader } from "./reader/ReaderHeader";
+import { ImageStrip } from "./reader/ImageStrip";
+import { ReaderBottomNav } from "./reader/ReaderBottomNav";
+import { FloatingBubble } from "./reader/FloatingBubble";
 
 export default function ReaderPage() {
   const params = useParams<{
@@ -158,8 +147,6 @@ export default function ReaderPage() {
 
   // Strip mode drag-scroll refs
   const stripDragRef = useRef({ dragging: false, startY: 0, startScrollY: 0 });
-
-
 
   const mangaHref = `/manga/${source}/${encodeURIComponent(id)}`;
 
@@ -401,27 +388,6 @@ export default function ReaderPage() {
     nightUiTimer.current = setTimeout(() => setNightUiVisible(false), 3000);
   }, [nightMode]);
 
-  // --- Strip mode drag-to-scroll (disabled during pinch) ---
-  const handleStripPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0 || pinchActiveRef.current) return;
-    stripDragRef.current = {
-      dragging: true,
-      startY: e.clientY,
-      startScrollY: window.scrollY,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, []);
-
-  const handleStripPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!stripDragRef.current.dragging || pinchActiveRef.current) return;
-    const delta = e.clientY - stripDragRef.current.startY;
-    window.scrollTo(0, stripDragRef.current.startScrollY - delta);
-  }, []);
-
-  const handleStripPointerUp = useCallback(() => {
-    stripDragRef.current.dragging = false;
-  }, []);
-
   const scrollToNextImage = useCallback(() => {
     const imgs = document.querySelectorAll("img[alt^='Halaman']");
     for (const img of Array.from(imgs)) {
@@ -623,757 +589,81 @@ export default function ReaderPage() {
       {nightMode && (
         <div className="fixed inset-0 bg-black/70 z-40 pointer-events-none transition-opacity duration-300" />
       )}
-      {/* Top bar */}
-      <header className={`sticky top-0 z-50 bg-bg/95 backdrop-blur-sm border-b border-border transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}>
-        <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-2.5">
-          <Link
-            href={mangaHref}
-            className="flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-text transition-colors duration-150"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M19 12H5" />
-              <path d="M12 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline">Kembali</span>
-          </Link>
 
-          <span className="text-[13px] font-semibold text-text select-none">
-            Chapter {chapterNum}
-          </span>
+      <ReaderHeader
+        mangaHref={mangaHref}
+        chapterNum={chapterNum}
+        chromeHidden={chromeHidden}
+        bgColor={bgColor}
+        setBgColor={setBgColor}
+        brightness={brightness}
+        setBrightness={setBrightness}
+        nightMode={nightMode}
+        setNightMode={setNightMode}
+        settingsOpen={settingsOpen}
+        setSettingsOpen={setSettingsOpen}
+        settingsRef={settingsRef}
+        scrollProgress={scrollProgress}
+        mangaTitle={mangaTitle}
+      />
 
-          <div className="flex items-center gap-1.5">
-            {/* Reading settings */}
-            <div className="relative" ref={settingsRef}>
-              <button
-                onClick={() => setSettingsOpen(!settingsOpen)}
-                className="flex items-center justify-center w-7 h-7 rounded-md text-text-muted hover:text-text-secondary border border-transparent hover:border-border transition-colors duration-150 cursor-pointer"
-                aria-label="Pengaturan bacaan"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-              </button>
-              {settingsOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-surface border border-border rounded-lg p-3 shadow-lg z-50 w-56">
-                  <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider mb-2">
-                    Latar Belakang
-                  </p>
-                  <div className="flex gap-2 mb-3">
-                    {[
-                      { key: "default" as const, color: "var(--color-bg)" },
-                      { key: "dark" as const, color: "#000000" },
-                      { key: "sepia" as const, color: "#d4c5a0" },
-                      { key: "white" as const, color: "#ffffff" },
-                    ].map(({ key, color }) => (
-                      <button
-                        key={key}
-                        onClick={() => setBgColor(key)}
-                        className={`w-6 h-6 rounded-full border-2 transition-all duration-150 cursor-pointer ${
-                          bgColor === key
-                            ? "border-accent"
-                            : "border-transparent"
-                        } ${key === "white" ? "ring-1 ring-border" : ""}`}
-                        style={{ backgroundColor: color }}
-                        aria-label={`Latar ${key}`}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider mb-2">
-                    Kecerahan: {Math.round(brightness * 100)}%
-                  </p>
-                  <input
-                    type="range"
-                    min={50}
-                    max={100}
-                    step={5}
-                    value={Math.round(brightness * 100)}
-                    onChange={(e) =>
-                      setBrightness(Number(e.target.value) / 100)
-                    }
-                    className="w-full accent-accent"
-                  />
-                  <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider mb-2 mt-3">
-                    Mode Malam
-                  </p>
-                  <button
-                    onClick={() => setNightMode(!nightMode)}
-                    className={`w-full px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors duration-150 cursor-pointer ${
-                      nightMode
-                        ? "bg-accent text-white"
-                        : "bg-surface-hover text-text-muted hover:text-text"
-                    }`}
-                  >
-                    {nightMode ? "✓ Aktif" : "Aktifkan"}
-                  </button>
-                </div>
-              )}
-            </div>
+      <ImageStrip
+        images={images}
+        loading={loading}
+        error={error}
+        bgColor={bgColor}
+        brightness={brightness}
+        loadedImages={loadedImages}
+        setLoadedImages={setLoadedImages}
+        retryKeys={retryKeys}
+        setRetryKeys={setRetryKeys}
+        zoomLevel={zoomLevel}
+        setZoomLevel={setZoomLevel}
+        zoomLevelRef={zoomLevelRef}
+        zoomOrigin={zoomOrigin}
+        setZoomOrigin={setZoomOrigin}
+        zoomedImageIdx={zoomedImageIdx}
+        setZoomedImageIdx={setZoomedImageIdx}
+        panOffset={panOffset}
+        setPanOffset={setPanOffset}
+        panOffsetRef={panOffsetRef}
+        lastTapRef={lastTapRef}
+        pinchStartRef={pinchStartRef}
+        panStartRef={panStartRef}
+        pinchActiveRef={pinchActiveRef}
+        stripDragRef={stripDragRef}
+        effectiveBaseUrl={effectiveBaseUrl}
+        chapterNum={chapterNum}
+      />
 
-            {/* Keyboard shortcut hint */}
-            <div className="group relative hidden sm:block">
-              <button
-                className="flex items-center justify-center w-6 h-6 rounded-md text-text-muted hover:text-text-secondary transition-colors duration-150 cursor-default"
-                tabIndex={-1}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                  <path d="M12 17h.01" />
-                </svg>
-              </button>
-              <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute right-0 top-full mt-1 w-max px-3 py-1.5 rounded-md bg-surface border border-border shadow-lg text-[10px] text-text-muted whitespace-nowrap z-50">
-                ← → prev/next chapter · ↑ ↓ scroll gambar · Space scroll ke
-                bawah
-              </div>
-            </div>
+      <ReaderBottomNav
+        loading={loading}
+        error={error}
+        images={images}
+        chromeHidden={chromeHidden}
+        chapterNum={chapterNum}
+        mangaHref={mangaHref}
+        prevChapter={prevChapter}
+        nextChapter={nextChapter}
+        buildChapterUrl={buildChapterUrl}
+      />
 
-          </div>
-        </div>
-      </header>
-
-      {/* Reading progress bar */}
-      <div className={`h-0.5 bg-transparent transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}>
-        <div
-          className="h-full bg-accent transition-[width] duration-100"
-          style={{
-            width: `${scrollProgress}%`,
-          }}
-        />
-      </div>
-
-      {/* Breadcrumb */}
-      <nav
-        className={`max-w-4xl mx-auto px-4 py-2 text-[12px] text-text-muted flex items-center gap-1.5 flex-wrap transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}
-        aria-label="Breadcrumb"
-      >
-        <Link
-          href="/"
-          className="hover:text-accent transition-colors duration-150"
-        >
-          Beranda
-        </Link>
-        <span className="select-none">&gt;</span>
-        <Link
-          href={mangaHref}
-          className="hover:text-accent transition-colors duration-150 line-clamp-1 max-w-50 sm:max-w-none"
-        >
-          {mangaTitle ?? "..."}
-        </Link>
-        <span className="select-none">&gt;</span>
-        <span className="text-text-secondary">Chapter {chapterNum}</span>
-      </nav>
-
-      {/* Error */}
-      {error && (
-        <div className="text-center py-20 px-4">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-surface border border-border flex items-center justify-center">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--color-danger)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <path d="M12 16h.01" />
-            </svg>
-          </div>
-          <p className="text-sm text-text-secondary mb-1">Gagal: {error}</p>
-          <p className="text-[12px] text-text-muted">
-            Coba buka manual: {effectiveBaseUrl}/chapter-{chapterNum}
-          </p>
-        </div>
-      )}
-
-      {/* Empty */}
-      {!loading && !error && images.length === 0 && (
-        <div className="text-center py-20">
-          <p className="text-text-muted text-sm">
-            Tidak ada gambar ditemukan. Site mungkin block scraper atau URL
-            salah.
-          </p>
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && <SkeletonLoader />}
-
-      {/* Images — strip mode */}
-      {!loading && !error && images.length > 0 && (
-        <div
-          className={`flex flex-col items-center select-none cursor-grab active:cursor-grabbing ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}
-          style={{ touchAction: "pan-y" }}
-          onPointerDown={handleStripPointerDown}
-          onPointerMove={handleStripPointerMove}
-          onPointerUp={handleStripPointerUp}
-        >
-          {images.map((src, i) => {
-            const loaded = loadedImages.has(i);
-            const retryN = retryKeys.get(i);
-            const baseSrc = proxyImage(src);
-            const imgSrc = retryN
-              ? `${baseSrc}${baseSrc.includes("?") ? "&" : "?"}retry=${retryN}`
-              : baseSrc;
-            return (
-              <div
-                key={i}
-                className={`relative w-full max-w-3xl mx-auto ${zoomedImageIdx === i ? "overflow-hidden" : ""}`}
-                style={{
-                  ...(brightness < 1
-                    ? { filter: `brightness(${brightness})` }
-                    : {}),
-                  touchAction: zoomedImageIdx === i ? "none" : "pan-y",
-                }}
-                onTouchStart={(e) => {
-                  if (e.touches.length === 2) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    pinchActiveRef.current = true;
-                    stripDragRef.current.dragging = false;
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    pinchStartRef.current = {
-                      dist: Math.sqrt(dx * dx + dy * dy),
-                      zoom: zoomLevelRef.current,
-                    };
-                  } else if (e.touches.length === 1) {
-                    if (zoomedImageIdx === i && zoomLevelRef.current > 1) {
-                      panStartRef.current = {
-                        x: e.touches[0].clientX,
-                        y: e.touches[0].clientY,
-                        ox: panOffsetRef.current.x,
-                        oy: panOffsetRef.current.y,
-                      };
-                    } else {
-                      const now = Date.now();
-                      const last = lastTapRef.current;
-                      if (now - last.time < 300 && last.idx === i) {
-                        if (zoomLevelRef.current > 1) {
-                          // Double-tap zoom out: animate snap-back
-                          const img = e.currentTarget.querySelector("img");
-                          if (img) {
-                            img.style.transition = "transform 0.2s ease-out";
-                            img.style.transformOrigin = `${50}% ${50}%`;
-                            img.style.transform = "translate(0px, 0px) scale(1)";
-                          }
-                          setTimeout(() => {
-                            if (img) img.style.transition = "";
-                            setZoomLevel(1);
-                            zoomLevelRef.current = 1;
-                            setZoomedImageIdx(null);
-                            setPanOffset({ x: 0, y: 0 });
-                            panOffsetRef.current = { x: 0, y: 0 };
-                          }, 200);
-                        } else {
-                          // Double-tap zoom in
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          const ox = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
-                          const oy = ((e.touches[0].clientY - rect.top) / rect.height) * 100;
-                          setZoomOrigin({ x: ox, y: oy });
-                          setZoomLevel(2);
-                          zoomLevelRef.current = 2;
-                          setZoomedImageIdx(i);
-                          setPanOffset({ x: 0, y: 0 });
-                          panOffsetRef.current = { x: 0, y: 0 };
-                          // Apply instantly without transition
-                          const img = e.currentTarget.querySelector("img");
-                          if (img) {
-                            img.style.transition = "transform 0.2s ease-out";
-                            img.style.transformOrigin = `${ox}% ${oy}%`;
-                            img.style.transform = `scale(2)`;
-                            setTimeout(() => { if (img) img.style.transition = ""; }, 220);
-                          }
-                        }
-                        lastTapRef.current = { time: 0, idx: -1 };
-                      } else {
-                        lastTapRef.current = { time: now, idx: i };
-                      }
-                    }
-                  }
-                }}
-                onTouchMove={(e) => {
-                  if (
-                    e.touches.length === 2 &&
-                    pinchStartRef.current.dist > 0
-                  ) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const newZoom = Math.min(
-                      3,
-                      Math.max(
-                        0.5,
-                        pinchStartRef.current.zoom *
-                          (dist / pinchStartRef.current.dist),
-                      ),
-                    );
-                    // Direct DOM manipulation — no React state during pinch
-                    const img = e.currentTarget.querySelector("img");
-                    if (img) {
-                      img.style.transition = "none";
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const ox = (((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) / rect.width) * 100;
-                      const oy = (((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) / rect.height) * 100;
-                      img.style.transformOrigin = `${ox}% ${oy}%`;
-                      img.style.transform = `translate(0px, 0px) scale(${newZoom})`;
-                    }
-                    zoomLevelRef.current = newZoom;
-                    // Track origin for state commit
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setZoomOrigin({
-                      x: (((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) / rect.width) * 100,
-                      y: (((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) / rect.height) * 100,
-                    });
-                    setZoomedImageIdx(newZoom > 1.05 ? i : null);
-                  } else if (
-                    e.touches.length === 1 &&
-                    !pinchActiveRef.current &&
-                    zoomedImageIdx === i &&
-                    zoomLevelRef.current > 1
-                  ) {
-                    e.preventDefault();
-                    const dx = e.touches[0].clientX - panStartRef.current.x;
-                    const dy = e.touches[0].clientY - panStartRef.current.y;
-                    const nx = panStartRef.current.ox + dx;
-                    const ny = panStartRef.current.oy + dy;
-                    // Direct DOM manipulation for pan
-                    const img = e.currentTarget.querySelector("img");
-                    if (img) {
-                      img.style.transition = "none";
-                      img.style.transform = `translate(${nx}px, ${ny}px) scale(${zoomLevelRef.current})`;
-                    }
-                    panOffsetRef.current = { x: nx, y: ny };
-                    setPanOffset({ x: nx, y: ny });
-                  }
-                }}
-                onTouchEnd={(e) => {
-                  const wasPinching = pinchActiveRef.current;
-                  pinchActiveRef.current = false;
-                  if (wasPinching && e.touches.length === 0) {
-                    // Pinch ended — commit final state
-                    const z = zoomLevelRef.current;
-                    if (z < 1.05) {
-                      // Snap back to 1 with animation
-                      const img = e.currentTarget.querySelector("img");
-                      if (img) {
-                        img.style.transition = "transform 0.2s ease-out";
-                        img.style.transformOrigin = "50% 50%";
-                        img.style.transform = "translate(0px, 0px) scale(1)";
-                      }
-                      setTimeout(() => {
-                        if (img) img.style.transition = "";
-                        setZoomLevel(1);
-                        zoomLevelRef.current = 1;
-                        setZoomedImageIdx(null);
-                        setPanOffset({ x: 0, y: 0 });
-                        panOffsetRef.current = { x: 0, y: 0 };
-                      }, 200);
-                    } else {
-                      // Commit final zoom + pan to state
-                      setZoomLevel(z);
-                      setPanOffset({ ...panOffsetRef.current });
-                    }
-                  } else if (
-                    !wasPinching &&
-                    e.touches.length === 0 &&
-                    zoomLevelRef.current > 1 &&
-                    zoomLevelRef.current < 1.05
-                  ) {
-                    // Very small zoom after single-finger — snap back
-                    const img = e.currentTarget.querySelector("img");
-                    if (img) {
-                      img.style.transition = "transform 0.2s ease-out";
-                      img.style.transform = "translate(0px, 0px) scale(1)";
-                    }
-                    setTimeout(() => {
-                      if (img) img.style.transition = "";
-                      setZoomLevel(1);
-                      zoomLevelRef.current = 1;
-                      setZoomedImageIdx(null);
-                      setPanOffset({ x: 0, y: 0 });
-                      panOffsetRef.current = { x: 0, y: 0 };
-                    }, 200);
-                  }
-                  pinchStartRef.current = { dist: 0, zoom: zoomLevelRef.current };
-                }}
-                onWheel={(e) => {
-                  if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    const delta = -e.deltaY * 0.01;
-                    const newZoom = Math.min(3, Math.max(1, zoomLevelRef.current + delta));
-                    zoomLevelRef.current = newZoom;
-                    setZoomLevel(newZoom);
-                    setZoomedImageIdx(newZoom > 1 ? i : null);
-                    if (newZoom <= 1) {
-                      setPanOffset({ x: 0, y: 0 });
-                      panOffsetRef.current = { x: 0, y: 0 };
-                    }
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    const ox = ((e.clientX - rect.left) / rect.width) * 100;
-                    const oy = ((e.clientY - rect.top) / rect.height) * 100;
-                    setZoomOrigin({ x: ox, y: oy });
-                    // Direct DOM update for immediate feedback
-                    const img = e.currentTarget.querySelector("img");
-                    if (img) {
-                      img.style.transition = "transform 0.1s ease-out";
-                      img.style.transformOrigin = `${ox}% ${oy}%`;
-                      img.style.transform = `translate(0px, 0px) scale(${newZoom})`;
-                      setTimeout(() => { img.style.transition = ""; }, 120);
-                    }
-                  }
-                }}
-              >
-                <div
-                  className={`skeleton w-full aspect-3/4 rounded-lg transition-opacity duration-300 ${
-                    loaded ? "opacity-0 absolute inset-0" : "opacity-100"
-                  }`}
-                  style={{ animationDelay: `${(i % 6) * 150}ms` }}
-                />
-                <img
-                  src={imgSrc}
-                  alt={`Halaman ${i + 1}`}
-                  className={`w-full object-contain ${
-                    loaded ? "opacity-100" : "opacity-0"
-                  }`}
-                  style={{
-                    transition: "opacity 0.5s ease",
-                    transform:
-                      zoomedImageIdx === i
-                        ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`
-                        : undefined,
-                    transformOrigin:
-                      zoomedImageIdx === i
-                        ? `${zoomOrigin.x}% ${zoomOrigin.y}%`
-                        : undefined,
-                    maxWidth: "48rem",
-                    height: "auto",
-                    objectFit: "contain",
-                  }}
-                  loading={i === 0 ? "eager" : "lazy"}
-                  onLoad={() => {
-                    setLoadedImages((prev) => {
-                      const next = new Set(prev);
-                      next.add(i);
-                      return next;
-                    });
-                  }}
-                  onError={() => {
-                    const current = retryKeys.get(i) || 0;
-                    if (current < 2) {
-                      setTimeout(
-                        () => {
-                          setRetryKeys((prev) => {
-                            const next = new Map(prev);
-                            next.set(i, current + 1);
-                            return next;
-                          });
-                        },
-                        (current + 1) * 1000,
-                      );
-                    }
-                  }}
-                />
-                {retryN != null && retryN > 0 && retryN < 2 && !loaded && (
-                  <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-text-muted bg-surface/80 px-2 py-0.5 rounded">
-                    Retry {retryN}/2…
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Bottom nav */}
-      {!loading && !error && images.length > 0 && (
-        <div className={`transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}>
-          {/* Gradient fade from content to footer */}
-          <div className="h-24 bg-linear-to-b from-transparent to-bg" />
-
-          <div className="w-full border-t border-border bg-surface">
-            <div className="max-w-4xl mx-auto flex flex-col items-center gap-6 py-10 px-4">
-              <p className="text-sm font-semibold text-text tracking-wide uppercase">
-                Chapter {chapterNum} selesai
-              </p>
-
-              <Link
-                href={mangaHref}
-                className="flex items-center gap-2 text-sm font-medium text-accent hover:text-accent-hover transition-colors duration-150 hover:underline underline-offset-4 decoration-accent"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M19 12H5" />
-                  <path d="M12 19l-7-7 7-7" />
-                </svg>
-                Kembali ke Detail
-              </Link>
-
-              {/* Prev / Next */}
-              <div className="flex items-center gap-3">
-                {prevChapter ? (
-                  <Link
-                    href={buildChapterUrl(prevChapter)}
-                    className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-bg border border-border text-text-secondary hover:text-text hover:border-border-hover transition-all duration-150"
-                  >
-                    &larr; Prev
-                  </Link>
-                ) : (
-                  <span className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-bg border border-border text-text-muted opacity-40 cursor-not-allowed select-none pointer-events-none">
-                    &larr; Prev
-                  </span>
-                )}
-                {nextChapter ? (
-                  <Link
-                    href={buildChapterUrl(nextChapter)}
-                    className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-accent text-white hover:bg-accent-hover transition-all duration-150 shadow-md"
-                  >
-                    Next &rarr;
-                  </Link>
-                ) : (
-                  <span className="px-5 py-2.5 text-[13px] font-medium rounded-lg bg-accent text-white opacity-40 cursor-not-allowed select-none pointer-events-none">
-                    Next &rarr;
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating bubble (iOS AssistiveTouch style) */}
-      {images.length > 0 && !loading && (
-        <div
-          className={`fixed z-50 select-none transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}
-          style={{
-            left: bubblePos ? bubblePos.x : "auto",
-            right: bubblePos ? "auto" : 24,
-            top: bubblePos ? bubblePos.y : "50%",
-            transform: bubblePos ? "none" : "translateY(-50%)",
-          }}
-        >
-          {/* Expanded menu */}
-          {bubbleExpanded && (
-            <div className="absolute bottom-full mb-2 right-0 flex flex-col items-end gap-2 animate-[fadeIn_0.15s_ease]">
-              {/* Prev chapter */}
-              {prevChapter && (
-                <button
-                  onClick={() => {
-                    window.location.href = buildChapterUrl(prevChapter);
-                    setBubbleExpanded(false);
-                  }}
-                  className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-surface border border-border shadow-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer"
-                >
-                  <span className="text-[11px] font-medium whitespace-nowrap">
-                    Chapter Prev
-                  </span>
-                  <span className="w-7 h-7 rounded-full bg-surface-hover flex items-center justify-center">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M19 12H5" />
-                      <path d="M12 19l-7-7 7-7" />
-                    </svg>
-                  </span>
-                </button>
-              )}
-              {/* Next chapter */}
-              {nextChapter && (
-                <button
-                  onClick={() => {
-                    window.location.href = buildChapterUrl(nextChapter);
-                    setBubbleExpanded(false);
-                  }}
-                  className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-surface border border-border shadow-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer"
-                >
-                  <span className="text-[11px] font-medium whitespace-nowrap">
-                    Chapter Next
-                  </span>
-                  <span className="w-7 h-7 rounded-full bg-accent-dim flex items-center justify-center text-accent">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M5 12h14" />
-                      <path d="M12 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </button>
-              )}
-              {/* Scroll up */}
-              <button
-                onClick={() => {
-                  scrollToPrevImage();
-                  setBubbleExpanded(false);
-                }}
-                className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-surface border border-border shadow-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer"
-              >
-                <span className="text-[11px] font-medium whitespace-nowrap">
-                  Scroll Atas
-                </span>
-                <span className="w-7 h-7 rounded-full bg-surface-hover flex items-center justify-center">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M18 15l-6-6-6 6" />
-                  </svg>
-                </span>
-              </button>
-              {/* Scroll down */}
-              <button
-                onClick={() => {
-                  scrollToNextImage();
-                  setBubbleExpanded(false);
-                }}
-                className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-surface border border-border shadow-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer"
-              >
-                <span className="text-[11px] font-medium whitespace-nowrap">
-                  Scroll Bawah
-                </span>
-                <span className="w-7 h-7 rounded-full bg-surface-hover flex items-center justify-center">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </span>
-              </button>
-              {/* Go to detail */}
-              <Link
-                href={mangaHref}
-                onClick={() => setBubbleExpanded(false)}
-                className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-surface border border-border shadow-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150"
-              >
-                <span className="text-[11px] font-medium whitespace-nowrap">
-                  Detail
-                </span>
-                <span className="w-7 h-7 rounded-full bg-accent-dim flex items-center justify-center text-accent">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </span>
-              </Link>
-            </div>
-          )}
-
-          {/* Main bubble button */}
-          <div
-            className="w-12 h-12 rounded-full bg-surface/90 backdrop-blur-sm border border-border shadow-lg shadow-black/20 flex items-center justify-center text-text-muted hover:text-text hover:border-border-hover transition-colors duration-150 cursor-pointer select-none touch-none"
-            style={{ opacity: bubbleExpanded ? 1 : 0.7 }}
-            onPointerDown={handleBubblePointerDown}
-            onPointerMove={handleBubblePointerMove}
-            onPointerUp={handleBubblePointerUp}
-          >
-            {bubbleExpanded ? (
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            ) : (
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="12" cy="5" r="1" />
-                <circle cx="12" cy="19" r="1" />
-              </svg>
-            )}
-          </div>
-        </div>
-      )}
+      <FloatingBubble
+        chromeHidden={chromeHidden}
+        bubblePos={bubblePos}
+        setBubblePos={setBubblePos}
+        bubbleExpanded={bubbleExpanded}
+        setBubbleExpanded={setBubbleExpanded}
+        prevChapter={prevChapter}
+        nextChapter={nextChapter}
+        buildChapterUrl={buildChapterUrl}
+        scrollToPrevImage={scrollToPrevImage}
+        scrollToNextImage={scrollToNextImage}
+        mangaHref={mangaHref}
+        handleBubblePointerDown={handleBubblePointerDown}
+        handleBubblePointerMove={handleBubblePointerMove}
+        handleBubblePointerUp={handleBubblePointerUp}
+      />
     </div>
   );
 }

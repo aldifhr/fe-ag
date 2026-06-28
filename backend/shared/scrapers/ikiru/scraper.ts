@@ -160,7 +160,7 @@ export async function fetchIkiruLatest(maxPages = 1): Promise<IkiruChapterItem[]
       if (!title) return;
 
       // Traverse up to find container with chapter links (max 3 levels)
-       
+
       let $container: any = null;
       let $current = $link.parent();
       for (let depth = 0; depth < 3; depth++) {

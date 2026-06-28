@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
-import { handleLatest } from "./reader-handlers/latest.js";
-import { handleSearch } from "./reader-handlers/search.js";
-import { handleManga } from "./reader-handlers/manga.js";
-import { handlePages } from "./reader-handlers/pages.js";
-import { handlePopular, handleFilters, handleGenres, handleGenreManga, handleRandom, handleHealth, handleDebug } from "./reader-handlers/misc.js";
+import { handleLatest } from "../shared/reader-handlers/latest.js";
+import { handleSearch } from "../shared/reader-handlers/search.js";
+import { handleManga } from "../shared/reader-handlers/manga.js";
+import { handlePages } from "../shared/reader-handlers/pages.js";
+import { handlePopular, handleFilters, handleGenres, handleGenreManga, handleRandom, handleHealth, handleDebug } from "../shared/reader-handlers/misc.js";
 
 // ponytail: Route dispatch stays here; individual handlers are in reader-handlers/.
 // If this grows past ~20 routes, consider a registry pattern or express Router.

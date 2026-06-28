@@ -1,38 +1,18 @@
 import {
-  SOURCE_KEYS,
-} from "../constants/sources.js";
-import {
   batchGetLastScrapeChecks,
   batchSetLastScrapeChecks,
-  batchGetMangaMetadata,
-  setMangaMetadata,
   appendLiveEvent,
 } from "../../lib/services/storage.js";
-import pLimit from "p-limit";
 import {
-  CronLogEntry,
-  ClaimState,
-  MangaMetadata,
   SourceState,
-  ScraperMetrics,
   ChapterItem,
-  LifecycleState,
   SourceHealth,
   OrchestrateOptions,
   Logger,
 } from "../types.js";
 import { isWithinLastHours, safeParseDate } from "../dateUtils.js";
-import { normalizeSource, normalizeSourceUrl, normalizeTitleKey } from "./shared.js";
-import { withTimeout } from "../utils.js";
+import { normalizeSourceUrl, normalizeTitleKey } from "./shared.js";
 import { mangaProviderRegistry } from "../providers/registry.js";
-import { getChapterNumber } from "../domain.js";
-import {
-  buildNextSourceHealthMap,
-  getDisabledSources,
-  loadSourceHealthMap,
-  saveSourceHealthMap,
-} from "../../lib/services/health.js";
-import { getLogger } from "../logger.js";
 import {
   getHibernatingTitleKeys,
   applyIncrementalFilter,
@@ -40,33 +20,19 @@ import {
   hasPreferredSecondaryMatcher,
   filterWhitelistedChapters,
   filterRecentChapters,
-  sortChapters,
   PreferredSecondaryMatcher,
 } from "./orchestrator-helpers.js";
-import {
-  enrichChaptersMetadata,
-  applyMetadataToChapters,
-} from "../../lib/services/metadata-enrichment.js";
 import { autoHealIfNeeded } from "../../lib/services/domainHealing.js";
+import { getLogger } from "../logger.js";
+import { enrichScrapeResults } from "./orchestrator-enrich.js";
+import { loadDisabledSources, updateAndSaveHealthMap } from "./orchestrator-health.js";
 
 const defaultLogger = getLogger({ scope: "scraper" });
 
 // Re-export for backward compatibility
 export type { PreferredSecondaryMatcher } from "./orchestrator-helpers.js";
 
-
-
-type OrchestrateLogger = Pick<Logger, 'info' | 'error' | 'warn' | 'debug'>;
-
-function buildDefaultSecondaryMetrics(): ScraperMetrics {
-  return {
-    detailAttempts: 0,
-    detailSuccesses: 0,
-    detailFallbacks: 0,
-    detail429: 0,
-    detailSkippedNonPriority: 0,
-  };
-}
+type OrchestrateLogger = Pick<Logger, "info" | "error" | "warn" | "debug">;
 
 export interface OrchestrateScrapeSourcesParams {
   options?: OrchestrateOptions;
@@ -81,7 +47,7 @@ export async function orchestrateScrapeSources({
 }: OrchestrateScrapeSourcesParams = {}) {
   const { lifecycle, startTime = Date.now(), deadlineMs = 0 } = options;
   const deadline = deadlineMs > 0 ? startTime + deadlineMs : 0;
-  const SCRAPE_SAFETY_MARGIN_MS = 5000; // Reduced from 8s to 5s to allow more scrape time for secondary sources
+  const SCRAPE_SAFETY_MARGIN_MS = 5000;
 
   const sourceStates: Record<string, SourceState> = {};
   providers.forEach(p => {
@@ -92,25 +58,16 @@ export async function orchestrateScrapeSources({
   const currentHealthMap: Record<string, SourceHealth> = options?.currentHealthMap ?? {};
 
   try {
-    const cooldownSources = getDisabledSources(currentHealthMap, SOURCE_KEYS);
-    const optionsDisabled = Array.isArray(options?.disabledSources)
-      ? options.disabledSources.map((source) => normalizeSource(source)!)
-      : [];
-
-    const disabledSources = new Set([...cooldownSources, ...optionsDisabled]);
-    if (disabledSources.size > 0) {
-      logger.info(
-        { disabled: Array.from(disabledSources) },
-        "skipping disabled or cooling down sources",
-      );
-      for (const src of disabledSources) {
-        if (sourceStates[src]) {
-          sourceStates[src].status = "circuit_break";
-          sourceStates[src].error = "Source in cooldown or manually disabled";
-        }
+    // --- Disabled / cooldown sources (delegated to orchestrator-health) ---
+    const { disabledSources, disabledInfo } = loadDisabledSources(currentHealthMap, options?.disabledSources);
+    for (const src of disabledSources) {
+      if (sourceStates[src]) {
+        sourceStates[src].status = "circuit_break";
+        sourceStates[src].error = disabledInfo[src];
       }
     }
 
+    // --- Whitelist setup ---
     const ikiruTitles = Array.isArray(options?.preferredIkiru?.titles)
       ? options.preferredIkiru.titles
       : (Array.isArray(options?.preferredIkiruTitles) ? options.preferredIkiruTitles : []);
@@ -152,6 +109,7 @@ export async function orchestrateScrapeSources({
       secondarySources.flatMap(src => Array.from(preferredSecondaryMatchersBySource[src].urlKeys))
     );
 
+    // --- Incremental + hibernation filter ---
     const useIncremental = options?.incremental !== false && options?.force !== true;
     const allTitleKeys = Array.from(
       new Set([
@@ -163,13 +121,6 @@ export async function orchestrateScrapeSources({
     const initialTitleCount = allTitleKeys.length;
     let hibernatedCount = 0;
     let incrementalSavedCount = 0;
-
-    const allUrlKeys = Array.from(
-      new Set([
-        ...preferredIkiruUrlKeys,
-        ...preferredSecondaryMatchersBySource.shinigami.urlKeys,
-      ]),
-    );
 
     const [skipTitleKeys, ikiruIncrementalFiltered, secondaryIncrementalFiltered] = await Promise.all([
       getHibernatingTitleKeys(allTitleKeys, options),
@@ -226,21 +177,7 @@ export async function orchestrateScrapeSources({
       }
     }
 
-    const buildDedupeKey = (prefix: string, titleKeys: Set<string>, urlKeys = new Set<string>()) => {
-      const sortedTitles = Array.from(titleKeys).sort().join(",");
-      const sortedUrls = Array.from(urlKeys).sort().join(",");
-      const sorted = `${sortedTitles}||${sortedUrls}`;
-      const len = sorted.length;
-      const first = sorted.slice(0, 50);
-      const last = len > 50 ? sorted.slice(-50) : "";
-      let hash = 0;
-      for (let i = 0; i < sorted.length; i++) {
-        hash = ((hash << 5) - hash + sorted.charCodeAt(i)) | 0;
-      }
-      const fingerprint = Math.abs(hash).toString(36).slice(0, 8);
-      return prefix + ":scrape:" + len + ":" + first + ":" + last + ":" + fingerprint;
-    };
-
+    // --- Provider scrape tasks ---
     const providerTasks = providers.map(async (provider) => {
       const sourceStart = Date.now();
       const id = provider.id;
@@ -342,6 +279,7 @@ export async function orchestrateScrapeSources({
       }
     });
 
+    // --- Collect results ---
     const executionResults = await Promise.all(providerTasks);
 
     for (const res of executionResults) {
@@ -355,6 +293,7 @@ export async function orchestrateScrapeSources({
       sourceStates[res.id] = res.state as SourceState;
     }
 
+    // --- Post-scrape filtering ---
     if (scrapedChapters.length > 0) {
       // 1. Ensure all have title keys and detect potential title mismatches (Auto-Heal candidates)
       scrapedChapters.forEach((ch: ChapterItem & { titleKey?: string }) => {
@@ -403,73 +342,14 @@ export async function orchestrateScrapeSources({
       }
     }
 
-    if (scrapedChapters.length > 0) {
-      if (lifecycle) lifecycle.currentStep = "enriching_metadata";
+    // --- Metadata enrichment (delegated to orchestrator-enrich) ---
+    await enrichScrapeResults(scrapedChapters, !!options.force, deadline, SCRAPE_SAFETY_MARGIN_MS, lifecycle, logger);
 
-      const uniqueTitleKeys = [...new Set(scrapedChapters.map((ch: ChapterItem & { titleKey?: string }) => ch.titleKey))];
-      const metadataMap = new Map();
-
-      // Load cached metadata from Supabase
-      const cachedResults = await batchGetMangaMetadata(
-        uniqueTitleKeys.filter((tk): tk is string => !!tk),
-      );
-      cachedResults.forEach((meta, i) => {
-        if (meta) metadataMap.set(uniqueTitleKeys[i], meta);
-      });
-
-      // OPTIMIZATION: If QStash is enabled, we usually skip synchronous enrichment
-      // to save time. However, for a small number of items (e.g. new manga), 
-      // we allow a tiny batch of sync fetches so the first notification isn't "Unknown".
-      const isQStash = process.env.QSTASH_ENABLED === "true";
-      const skipSyncEnrichment = isQStash && !options.force;
-
-      const maxSyncFetches = skipSyncEnrichment ? 15 : 40;
-
-      const enrichmentStats = await enrichChaptersMetadata(
-        scrapedChapters,
-        metadataMap,
-        {
-          maxFetches: maxSyncFetches,
-          deadline: deadline,
-          safetyMarginMs: SCRAPE_SAFETY_MARGIN_MS / 2,
-        }
-      );
-
-      logger.info(
-        {
-          cached: enrichmentStats.cached,
-          fetched: enrichmentStats.fetched,
-          failed: enrichmentStats.failed,
-          skipped: enrichmentStats.skipped,
-          durationMs: enrichmentStats.durationMs,
-        },
-        "Metadata enrichment stats"
-      );
-
-      // Apply metadata to chapters
-      applyMetadataToChapters(scrapedChapters, metadataMap);
-
-      // 5. Sort chapters by time, title, and chapter number
-      const sortedChapters = sortChapters(scrapedChapters, getChapterNumber, safeParseDate);
-      scrapedChapters.length = 0;
-      scrapedChapters.push(...sortedChapters);
-    }
-
-    let nextSourceHealth: Record<string, SourceHealth> = currentHealthMap;
-    try {
-      nextSourceHealth = buildNextSourceHealthMap({
-        sourceKeys: SOURCE_KEYS,
-        currentMap: currentHealthMap,
-        sourceStates: sourceStates,
-        nowIso: new Date().toISOString(),
-        failureThreshold: options?.healthFailureThreshold,
-        cooldownSeconds: options?.healthCooldownSeconds,
-      });
-      await saveSourceHealthMap(nextSourceHealth, SOURCE_KEYS);
-    } catch (healthErr: unknown) {
-      const err = healthErr instanceof Error ? healthErr : new Error(String(healthErr));
-      logger.warn({ err: err.message }, "failed to update source health map");
-    }
+    // --- Health map update (delegated to orchestrator-health) ---
+    const nextSourceHealth = await updateAndSaveHealthMap(sourceStates, currentHealthMap, {
+      healthFailureThreshold: options?.healthFailureThreshold,
+      healthCooldownSeconds: options?.healthCooldownSeconds,
+    });
 
     let skippedHibernation = 0;
     if (skipTitleKeys instanceof Set) {
@@ -504,5 +384,3 @@ export async function scrapeMangaUpdatesWithMeta(options: OrchestrateOptions = {
     logger: defaultLogger,
   });
 }
-
-
