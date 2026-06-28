@@ -51,13 +51,6 @@ export async function generateMetadata({
   };
 }
 
-export default async function MangaPage({
-  params,
-}: {
-  params: Promise<{ source: string; id: string }>;
-}) {
-  const { source, id: rawId } = await params;
-  const id = decodeURIComponent(rawId);
-  const data = await getManga(id, source);
-  return <MangaDetailClient initialData={data ?? undefined} />;
+export default function MangaPage() {
+  return <MangaDetailClient />;
 }
