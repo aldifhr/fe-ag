@@ -15,8 +15,8 @@ import {
 import type { SourceOption } from "@/lib/home-types";
 import { readLS } from "@/lib/readLS";
 import { usePagedFetch } from "@/lib/hooks/usePagedFetch";
-import SedangDibaca from "@/components/sections/SedangDibaca";
-import SemuaManga from "@/components/sections/SemuaManga";
+import ContinueReading from "@/components/sections/ContinueReading";
+import AllManga from "@/components/sections/AllManga";
 
 import GenreChips from "@/components/sections/GenreChips";
 
@@ -44,7 +44,7 @@ export function HomeClient({
   const hydrated = useRef(false);
   useEffect(() => {
     setViewMode(readLS<"grid" | "list">("manhwa-view-mode", ["grid", "list"], "grid"));
-    setSource(readLS<SourceOption>("manhwa-source", ["all", "shinigami"], "all"));
+    setSource(readLS<SourceOption>("manhwa-source", ["all", "shinigami", "ikiru"], "all"));
     hydrated.current = true;
   }, []);
 
@@ -76,16 +76,12 @@ export function HomeClient({
     setRecentHistory(history.slice(0, 8));
   }, []);
 
-  // Persist view mode and sort (skip initial render to avoid overwriting saved prefs with defaults)
+  // Persist settings (skip initial render to avoid overwriting saved prefs with defaults)
   useEffect(() => {
     if (!hydrated.current) return;
     localStorage.setItem("manhwa-view-mode", viewMode);
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (!hydrated.current) return;
     localStorage.setItem("manhwa-source", source);
-  }, [source]);
+  }, [viewMode, source]);
 
   // Feature 1: Random manhwa handler
   const handleRandom = useCallback(async () => {
@@ -106,10 +102,10 @@ export function HomeClient({
       <GenreChips genres={initialGenres ?? []} />
 
       {recentHistory.length > 0 && (
-        <SedangDibaca history={recentHistory} />
+        <ContinueReading history={recentHistory} />
       )}
 
-      <SemuaManga
+      <AllManga
         source={source}
         setSource={setSource}
         viewMode={viewMode}

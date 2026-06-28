@@ -18,6 +18,13 @@ export interface GroupedHistory {
   totalChapters?: number; // max totalChapters seen from entries
 }
 
+function decodeEntities(text: string): string {
+  if (typeof document === "undefined") return text;
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
+
 const STORAGE_KEY = "manhwa-history";
 const MAX_ENTRIES = 200;
 
@@ -40,14 +47,19 @@ function isFallbackTitle(title: string): boolean {
 export function addHistory(entry: Omit<HistoryEntry, "readAt">): void {
   // Skip recording if title is a fallback — would pollute history with garbage
   if (isFallbackTitle(entry.title)) return;
+  // Decode HTML entities so &#8217; → ' before storing
+  const decoded: Omit<HistoryEntry, "readAt"> = {
+    ...entry,
+    title: decodeEntities(entry.title),
+  };
   const all = safeGetHistory();
   // Remove existing entry for same manga+chapter
   const filtered = all.filter(
     (e) =>
-      !(e.mangaId === entry.mangaId && e.chapterNumber === entry.chapterNumber),
+      !(e.mangaId === decoded.mangaId && e.chapterNumber === decoded.chapterNumber),
   );
   // Add new entry at the start
-  filtered.unshift({ ...entry, readAt: Date.now() });
+  filtered.unshift({ ...decoded, readAt: Date.now() });
   // Cap length
   localStorage.setItem(
     STORAGE_KEY,
@@ -93,7 +105,7 @@ export function getGroupedHistory(): GroupedHistory[] {
     } else {
       map.set(e.mangaId, {
         mangaId: e.mangaId,
-        title: e.title,
+        title: decodeEntities(e.title),
         cover: e.cover,
         source: e.source,
         chapters: [e.chapterNumber],
@@ -122,7 +134,7 @@ export function getContinueReading(): Omit<HistoryEntry, "readAt"> | null {
   return entries.length > 0
     ? {
         mangaId: entries[0].mangaId,
-        title: entries[0].title,
+        title: decodeEntities(entries[0].title),
         cover: entries[0].cover,
         source: entries[0].source,
         chapterNumber: entries[0].chapterNumber,

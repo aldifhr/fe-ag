@@ -32,6 +32,45 @@ function chapterNum(raw: string): string {
   return raw.replace(/^chapter\s+/i, "").replace(/^ch\.?\s*/i, "");
 }
 
+/** Shared chapter pill component used by both chapters[] and single-chapter paths. */
+function ChapterPill({
+  number,
+  time,
+  source,
+  id,
+  isRead,
+}: {
+  number: string;
+  time?: string | null;
+  source: string;
+  id: string;
+  isRead: boolean;
+}) {
+  return (
+    <Link
+      href={`/manga/${source}/${encodeURIComponent(id)}/${number}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 w-fit ${
+        isRead
+          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+          : "bg-(--color-bg) text-(--color-text-secondary) border border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)/40 hover:bg-(--color-accent)/5"
+      }`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {isRead && (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+      {chapterLabel(number)}
+      {time && (
+        <span className="opacity-60">
+          · {timeAgo(new Date(time).getTime())}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function MangaCard({
   title,
   cover,
@@ -157,57 +196,11 @@ function MangaCard({
           chapters.map((ch, i) => {
             const isRead = readChapters.has(chapterNum(ch.number));
             return (
-              <Link
-                key={i}
-                href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}`}
-                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 w-fit ${
-                  isRead
-                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                    : "bg-(--color-bg) text-(--color-text-secondary) border border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)/40 hover:bg-(--color-accent)/5"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isRead && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-                {chapterLabel(ch.number)}
-                {ch.time && (
-                  <span className="opacity-60">
-                    · {timeAgo(new Date(ch.time).getTime())}
-                  </span>
-                )}
-              </Link>
+              <ChapterPill key={i} number={ch.number} time={ch.time} source={source} id={id} isRead={isRead} />
             );
           })
         ) : chapter ? (
-          (() => {
-            const isRead = readChapters.has(chapterNum(chapter));
-            return (
-              <Link
-                href={`/manga/${source}/${encodeURIComponent(id)}/${chapter}`}
-                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 w-fit ${
-                  isRead
-                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                    : "bg-(--color-bg) text-(--color-text-secondary) border border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)/40 hover:bg-(--color-accent)/5"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isRead && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-                {chapterLabel(chapter)}
-                {time && (
-                  <span className="opacity-60">
-                    · {timeAgo(new Date(time).getTime())}
-                  </span>
-                )}
-              </Link>
-            );
-          })()
+          <ChapterPill number={chapter} time={time} source={source} id={id} isRead={readChapters.has(chapterNum(chapter))} />
         ) : null}
 
       </div>

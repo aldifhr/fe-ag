@@ -49,7 +49,7 @@ function SearchContent() {
     readLS("manhwa-search-status", ["", "ongoing", "completed", "hiatus", "cancelled"], ""),
   );
   const [sourceFilter, setSourceFilter] = useState<string>(() =>
-    readLS("manhwa-search-source", ["", "shinigami"], ""),
+    readLS("manhwa-search-source", ["", "shinigami", "ikiru"], ""),
   );
   const [genreFilters, setGenreFilters] = useState<string[]>(() => {
     try {
@@ -156,16 +156,10 @@ function SearchContent() {
   // Persist filter choices
   useEffect(() => {
     localStorage.setItem("manhwa-search-sort", sortFilter);
-  }, [sortFilter]);
-  useEffect(() => {
     localStorage.setItem("manhwa-search-status", statusFilter);
-  }, [statusFilter]);
-  useEffect(() => {
     localStorage.setItem("manhwa-search-source", sourceFilter);
-  }, [sourceFilter]);
-  useEffect(() => {
     localStorage.setItem("manhwa-search-genres", JSON.stringify(genreFilters));
-  }, [genreFilters]);
+  }, [sortFilter, statusFilter, sourceFilter, genreFilters]);
 
   // Cleanup on unmount
   useEffect(() => {

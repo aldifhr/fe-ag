@@ -3,7 +3,7 @@ import { proxyCover } from "@/lib/api";
 import { timeAgo, GroupedHistory } from "@/lib/history";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 
-export default function SedangDibaca({
+export default function ContinueReading({
   history,
 }: {
   history: GroupedHistory[];

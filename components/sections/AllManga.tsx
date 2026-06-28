@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { SearchResult, proxyCover } from "@/lib/api";
-import { checkConnection } from "@/lib/connection";
 import { timeAgo } from "@/lib/history";
 import MangaCard from "@/components/MangaCard";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import SkeletonGrid from "@/components/SkeletonGrid";
-import ErrorState from "@/components/ErrorState";
+import ConnectionTestPanel from "@/components/ConnectionTestPanel";
 import Spinner from "@/components/Spinner";
 import EmptyState from "@/components/EmptyState";
 import { GRID_CLASS } from "@/lib/gridClass";
@@ -13,10 +12,9 @@ import { SOURCE_OPTIONS } from "@/lib/home-types";
 import type { SourceOption } from "@/lib/home-types";
 import type { RefObject } from "react";
 
-// ponytail: Featured slugs list duplicated from GenrePopuler for self-containedness.
-// Extract to a shared constant if a third consumer appears.
 
-export default function SemuaManga({
+
+export default function AllManga({
   source,
   setSource,
   viewMode,
@@ -161,50 +159,14 @@ export default function SemuaManga({
 
       {/* Content */}
       {error ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <ErrorState message={error} onRetry={() => refetch()} />
-          {connStatus && !connStatus.backend && (
-            <p className="text-[12px] text-(--color-danger)">
-              Tidak dapat terhubung ke server. Pastikan backend berjalan di
-              localhost:3000
-            </p>
-          )}
-          {connStatus && connStatus.backend && !connStatus.shinigami && (
-            <p className="text-[12px] text-yellow-400">
-              Shinigami sedang tidak tersedia
-            </p>
-          )}
-          <button
-            onClick={async () => {
-              setChecking(true);
-              const result = await checkConnection();
-              setConnStatus(result);
-              setChecking(false);
-            }}
-            disabled={checking}
-            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150 disabled:opacity-50"
-          >
-            {checking ? "Menguji..." : "Test koneksi"}
-          </button>
-          {connStatus && (
-            <div className="mt-2 flex items-center gap-4 text-[11px]">
-              <span
-                className={
-                  connStatus.backend ? "text-emerald-400" : "text-red-400"
-                }
-              >
-                Backend: {connStatus.backend ? "OK" : "Offline"}
-              </span>
-              <span
-                className={
-                  connStatus.shinigami ? "text-emerald-400" : "text-red-400"
-                }
-              >
-                Shinigami: {connStatus.shinigami ? "OK" : "Offline"}
-              </span>
-            </div>
-          )}
-        </div>
+        <ConnectionTestPanel
+          error={error}
+          refetch={refetch}
+          connStatus={connStatus}
+          setConnStatus={setConnStatus}
+          checking={checking}
+          setChecking={setChecking}
+        />
       ) : isLoading ? (
         <SkeletonGrid />
       ) : items.length === 0 ? (
