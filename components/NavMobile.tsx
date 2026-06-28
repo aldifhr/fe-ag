@@ -1,5 +1,6 @@
 import type React from "react";
 import Link from "next/link";
+import AuthButtons from "@/components/AuthButtons";
 
 interface NavMobileProps {
   isMangaPage: boolean;
@@ -189,7 +190,10 @@ export default function NavMobile({
           </div>
         </div>
 
-        <div className="border-t border-(--color-border) mt-1 pt-1">
+        <div className="border-t border-(--color-border) mt-1 pt-1 space-y-1">
+          <div className="px-4 py-2">
+            <AuthButtons />
+          </div>
           <button
             onClick={() => {
               toggle();

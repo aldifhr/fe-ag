@@ -1,5 +1,6 @@
 import type React from "react";
 import Link from "next/link";
+import AuthButtons from "@/components/AuthButtons";
 
 interface NavDesktopProps {
   isMangaPage: boolean;
@@ -177,6 +178,9 @@ export default function NavDesktop({
 
       {/* Right group */}
       <div className="flex items-center gap-2">
+        {/* Clerk auth */}
+        <AuthButtons />
+
         {/* Theme toggle */}
         <button
           onClick={toggle}
