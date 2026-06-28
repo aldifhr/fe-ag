@@ -102,7 +102,6 @@ export default function ReaderPage() {
       <FloatingBubble
         chromeHidden={state.chromeHidden}
         bubblePos={state.bubblePos}
-        setBubblePos={state.setBubblePos}
         bubbleExpanded={state.bubbleExpanded}
         setBubbleExpanded={state.setBubbleExpanded}
         prevChapter={state.prevChapter}

@@ -34,8 +34,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f1115] px-4">
-      <div className="w-full max-w-sm bg-[#1a1d24] rounded-2xl p-8 shadow-xl border border-white/5">
+    <div className="min-h-screen flex items-center justify-center bg-(--color-bg) px-4">
+      <div className="w-full max-w-sm bg-(--color-surface) rounded-2xl p-8 shadow-xl border border-(--color-border)">
         <div className="flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-full bg-(--color-accent)/10 flex items-center justify-center mb-4">
             <svg
@@ -52,8 +52,8 @@ export default function LoginPage() {
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-white">Akses Terbatas</h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <h1 className="text-xl font-semibold text-(--color-text)">Akses Terbatas</h1>
+          <p className="text-sm text-(--color-text-muted) mt-1">
             Masukkan password untuk melanjutkan
           </p>
         </div>
@@ -66,10 +66,10 @@ export default function LoginPage() {
             placeholder="Password"
             autoFocus
             required
-            className="w-full px-4 py-3 bg-[#0f1115] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-(--color-accent) transition-colors mb-3"
+            className="w-full px-4 py-3 bg-(--color-bg) border border-(--color-border) rounded-lg text-(--color-text) placeholder-(--color-text-muted) focus:outline-none focus:border-(--color-accent) transition-colors mb-3"
           />
 
-          {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+          {error && <p className="text-sm text-(--color-danger) mb-3">{error}</p>}
 
           <button
             type="submit"

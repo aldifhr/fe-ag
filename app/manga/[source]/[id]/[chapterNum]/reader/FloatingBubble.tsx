@@ -3,7 +3,6 @@ import Link from "next/link";
 interface FloatingBubbleProps {
   chromeHidden: boolean;
   bubblePos: { x: number; y: number } | null;
-  setBubblePos: (v: { x: number; y: number }) => void;
   bubbleExpanded: boolean;
   setBubbleExpanded: (v: boolean) => void;
   prevChapter: { id: string | number; number: string | number } | null;
@@ -20,7 +19,6 @@ interface FloatingBubbleProps {
 export function FloatingBubble({
   chromeHidden,
   bubblePos,
-  setBubblePos: _setBubblePos,
   bubbleExpanded,
   setBubbleExpanded,
   prevChapter,

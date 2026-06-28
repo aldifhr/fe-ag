@@ -6,8 +6,6 @@ import { getGenres, Genre } from "@/lib/api";
 // TODO: shared DRY modules (created by parallel agent)
 import ErrorState from "@/components/ErrorState";
 import EmptyState from "@/components/EmptyState";
-import Spinner from "@/components/Spinner";
-import ErrorIcon from "@/components/ErrorIcon";
 
 function SkeletonChips() {
   return (

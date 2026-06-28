@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getChapterPages,
   getChapterList,
@@ -63,6 +63,7 @@ export function useReaderState({
   const settingsRef = useRef<HTMLDivElement>(null);
   const preloadedUrls = useRef<Set<string>>(new Set());
   const detailFetchRef = useRef<Promise<MangaDetail> | null>(null);
+  const historyRecorded = useRef(false);
 
   // H7: ref-based loaded images tracking
   const loadedImagesRef = useRef(new Set<number>());
@@ -187,9 +188,11 @@ export function useReaderState({
     return () => { document.title = "Manhwa.agg"; };
   }, [mangaTitle, chapterNum]);
 
-  // Record reading history when images load
+  // Record reading history when images load (guarded against duplicate fires)
   useEffect(() => {
     if (images.length > 0 && !loading) {
+      if (historyRecorded.current) return;
+      historyRecorded.current = true;
       if (mangaTitle) {
         addHistory({
           mangaId: id,
@@ -278,16 +281,12 @@ export function useReaderState({
     [source, id],
   );
 
-  // Persist reading settings
+  // Persist reading settings (consolidated)
   useEffect(() => {
     localStorage.setItem("manhwa-reader-bg", bgColor);
-  }, [bgColor]);
-  useEffect(() => {
     localStorage.setItem("manhwa-reader-brightness", String(brightness));
-  }, [brightness]);
-  useEffect(() => {
     localStorage.setItem("manhwa-night-mode", String(nightMode));
-  }, [nightMode]);
+  }, [bgColor, brightness, nightMode]);
 
   // Cleanup night UI timer
   useEffect(() => {

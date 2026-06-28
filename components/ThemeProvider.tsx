@@ -34,15 +34,13 @@ export default function ThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const t = getInitialTheme();
-    setTheme(t);
-    document.documentElement.classList.toggle("light", t === "light");
+    document.documentElement.classList.toggle("light", theme === "light");
     setMounted(true);
-  }, []);
+  }, [theme]);
 
   const toggle = useCallback(() => {
     document.documentElement.classList.add("theme-transition");

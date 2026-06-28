@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { searchManga, getGenres, Genre, SearchResult } from "@/lib/api";
+import { searchManga, getGenres, SearchResult } from "@/lib/api";
 import {
   addSearchHistory,
   getSearchHistory,
@@ -220,7 +220,6 @@ function SearchContent() {
         shouldShowSuggestions={shouldShowSuggestions}
         suggestions={suggestions}
         handleSuggestionClick={handleSuggestionClick}
-        loading={loading}
       />
 
       <SearchFilters

@@ -143,32 +143,11 @@ export async function getRandomManga(): Promise<SearchResult> {
   return data.result;
 }
 
-export interface FilterType {
-  slug: string;
-  name: string;
-  count: number;
-}
-
-export interface FilterGenre {
-  slug: string;
-  name: string;
-  count: number;
-}
-
-export interface FiltersResult {
-  types: FilterType[];
-  genres: FilterGenre[];
-}
-
 export async function getPopularToday(): Promise<SearchResult[]> {
   const data = await fetchJson<{ results: SearchResult[] }>(
     "/api/reader/popular",
   );
   return data.results;
-}
-
-export async function getFilters(): Promise<FiltersResult> {
-  return fetchJson<FiltersResult>("/api/reader/filters");
 }
 
 /** Proxy images from domains that block hotlinking or benefit from WebP conversion */

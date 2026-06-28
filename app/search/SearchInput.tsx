@@ -10,7 +10,6 @@ type Props = {
   shouldShowSuggestions: boolean;
   suggestions: SearchResult[];
   handleSuggestionClick: (item: SearchResult) => void;
-  loading: boolean;
 };
 
 export default function SearchInput({
@@ -23,7 +22,6 @@ export default function SearchInput({
   shouldShowSuggestions,
   suggestions,
   handleSuggestionClick,
-  loading,
 }: Props) {
   return (
     <>

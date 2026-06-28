@@ -88,7 +88,7 @@ export function HomeClient({
   }, [source]);
 
   // Feature 1: Random manhwa handler
-  async function handleRandom() {
+  const handleRandom = useCallback(async () => {
     setRandomLoading(true);
     try {
       const result = await getRandomManga();
@@ -99,7 +99,7 @@ export function HomeClient({
       // silent — user just retries
     }
     setRandomLoading(false);
-  }
+  }, [router]);
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { proxyCover } from "@/lib/api";
 import type { MangaDetail } from "@/lib/api";
-import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
+import { addFavorite, removeFavorite } from "@/lib/favorites";
 import { showToast } from "@/lib/toast";
 import { cleanDescription } from "@/lib/descriptionFilter";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";

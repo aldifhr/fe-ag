@@ -39,10 +39,6 @@ export default function HistoryPage() {
   // Reset bulk delete confirm on outside click
   useOutsideClick(bulkDeleteRef, () => setConfirmBulkDelete(false), confirmBulkDelete);
 
-  const refresh = () => {
-    setItems(getGroupedHistory());
-  };
-
   const handleClear = () => {
     if (!confirmClear) {
       setConfirmClear(true);

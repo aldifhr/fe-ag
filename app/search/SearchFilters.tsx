@@ -1,12 +1,11 @@
 import { useState } from "react";
 import type { Genre } from "@/lib/api";
+import {
+  SORT_OPTIONS as SORT_OPTS,
+  SOURCE_OPTIONS as SOURCE_OPTS,
+} from "@/lib/home-types";
 
-const SORT_OPTIONS = [
-  { label: "Terbaru", value: "" },
-  { label: "Populer", value: "popularity" },
-  { label: "Rating", value: "rating" },
-  { label: "A-Z", value: "az" },
-] as const;
+const SORT_OPTIONS = [{ label: "Terbaru", value: "" }, ...SORT_OPTS] as const;
 
 const STATUS_OPTIONS = [
   { label: "Semua", value: "" },
@@ -18,12 +17,10 @@ const STATUS_OPTIONS = [
 
 const SOURCE_OPTIONS = [
   { label: "Semua", value: "" },
-  { label: "Shinigami", value: "shinigami" },
+  ...SOURCE_OPTS.slice(1),
 ] as const;
 
 const GENRE_VISIBLE_ROWS = 3;
-
-// ponytail: STATUS_OPTIONS/SORT_OPTIONS/SOURCE_OPTIONS duplicated from page.tsx; extract to shared constants file if reused elsewhere
 
 type Props = {
   sortFilter: string;

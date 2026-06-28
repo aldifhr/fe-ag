@@ -51,14 +51,7 @@ function MangaCard({
   // Normalize status
   const normalized = normalizeStatus(status);
   const statusLabel = normalized?.label ?? null;
-  const statusColor =
-    statusLabel === "Ongoing"
-      ? "bg-emerald-400"
-      : statusLabel === "Completed"
-        ? "bg-gray-400"
-        : statusLabel === "Hiatus"
-          ? "bg-yellow-400"
-          : "";
+  const statusColor = normalized?.color ?? "";
 
   // Normalize rating
   const ratingNum = rating != null && rating !== "" ? Number(rating) : null;
