@@ -150,6 +150,135 @@ export async function getPopularToday(): Promise<SearchResult[]> {
   return data.results;
 }
 
+// ─── Clerk User API ─────────────────────────────────────────────
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: string;
+}
+
+export async function getMe(): Promise<UserProfile | null> {
+  try {
+    const res = await fetch("/api/me");
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json.success) return null;
+    return json.data;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Favorites API ──────────────────────────────────────────────
+
+export interface FavoriteItem {
+  manga_id: string;
+  manga_title: string;
+  manga_cover: string;
+  manga_source: string;
+  manga_url: string;
+  created_at: string;
+}
+
+export async function getFavoritesApi(): Promise<FavoriteItem[]> {
+  const res = await fetch("/api/favorites");
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "Failed to fetch favorites");
+  return json.data;
+}
+
+export async function addFavoriteApi(fields: {
+  id: string;
+  title: string;
+  cover: string;
+  source: string;
+  url?: string;
+}): Promise<boolean> {
+  const res = await fetch("/api/favorites", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: fields.id,
+      title: fields.title,
+      cover: fields.cover,
+      source: fields.source,
+      url: fields.url ?? "",
+    }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "Failed to add favorite");
+  return json.data.added;
+}
+
+export async function removeFavoriteApi(id: string): Promise<boolean> {
+  const res = await fetch(`/api/favorites?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "Failed to remove favorite");
+  return json.data.removed;
+}
+
+export async function isFavoriteApi(id: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, _action: "check" }),
+    });
+    const json = await res.json();
+    if (!json.success) return false;
+    return json.data.favorited;
+  } catch {
+    return false;
+  }
+}
+
+// ─── User History API ───────────────────────────────────────────
+
+export interface HistoryItem {
+  manga_id: string;
+  manga_title: string;
+  manga_cover: string;
+  manga_source: string;
+  manga_url: string;
+  chapter: string;
+  last_read: string;
+}
+
+export async function getHistoryApi(limit = 50): Promise<HistoryItem[]> {
+  const res = await fetch(`/api/user-history?limit=${limit}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "Failed to fetch history");
+  return json.data;
+}
+
+export async function addHistoryApi(fields: {
+  id: string;
+  title: string;
+  cover: string;
+  source: string;
+  url?: string;
+  chapter: string;
+}): Promise<boolean> {
+  const res = await fetch("/api/user-history", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "Failed to save history");
+  return json.data.saved;
+}
+
+export async function clearHistoryApi(): Promise<boolean> {
+  const res = await fetch("/api/user-history", { method: "DELETE" });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "Failed to clear history");
+  return json.data.cleared;
+}
+
 /** Proxy images from domains that block hotlinking or benefit from WebP conversion */
 function proxyUrl(url: string | null | undefined, requireHttp?: boolean): string {
   if (!url) return "";

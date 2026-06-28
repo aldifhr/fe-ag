@@ -1,5 +1,7 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useUser } from "@clerk/nextjs";
+import { getFavoritesApi, removeFavoriteApi } from "@/lib/api";
 import { getFavorites, removeFavorite, FavoriteManga } from "@/lib/favorites";
 import MangaCard from "@/components/MangaCard";
 import EmptyState from "@/components/EmptyState";
@@ -9,31 +11,54 @@ import { useOutsideClick } from "@/lib/hooks/useOutsideClick";
 import { showToast } from "@/lib/toast";
 
 export default function FavoritesPage() {
+  const { isSignedIn } = useUser();
   const [favorites, setFavorites] = useState<FavoriteManga[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const confirmRef = useRef<HTMLButtonElement | null>(null);
 
-  const refresh = () => setFavorites(getFavorites());
+  const refresh = useCallback(async () => {
+    if (isSignedIn) {
+      try {
+        const apiFavs = await getFavoritesApi();
+        setFavorites(
+          apiFavs.map((f) => ({
+            id: f.manga_id,
+            title: f.manga_title,
+            cover: f.manga_cover,
+            source: f.manga_source,
+            addedAt: new Date(f.created_at).getTime(),
+          })),
+        );
+      } catch {
+        setFavorites(getFavorites());
+      }
+    } else {
+      setFavorites(getFavorites());
+    }
+  }, [isSignedIn]);
 
   useEffect(() => {
     refresh();
     setLoaded(true);
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
-  }, []);
+  }, [refresh]);
 
   useOutsideClick(confirmRef, () => setConfirmClear(false), confirmClear);
 
   const sorted = [...favorites].sort((a, b) => b.addedAt - a.addedAt);
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (!confirmClear) {
       setConfirmClear(true);
       return;
     }
-    // Remove all favorites by id
-    for (const f of favorites) removeFavorite(f.id);
+    if (isSignedIn) {
+      for (const f of favorites) await removeFavoriteApi(f.id);
+    } else {
+      for (const f of favorites) removeFavorite(f.id);
+    }
     setFavorites([]);
     setConfirmClear(false);
     showToast("Semua bookmark dihapus");
@@ -96,6 +121,7 @@ export default function FavoritesPage() {
               cover={item.cover}
               source={item.source}
               id={item.id}
+
             />
           ))}
         </div>
