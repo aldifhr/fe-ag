@@ -63,6 +63,13 @@ export default function Nav() {
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
+
+  // Listen for open-search custom event (from HeroSection)
+  useEffect(() => {
+    const handler = () => setSearchOpen(true);
+    window.addEventListener("open-search", handler);
+    return () => window.removeEventListener("open-search", handler);
+  }, []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const goBack = useCallback(() => {
     if (window.history.length > 1) router.back();

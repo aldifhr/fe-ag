@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -12,18 +12,22 @@ import {
   getGroupedHistory,
   GroupedHistory,
 } from "@/lib/history";
-import type { SortOption, SourceOption } from "@/lib/home-types";
+import type { SourceOption } from "@/lib/home-types";
 import { readLS } from "@/lib/readLS";
 import { usePagedFetch } from "@/lib/hooks/usePagedFetch";
 import SedangDibaca from "@/components/sections/SedangDibaca";
 import SemuaManga from "@/components/sections/SemuaManga";
+import HeroSection from "@/components/sections/HeroSection";
+import GenreChips from "@/components/sections/GenreChips";
 
 interface HomeClientProps {
   initialLatest?: SearchResult[];
+  initialGenres?: { slug: string; name: string }[];
 }
 
 export function HomeClient({
   initialLatest,
+  initialGenres,
 }: HomeClientProps) {
   const router = useRouter();
   const [connStatus, setConnStatus] = useState<{
@@ -33,7 +37,6 @@ export function HomeClient({
   const [checking, setChecking] = useState(false);
   const [recentHistory, setRecentHistory] = useState<GroupedHistory[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sort, setSort] = useState<SortOption>("latest");
   const [source, setSource] = useState<SourceOption>("all");
   const [randomLoading, setRandomLoading] = useState(false);
 
@@ -41,12 +44,11 @@ export function HomeClient({
   const hydrated = useRef(false);
   useEffect(() => {
     setViewMode(readLS<"grid" | "list">("manhwa-view-mode", ["grid", "list"], "grid"));
-    setSort(readLS<SortOption>("manhwa-sort", ["latest", "popularity", "rating", "az"], "latest"));
     setSource(readLS<SourceOption>("manhwa-source", ["all", "shinigami", "ikiru"], "all"));
     hydrated.current = true;
   }, []);
 
-  const isDefaultView = source === "all" && sort === "latest";
+  const isDefaultView = source === "all";
 
   const {
     data: initialData,
@@ -54,9 +56,8 @@ export function HomeClient({
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ["latest", source, sort],
-    queryFn: () => getLatest(source, 1, sort === "az" ? "latest" : sort),
-    // Only seed server data when params match what server fetched
+    queryKey: ["latest", source],
+    queryFn: () => getLatest(source, 1, "latest"),
     initialData: isDefaultView ? initialLatest : undefined,
     initialDataUpdatedAt: isDefaultView ? Date.now() : undefined,
   });
@@ -64,17 +65,11 @@ export function HomeClient({
   const error = queryError?.message ?? null;
 
   const fetchFn = useCallback(
-    (p: number) => getLatest(source, p, sort === "az" ? "latest" : sort),
-    [source, sort],
+    (p: number) => getLatest(source, p, "latest"),
+    [source],
   );
 
   const { items, loadingMore, sentinelRef } = usePagedFetch(initialData, fetchFn);
-
-  // Client-side A-Z sort (API doesn't support alphabetical sort)
-  const sortedItems = useMemo(
-    () => sort === "az" ? [...items].sort((a, b) => a.title.localeCompare(b.title, "id")) : items,
-    [items, sort],
-  );
 
   useEffect(() => {
     const history = getGroupedHistory();
@@ -86,11 +81,6 @@ export function HomeClient({
     if (!hydrated.current) return;
     localStorage.setItem("manhwa-view-mode", viewMode);
   }, [viewMode]);
-
-  useEffect(() => {
-    if (!hydrated.current) return;
-    localStorage.setItem("manhwa-sort", sort);
-  }, [sort]);
 
   useEffect(() => {
     if (!hydrated.current) return;
@@ -113,18 +103,20 @@ export function HomeClient({
 
   return (
     <div className="space-y-6">
+      <HeroSection onRandom={handleRandom} randomLoading={randomLoading} />
+
+      <GenreChips genres={initialGenres ?? []} />
+
       {recentHistory.length > 0 && (
         <SedangDibaca history={recentHistory} />
       )}
 
       <SemuaManga
-        sort={sort}
-        setSort={setSort}
         source={source}
         setSource={setSource}
         viewMode={viewMode}
         setViewMode={setViewMode}
-        items={sortedItems}
+        items={items}
         isLoading={isLoading}
         error={error}
         refetch={refetch}

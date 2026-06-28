@@ -9,16 +9,14 @@ import ErrorState from "@/components/ErrorState";
 import Spinner from "@/components/Spinner";
 import EmptyState from "@/components/EmptyState";
 import { GRID_CLASS } from "@/lib/gridClass";
-import { SORT_OPTIONS, SOURCE_OPTIONS } from "@/lib/home-types";
-import type { SortOption, SourceOption } from "@/lib/home-types";
+import { SOURCE_OPTIONS } from "@/lib/home-types";
+import type { SourceOption } from "@/lib/home-types";
 import type { RefObject } from "react";
 
 // ponytail: Featured slugs list duplicated from GenrePopuler for self-containedness.
 // Extract to a shared constant if a third consumer appears.
 
 export default function SemuaManga({
-  sort,
-  setSort,
   source,
   setSource,
   viewMode,
@@ -36,8 +34,6 @@ export default function SemuaManga({
   sentinelRef,
   loadingMore,
 }: {
-  sort: SortOption;
-  setSort: (v: SortOption) => void;
   source: SourceOption;
   setSource: (v: SourceOption) => void;
   viewMode: "grid" | "list";
@@ -92,23 +88,6 @@ export default function SemuaManga({
                 </svg>
               )}
             </button>
-            {/* Sort pills */}
-            <div className="flex items-center bg-(--color-surface) rounded-lg p-0.5 border border-(--color-border)">
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSort(opt.value)}
-                  suppressHydrationWarning
-                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 ${
-                    sort === opt.value
-                      ? "bg-(--color-accent) text-white"
-                      : "text-(--color-text-muted) hover:text-(--color-text)"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
             <button
               onClick={() => setViewMode("grid")}
               suppressHydrationWarning

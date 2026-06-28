@@ -102,6 +102,18 @@ function MangaCard({
             />
           </button>
 
+          {/* Source flag — bottom-left */}
+          <img
+            src={source === "ikiru" ? "https://flagsapi.com/JP/flat/64.png" : "https://flagsapi.com/KR/flat/64.png"}
+            alt={source === "ikiru" ? "Japan" : "Korea"}
+            className="absolute bottom-2 left-2 z-10 w-5 h-[15px] rounded-[2px] shadow-md object-cover"
+          />
+
+          {/* Source name badge — bottom-right */}
+          <span className="absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-black/60 text-white/80 backdrop-blur-sm">
+            {source === "ikiru" ? "Ikiru" : "Shinigami"}
+          </span>
+
           {cover && !imgErr ? (
             <img
               src={proxyCover(cover)}

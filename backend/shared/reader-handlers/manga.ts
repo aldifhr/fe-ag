@@ -66,9 +66,16 @@ export async function handleManga(req: Request, res: Response) {
       : null;
 
     // Try REST API first (fast, reliable), fallback to HTML scraper
-    let chapters = await fetchIkiruChaptersByTitle(meta?.title || slug);
+    let chapters: { id: number | string; number: string; title: string; url: string; updatedTime: string | null }[] = await fetchIkiruChaptersByTitle(meta?.title || slug);
     if (!chapters.length) {
-      chapters = await fetchIkiruChapters(fullUrl);
+      const raw = await fetchIkiruChapters(fullUrl);
+      chapters = raw.map((c: any) => ({
+        id: c.mangaId ?? c.id ?? 0,
+        number: String(c.chapter ?? c.number ?? ""),
+        title: c.title ?? "",
+        url: c.url ?? "",
+        updatedTime: c.updatedTime ?? null,
+      }));
     }
 
     return res.json({
