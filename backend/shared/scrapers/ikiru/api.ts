@@ -73,6 +73,34 @@ export interface IkiruFilter {
 
 // ─── Internal fetch helper ─────────────────────────────────────────────
 
+async function wpFetch<T>(path: string): Promise<T | null> {
+  try {
+    const useProxy = PROXY_URL && PROXY_TOKEN;
+    const ikiruBase = getIkiruPublicBase();
+    const url = useProxy
+      ? `${PROXY_URL}/wp-json/wp/v2${path}`
+      : `${ikiruBase}/wp-json/wp/v2${path}`;
+
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+    };
+    if (useProxy) {
+      headers["Authorization"] = `Bearer ${PROXY_TOKEN}`;
+    }
+
+    const res = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch (err: unknown) {
+    logger.warn({ path, err: String(err) }, "WP REST API error");
+    return null;
+  }
+}
+
 async function ikiruFetch<T>(path: string): Promise<T | null> {
   try {
     const useProxy = PROXY_URL && PROXY_TOKEN;
@@ -160,8 +188,8 @@ export async function fetchIkiruChaptersByTitle(title: string): Promise<{ id: nu
   const all: { id: number; number: string; title: string; url: string; updatedTime: string | null }[] = [];
 
   while (page <= 10) { // max 1000 chapters
-    const data = await ikiruFetch<any[]>(
-      `/wp/v2/chapter?search=${encodeURIComponent(title)}&_fields=id,title,slug,link,modified&per_page=${perPage}&page=${page}`
+    const data = await wpFetch<any[]>(
+      `?search=${encodeURIComponent(title)}&_fields=id,title,slug,link,modified&per_page=${perPage}&page=${page}`
     );
     if (!data || !Array.isArray(data) || data.length === 0) break;
 
