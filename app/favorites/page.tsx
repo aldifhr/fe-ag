@@ -11,13 +11,14 @@ import { useOutsideClick } from "@/lib/hooks/useOutsideClick";
 import { showToast } from "@/lib/toast";
 
 export default function FavoritesPage() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, isLoaded } = useUser();
   const [favorites, setFavorites] = useState<FavoriteManga[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const confirmRef = useRef<HTMLButtonElement | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!isLoaded) return;
     if (isSignedIn) {
       try {
         const apiFavs = await getFavoritesApi();
@@ -36,7 +37,7 @@ export default function FavoritesPage() {
     } else {
       setFavorites(getFavorites());
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, isLoaded]);
 
   useEffect(() => {
     refresh();
