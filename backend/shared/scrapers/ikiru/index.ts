@@ -88,6 +88,7 @@ export async function scrapeIkiruUpdatesWithMeta(
         : null,
       cover: item.cover || null,
       rating: item.rating || null,
+      status: item.status || null,
       genres: item.genres || [],
     }));
 

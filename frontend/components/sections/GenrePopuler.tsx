@@ -6,7 +6,7 @@ export default function GenrePopuler({
 }: {
   genres: { slug: string; name: string }[] | undefined;
 }) {
-  if (!genres || genres.length === 0) return null;
+  if (!genres || genres.length === 0) return <></>;
   const featured = genres.slice(0, 12);
   return (
     <SectionErrorBoundary>

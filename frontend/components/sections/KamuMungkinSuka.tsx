@@ -12,7 +12,7 @@ export default function KamuMungkinSuka({
   hasHistory: boolean;
 }) {
   const hasData = items && items.length > 0;
-  if (!hasData && !isLoading) return null;
+  if (!hasData && !isLoading) return <></>;
 
   return (
     <SectionErrorBoundary>

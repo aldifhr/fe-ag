@@ -8,7 +8,7 @@ export default function BaruDiupdate({
 }: {
   items: SearchResult[] | undefined;
 }) {
-  if (!items || items.length === 0) return null;
+  if (!items || items.length === 0) return <></>;
   return (
     <SectionErrorBoundary>
       <div className="space-y-3">

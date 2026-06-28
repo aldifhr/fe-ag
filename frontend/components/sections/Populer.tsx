@@ -9,7 +9,7 @@ export default function Populer({
   items: SearchResult[] | undefined;
   onSeeAll: () => void;
 }) {
-  if (!items || items.length === 0) return null;
+  if (!items || items.length === 0) return <></>;
   return (
     <SectionErrorBoundary>
       <div className="space-y-3">

@@ -51,7 +51,7 @@ export function HomeClient({
     readLS<SortOption>("manhwa-sort", ["latest", "popularity", "rating", "az"], "latest"),
   );
   const [source, setSource] = useState<SourceOption>(() =>
-    readLS<SourceOption>("manhwa-source", ["all", "shinigami"], "all"),
+    readLS<SourceOption>("manhwa-source", ["all", "shinigami", "ikiru"], "all"),
   );
   const [randomLoading, setRandomLoading] = useState(false);
 
@@ -90,14 +90,16 @@ export function HomeClient({
     setRecentHistory(history.slice(0, 8));
   }, []);
 
-  // Reuse initialData for "Baru Diupdate" when it's already fetching all+latest
+  // "Baru Diupdate" always shows all+latest regardless of current filter.
+  // Seed with server-provided initialLatest prop directly to avoid hydration mismatch.
   const updatedQuery = useQuery({
     queryKey: ["home-updated"],
     queryFn: () => getLatest("all", 1, "latest"),
     staleTime: 10 * 60 * 1000,
-    enabled: !isDefaultView,
+    initialData: initialLatest,
+    initialDataUpdatedAt: initialLatest ? Date.now() : undefined,
   });
-  const updatedData = isDefaultView ? initialData : updatedQuery.data;
+  const updatedData = updatedQuery.data;
 
   const popularQuery = useQuery({
     queryKey: ["home-popular"],

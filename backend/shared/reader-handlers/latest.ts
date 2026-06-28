@@ -110,6 +110,7 @@ export async function handleLatest(req: Request, res: Response) {
           chapter: item.chapter,
           time: item.updatedTime || undefined,
           rating: item.rating ?? null,
+          status: item.status ?? null,
         });
       }
     }
