@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
-import { timeAgo, getReadChapters } from "@/lib/history";
+import { timeAgo, getReadChapters, getReadingProgress } from "@/lib/history";
 import { proxyCover } from "@/lib/api";
 import { normalizeStatus } from "@/lib/normalizeStatus";
 import { useFavoriteToggle } from "@/lib/hooks/useFavoriteToggle";
@@ -67,6 +67,7 @@ function MangaCard({
     : false;
 
   const readChapters = useMemo(() => getReadChapters(id), [id]);
+  const progress = useMemo(() => getReadingProgress(id), [id]);
 
   const handleFav = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -110,7 +111,11 @@ function MangaCard({
           />
 
           {/* Source name badge — bottom-right */}
-          <span className="absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-black/60 text-white/80 backdrop-blur-sm">
+          <span className={`absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded backdrop-blur-sm ${
+            source === "shinigami"
+              ? "bg-black text-red-400"
+              : "bg-emerald-600 text-white"
+          }`}>
             {source === "ikiru" ? "Ikiru" : "Shinigami"}
           </span>
 
@@ -200,6 +205,27 @@ function MangaCard({
             );
           })()
         ) : null}
+
+        {/* Reading progress */}
+        {progress && (
+          progress.total > 0 ? (
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-[3px] rounded-full bg-(--color-border) overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-(--color-accent)"
+                  style={{ width: `${Math.min(100, (progress.read / progress.total) * 100)}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-(--color-text-muted) tabular-nums shrink-0">
+                {progress.read}/{progress.total}
+              </span>
+            </div>
+          ) : progress.read > 0 ? (
+            <p className="text-[10px] text-(--color-text-muted) mt-1">
+              {progress.read} chapters read
+            </p>
+          ) : null
+        )}
       </div>
 
       {/* Rating + Status badges — always at bottom */}

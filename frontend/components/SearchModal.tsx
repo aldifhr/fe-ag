@@ -17,6 +17,7 @@ export default function SearchModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const debouncedQuery = useDebounce(query, 300);
   const lastSearchedRef = useRef("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +57,7 @@ export default function SearchModal({ open, onClose }: Props) {
       setResults([]);
       setHasSearched(false);
       setError(null);
+      setSelectedIndex(-1);
       return;
     }
     setLoading(true);
@@ -64,8 +66,10 @@ export default function SearchModal({ open, onClose }: Props) {
     try {
       const res = await searchManga(q, "shinigami");
       setResults(res);
+      setSelectedIndex(res.length > 0 ? 0 : -1);
     } catch {
       setError("Gagal mengambil data. Coba lagi.");
+      setSelectedIndex(-1);
     } finally {
       setLoading(false);
     }
@@ -78,16 +82,41 @@ export default function SearchModal({ open, onClose }: Props) {
       setHasSearched(false);
       setLoading(false);
       setError(null);
+      setSelectedIndex(-1);
       return;
     }
     if (debouncedQuery === lastSearchedRef.current) return;
+    setSelectedIndex(-1);
     doSearch(debouncedQuery);
   }, [debouncedQuery, doSearch]);
 
-  const handleEnter = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      lastSearchedRef.current = query;
-      doSearch(query);
+  const visibleResults = results.slice(0, MAX_RESULTS);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => {
+        const next = prev < visibleResults.length - 1 ? prev + 1 : 0;
+        document.getElementById(`search-result-${next}`)?.scrollIntoView({ block: "nearest" });
+        return next;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => {
+        const next = prev > 0 ? prev - 1 : visibleResults.length - 1;
+        document.getElementById(`search-result-${next}`)?.scrollIntoView({ block: "nearest" });
+        return next;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && visibleResults.length > 0) {
+        const item = visibleResults[selectedIndex];
+        router.push(`/manga/${item.source}/${encodeURIComponent(item.id)}`);
+        handleClose();
+      } else {
+        lastSearchedRef.current = query;
+        doSearch(query);
+      }
     }
   };
 
@@ -97,6 +126,7 @@ export default function SearchModal({ open, onClose }: Props) {
     setResults([]);
     setHasSearched(false);
     setError(null);
+    setSelectedIndex(-1);
     onClose();
   };
 
@@ -145,7 +175,7 @@ export default function SearchModal({ open, onClose }: Props) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleEnter}
+            onKeyDown={handleKeyDown}
             placeholder="Cari judul manhwa..."
             className="w-full pl-12 pr-10 py-3.5 rounded-xl bg-(--color-surface) border border-(--color-border) text-[var(--color-text)] text-[15px] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] transition-colors duration-150"
           />
@@ -207,9 +237,10 @@ export default function SearchModal({ open, onClose }: Props) {
               {results.slice(0, MAX_RESULTS).map((item, i) => (
                 <Link
                   key={`${item.source}-${item.id}-${i}`}
+                  id={`search-result-${i}`}
                   href={`/manga/${item.source}/${encodeURIComponent(item.id)}`}
                   onClick={handleClose}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-(--color-surface-hover) transition-colors duration-150 group"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150 group ${i === selectedIndex ? "bg-(--color-surface-hover)" : "hover:bg-(--color-surface-hover)"}`}
                 >
                   {/* Thumbnail */}
                   <div className="w-10 h-13 shrink-0 rounded overflow-hidden bg-(--color-surface)">

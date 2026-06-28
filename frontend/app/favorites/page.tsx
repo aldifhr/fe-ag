@@ -1,25 +1,48 @@
 "use client";
-import { useState, useEffect } from "react";
-import { getFavorites, FavoriteManga } from "@/lib/favorites";
+import { useState, useEffect, useRef } from "react";
+import { getFavorites, removeFavorite, FavoriteManga } from "@/lib/favorites";
 import MangaCard from "@/components/MangaCard";
-// TODO: shared DRY modules (created by parallel agent)
 import EmptyState from "@/components/EmptyState";
 import HeartIcon from "@/components/HeartIcon";
 import { GRID_CLASS } from "@/lib/gridClass";
+import { useOutsideClick } from "@/lib/hooks/useOutsideClick";
+import { showToast } from "@/lib/toast";
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteManga[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+
+  const refresh = () => setFavorites(getFavorites());
 
   useEffect(() => {
-    setFavorites(getFavorites());
+    refresh();
     setLoaded(true);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
   }, []);
+
+  useOutsideClick(confirmRef, () => setConfirmClear(false), confirmClear);
+
+  const sorted = [...favorites].sort((a, b) => b.addedAt - a.addedAt);
+
+  const handleClear = () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    // Remove all favorites by id
+    for (const f of favorites) removeFavorite(f.id);
+    setFavorites([]);
+    setConfirmClear(false);
+    showToast("Semua bookmark dihapus");
+  };
 
   if (!loaded) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">Favorit</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Bookmark</h1>
         <div className={GRID_CLASS}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
@@ -34,24 +57,39 @@ export default function FavoritesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Favorit</h1>
-        {favorites.length > 0 && (
-          <p className="text-[13px] text-(--color-text-muted) mt-0.5">
-            {favorites.length} manga tersimpan
-          </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Bookmark</h1>
+          {sorted.length > 0 && (
+            <p className="text-[13px] text-(--color-text-muted) mt-0.5">
+              {sorted.length} bookmark
+            </p>
+          )}
+        </div>
+        {sorted.length > 0 && (
+          <button
+            ref={confirmRef}
+            onClick={handleClear}
+            className={`px-3 py-1.5 text-[13px] font-medium rounded-lg transition-colors duration-150 border ${
+              confirmClear
+                ? "text-white bg-(--color-danger) border-(--color-danger) hover:opacity-90"
+                : "text-(--color-danger) hover:bg-(--color-surface) border-(--color-border)"
+            }`}
+          >
+            {confirmClear ? "Yakin hapus?" : "Hapus Semua"}
+          </button>
         )}
       </div>
 
-      {favorites.length === 0 ? (
+      {sorted.length === 0 ? (
         <EmptyState
           icon={<HeartIcon />}
-          title="Belum ada manga favorit"
-          subtitle="Klik ikon hati di manga untuk menambahkan ke favorit"
+          title="Belum ada bookmark"
+          subtitle="Klik ikon hati di manga untuk menambahkan ke bookmark"
         />
       ) : (
         <div className={GRID_CLASS}>
-          {favorites.map((item) => (
+          {sorted.map((item) => (
             <MangaCard
               key={item.id}
               title={item.title}

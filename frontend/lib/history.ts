@@ -111,6 +111,14 @@ export function getContinueReading(): Omit<HistoryEntry, "readAt"> | null {
     : null;
 }
 
+/** Get reading progress for a manga: read count + totalChapters. Null if no history. */
+export function getReadingProgress(mangaId: string): { read: number; total: number } | null {
+  const group = getGroupedHistory().find((g) => g.mangaId === mangaId);
+  if (!group) return null;
+  const total = group.totalChapters ?? 0;
+  return { read: group.chapters.length, total };
+}
+
 /** Get the last read chapter number for a specific manga. Returns null if no history. */
 export function getLastReadChapter(mangaId: string): number | null {
   const entries = safeGetHistory();

@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getGenreManga, SearchResult } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
-// TODO: shared DRY modules (created by parallel agent)
 import ErrorState from "@/components/ErrorState";
 import EmptyState from "@/components/EmptyState";
 import Spinner from "@/components/Spinner";
-import ErrorIcon from "@/components/ErrorIcon";
 import { GRID_CLASS } from "@/lib/gridClass";
 import SkeletonGrid from "@/components/SkeletonGrid";
+import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
+
+type SortKey = "terbaru" | "judul" | "rating";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "terbaru", label: "Terbaru" },
+  { key: "judul", label: "Judul A-Z" },
+  { key: "rating", label: "Rating" },
+];
 
 function formatSlug(slug: string): string {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -28,6 +35,7 @@ export default function GenreMangaPage() {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [sort, setSort] = useState<SortKey>("terbaru");
 
   // Initial fetch
   useEffect(() => {
@@ -73,10 +81,27 @@ export default function GenreMangaPage() {
     setLoadingMore(false);
   }, [slug, page, loadingMore, hasMore]);
 
+  // Sorted items
+  const sortedItems = useMemo(() => {
+    if (sort === "terbaru") return items;
+    const copy = [...items];
+    if (sort === "judul") {
+      copy.sort((a, b) => a.title.localeCompare(b.title, "id"));
+    } else if (sort === "rating") {
+      copy.sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0));
+    }
+    return copy;
+  }, [items, sort]);
+
+  // Infinite scroll
+  const sentinelRef = useInfiniteScroll(loadMore, {
+    enabled: hasMore && !loadingMore,
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-2">
+      <div className="bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-3 space-y-2">
         <Link
           href="/genres"
           className="inline-flex items-center gap-1 text-[13px] text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
@@ -96,22 +121,51 @@ export default function GenreMangaPage() {
           </svg>
           Semua Genre
         </Link>
-        <h1 className="text-xl font-semibold tracking-tight">
-          {formatSlug(slug)}
-        </h1>
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {formatSlug(slug)}
+          </h1>
+          {!loading && items.length > 0 && (
+            <span className="text-[13px] text-(--color-text-muted)">
+              {items.length} manga
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Sort */}
+      {!loading && items.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] text-(--color-text-muted)">Urutkan:</span>
+          <div className="inline-flex items-center bg-(--color-surface) rounded-lg p-0.5 border border-(--color-border)">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setSort(opt.key)}
+                className={`px-3 py-1.5 text-[13px] rounded-md transition-colors ${
+                  sort === opt.key
+                    ? "bg-(--color-accent) text-white"
+                    : "text-(--color-text-muted) hover:text-(--color-text)"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {error ? (
         <ErrorState message={`Gagal memuat: ${error}`} onRetry={() => setRetryKey((k) => k + 1)} />
       ) : loading ? (
         <SkeletonGrid variant="grid" />
-      ) : items.length === 0 ? (
+      ) : sortedItems.length === 0 ? (
         <EmptyState title="Tidak ada manga untuk genre ini" />
       ) : (
         <>
           <div className={GRID_CLASS}>
-            {items.map((item, i) => (
+            {sortedItems.map((item, i) => (
               <MangaCard
                 key={`${item.source}-${item.id}-${i}`}
                 title={item.title}
@@ -126,6 +180,9 @@ export default function GenreMangaPage() {
               />
             ))}
           </div>
+
+          {/* Sentinel for infinite scroll */}
+          {hasMore && <div ref={sentinelRef} className="h-1" />}
 
           {hasMore && (
             <div className="flex justify-center py-4">
