@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 
 import "./globals.css";
 import Nav from "@/components/Nav";
@@ -23,17 +24,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-bg text-text">
-        <QueryProvider>
-          <ThemeProvider>
-            <Nav />
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-              {children}
-            </main>
-          </ThemeProvider>
-        </QueryProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="id" className={inter.variable} suppressHydrationWarning>
+        <body className="min-h-screen bg-bg text-text">
+          <QueryProvider>
+            <ThemeProvider>
+              <Nav />
+              <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+                {children}
+              </main>
+            </ThemeProvider>
+          </QueryProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
