@@ -34,8 +34,15 @@ export default function Nav() {
     function onStorage() {
       setFavCount(getFavorites().length);
     }
+    function onFavChange() {
+      setFavCount(getFavorites().length);
+    }
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("manhwa-favorites-change", onFavChange);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("manhwa-favorites-change", onFavChange);
+    };
   }, []);
 
   // Also re-check on route change in case user navigated away after toggling favorite
