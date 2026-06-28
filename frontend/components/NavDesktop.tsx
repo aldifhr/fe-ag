@@ -63,13 +63,19 @@ export default function NavDesktop({
           href="/"
           className="font-semibold text-[15px] tracking-tight text-(--color-text)"
         >
-          Manhwa<span className="text-(--color-accent)">.</span>
+          Manwa<span className="text-(--color-accent)">.Agg</span>
         </Link>
 
         {/* Desktop links */}
         <div className="hidden sm:flex items-center gap-1 ml-4">
           <Link href="/" className={navLinkClass("/")}>
             Beranda
+          </Link>
+          <Link href="/latest" className={navLinkClass("/latest")}>
+            Terbaru
+          </Link>
+          <Link href="/genres" className={navLinkClass("/genres")}>
+            Genre
           </Link>
           <Link href="/favorites" className={navLinkClass("/favorites")}>
             Favorit
@@ -78,12 +84,6 @@ export default function NavDesktop({
                 {favCount}
               </span>
             )}
-          </Link>
-          <Link href="/history" className={navLinkClass("/history")}>
-            Riwayat
-          </Link>
-          <Link href="/genres" className={navLinkClass("/genres")}>
-            Genre
           </Link>
           {/* Lainnya dropdown */}
           <div className="relative" data-other-menu>
@@ -113,6 +113,22 @@ export default function NavDesktop({
             </button>
             {otherOpen && (
               <div className="absolute top-full left-0 mt-1 w-44 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 z-50">
+                <Link
+                  href="/history"
+                  onClick={() => setOtherOpen(false)}
+                  className={[
+                    "px-3 py-2 text-sm flex items-center gap-2",
+                    isActive(pathname, "/history")
+                      ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                      : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                  ].join(" ")}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Riwayat
+                </Link>
                 <Link
                   href="/stats"
                   onClick={() => setOtherOpen(false)}

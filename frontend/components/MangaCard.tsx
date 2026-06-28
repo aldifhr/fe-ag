@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { useState } from "react";
-import { timeAgo } from "@/lib/history";
+import { useState, useMemo } from "react";
+import { timeAgo, getReadChapters } from "@/lib/history";
 import { proxyCover } from "@/lib/api";
 import { normalizeStatus } from "@/lib/normalizeStatus";
 import { useFavoriteToggle } from "@/lib/hooks/useFavoriteToggle";
@@ -18,6 +18,17 @@ interface Props {
   status?: string | number | null;
   rating?: string | number | null;
   chapters?: { number: string; time: string | null }[];
+}
+
+/** Normalize chapter display: always returns "Ch. X" format. */
+function chapterLabel(raw: string): string {
+  const stripped = raw.replace(/^chapter\s+/i, "").replace(/^ch\.?\s*/i, "").trim();
+  return `Chapter ${stripped}`;
+}
+
+/** Extract numeric part from chapter string for history lookup. */
+function chapterNum(raw: string): string {
+  return raw.replace(/^chapter\s+/i, "").replace(/^ch\.?\s*/i, "");
 }
 
 function MangaCard({
@@ -54,6 +65,8 @@ function MangaCard({
   const isNew = time
     ? Date.now() - new Date(time).getTime() < 24 * 60 * 60 * 1000
     : false;
+
+  const readChapters = useMemo(() => getReadChapters(id), [id]);
 
   const handleFav = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -118,27 +131,62 @@ function MangaCard({
       </Link>
 
       {/* Chapter list — flex-1 pushes badges to bottom */}
-      <div className="px-3 pb-2.5 flex-1 flex flex-col gap-0.5 justify-start">
+      <div className="px-3 pb-2.5 flex-1 flex flex-col gap-1 justify-start">
         {chapters && chapters.length > 0 ? (
-          chapters.map((ch, i) => (
-            <Link
-              key={i}
-              href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}`}
-              className="text-[11px] text-(--color-text-muted) hover:text-(--color-accent) transition-colors duration-150"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Ch. {ch.number}{" "}
-              {ch.time ? `· ${timeAgo(new Date(ch.time).getTime())}` : ""}
-            </Link>
-          ))
+          chapters.map((ch, i) => {
+            const isRead = readChapters.has(chapterNum(ch.number));
+            return (
+              <Link
+                key={i}
+                href={`/manga/${source}/${encodeURIComponent(id)}/${ch.number}`}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 w-fit ${
+                  isRead
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "bg-(--color-bg) text-(--color-text-secondary) border border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)/40 hover:bg-(--color-accent)/5"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isRead && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {chapterLabel(ch.number)}
+                {ch.time && (
+                  <span className="opacity-60">
+                    · {timeAgo(new Date(ch.time).getTime())}
+                  </span>
+                )}
+              </Link>
+            );
+          })
         ) : chapter ? (
-          <Link
-            href={`/manga/${source}/${encodeURIComponent(id)}/${chapter}`}
-            className="text-[11px] text-(--color-text-muted) hover:text-(--color-accent) transition-colors duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Ch. {chapter} {time ? `· ${timeAgo(new Date(time).getTime())}` : ""}
-          </Link>
+          (() => {
+            const isRead = readChapters.has(chapterNum(chapter));
+            return (
+              <Link
+                href={`/manga/${source}/${encodeURIComponent(id)}/${chapter}`}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 w-fit ${
+                  isRead
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "bg-(--color-bg) text-(--color-text-secondary) border border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)/40 hover:bg-(--color-accent)/5"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isRead && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {chapterLabel(chapter)}
+                {time && (
+                  <span className="opacity-60">
+                    · {timeAgo(new Date(time).getTime())}
+                  </span>
+                )}
+              </Link>
+            );
+          })()
         ) : null}
       </div>
 

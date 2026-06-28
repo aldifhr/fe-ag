@@ -185,8 +185,25 @@ export const toAbsoluteUrl = (url: string | null | undefined, base = SITE_URL): 
 export const cleanImageUrl = (url: string | null | undefined): string | null =>
   url ? url.replace(/-\d+x\d+(\.\w+)$/, "$1") : null;
 
+/** Decode common HTML numeric and named entities */
+function decodeHTMLEntities(val: string): string {
+  return val
+    // Numeric: &#8217; → '
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    // Hex: &#x2019; → '
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    // Common named entities
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 export function normalizeText(value: string | null | undefined = ""): string {
   let val = String(value || "").trim();
+  val = decodeHTMLEntities(val);
   
   if (val.length > 3) {
     // 1. Handle double-spaced word separators (obfuscation style A)

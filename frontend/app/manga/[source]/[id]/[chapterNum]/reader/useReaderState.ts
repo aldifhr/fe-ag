@@ -126,6 +126,8 @@ export function useReaderState({
         let chapterUrl = "";
         if (effectiveBaseUrl) {
           chapterUrl = `${effectiveBaseUrl.replace(/\/$/, "")}/chapter-${chapterNum}`;
+        } else if (source === "ikiru") {
+          chapterUrl = `https://06.ikiru.wtf/manga/${id.split("/").pop()}/chapter-${chapterNum}`;
         } else {
           chapterUrl = `https://shinigami.asia/manga/${id.split("/").pop()}/chapter-${chapterNum}`;
         }

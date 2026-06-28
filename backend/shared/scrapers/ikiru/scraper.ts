@@ -63,6 +63,15 @@ function toAbsoluteUrl(url: string, baseUrl: string): string {
 function normalizeText(text: unknown): string {
   if (!text) return "";
   let val = String(text).replace(/<[^>]+>/g, "");
+  val = val
+    .replace(/&#(\d+);/g, (_: string, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_: string, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
 
   // De-spacing: obfuscated text like "B e c o m i n g"
   if (val.length > 3) {

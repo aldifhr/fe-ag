@@ -18,8 +18,9 @@ export default function Populer({
             Populer
           </h2>
           <button
+            type="button"
             onClick={onSeeAll}
-            className="text-[12px] text-(--color-accent) hover:underline"
+            className="text-[12px] text-(--color-accent) hover:underline cursor-pointer relative z-10"
           >
             Lihat Semua &rarr;
           </button>

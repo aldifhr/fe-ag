@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   getLatest,
   getRandomManga,
-  getPopularToday,
-  getGenres,
-  getMangaDetail,
-  getGenreManga,
 } from "@/lib/api";
-import type { SearchResult, Genre } from "@/lib/api";
+import type { SearchResult } from "@/lib/api";
 import {
   getGroupedHistory,
   GroupedHistory,
@@ -20,22 +16,14 @@ import type { SortOption, SourceOption } from "@/lib/home-types";
 import { readLS } from "@/lib/readLS";
 import { usePagedFetch } from "@/lib/hooks/usePagedFetch";
 import SedangDibaca from "@/components/sections/SedangDibaca";
-import BaruDiupdate from "@/components/sections/BaruDiupdate";
-import Populer from "@/components/sections/Populer";
-import GenrePopuler from "@/components/sections/GenrePopuler";
-import KamuMungkinSuka from "@/components/sections/KamuMungkinSuka";
 import SemuaManga from "@/components/sections/SemuaManga";
 
 interface HomeClientProps {
   initialLatest?: SearchResult[];
-  initialPopular?: SearchResult[];
-  initialGenres?: Genre[];
 }
 
 export function HomeClient({
   initialLatest,
-  initialPopular,
-  initialGenres,
 }: HomeClientProps) {
   const router = useRouter();
   const [connStatus, setConnStatus] = useState<{
@@ -44,16 +32,19 @@ export function HomeClient({
   } | null>(null);
   const [checking, setChecking] = useState(false);
   const [recentHistory, setRecentHistory] = useState<GroupedHistory[]>([]);
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
-    readLS<"grid" | "list">("manhwa-view-mode", ["grid", "list"], "grid"),
-  );
-  const [sort, setSort] = useState<SortOption>(() =>
-    readLS<SortOption>("manhwa-sort", ["latest", "popularity", "rating", "az"], "latest"),
-  );
-  const [source, setSource] = useState<SourceOption>(() =>
-    readLS<SourceOption>("manhwa-source", ["all", "shinigami", "ikiru"], "all"),
-  );
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sort, setSort] = useState<SortOption>("latest");
+  const [source, setSource] = useState<SourceOption>("all");
   const [randomLoading, setRandomLoading] = useState(false);
+
+  // Hydrate from localStorage after mount to avoid SSR/client mismatch
+  const hydrated = useRef(false);
+  useEffect(() => {
+    setViewMode(readLS<"grid" | "list">("manhwa-view-mode", ["grid", "list"], "grid"));
+    setSort(readLS<SortOption>("manhwa-sort", ["latest", "popularity", "rating", "az"], "latest"));
+    setSource(readLS<SourceOption>("manhwa-source", ["all", "shinigami", "ikiru"], "all"));
+    hydrated.current = true;
+  }, []);
 
   const isDefaultView = source === "all" && sort === "latest";
 
@@ -90,67 +81,19 @@ export function HomeClient({
     setRecentHistory(history.slice(0, 8));
   }, []);
 
-  // "Baru Diupdate" always shows all+latest regardless of current filter.
-  // Seed with server-provided initialLatest prop directly to avoid hydration mismatch.
-  const updatedQuery = useQuery({
-    queryKey: ["home-updated"],
-    queryFn: () => getLatest("all", 1, "latest"),
-    staleTime: 10 * 60 * 1000,
-    initialData: initialLatest,
-    initialDataUpdatedAt: initialLatest ? Date.now() : undefined,
-  });
-  const updatedData = updatedQuery.data;
-
-  const popularQuery = useQuery({
-    queryKey: ["home-popular"],
-    queryFn: () => getPopularToday(),
-    staleTime: 10 * 60 * 1000,
-    initialData: initialPopular,
-    initialDataUpdatedAt: initialPopular ? Date.now() : undefined,
-  });
-
-  const genresQuery = useQuery({
-    queryKey: ["home-genres"],
-    queryFn: () => getGenres(),
-    staleTime: 30 * 60 * 1000,
-    initialData: initialGenres,
-    initialDataUpdatedAt: initialGenres ? Date.now() : undefined,
-  });
-
-  const recommendationsQuery = useQuery({
-    queryKey: ["recommendations"],
-    queryFn: async () => {
-      const topIds = recentHistory.slice(0, 3);
-      if (topIds.length === 0) return [];
-      const details = await Promise.all(
-        topIds.map((h) => getMangaDetail(h.mangaId, h.source)),
-      );
-      const freq = new Map<string, number>();
-      for (const d of details) {
-        for (const g of d.manga.genres) {
-          freq.set(g, (freq.get(g) ?? 0) + 1);
-        }
-      }
-      const topGenre = [...freq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-      if (!topGenre) return [];
-      const genreResults = await getGenreManga(topGenre, 1);
-      const historyIds = new Set(recentHistory.map((h) => h.mangaId));
-      return genreResults.filter((r) => !historyIds.has(r.id)).slice(0, 6);
-    },
-    enabled: recentHistory.length > 0,
-    staleTime: 30 * 60 * 1000,
-  });
-
-  // Persist view mode and sort
+  // Persist view mode and sort (skip initial render to avoid overwriting saved prefs with defaults)
   useEffect(() => {
+    if (!hydrated.current) return;
     localStorage.setItem("manhwa-view-mode", viewMode);
   }, [viewMode]);
 
   useEffect(() => {
+    if (!hydrated.current) return;
     localStorage.setItem("manhwa-sort", sort);
   }, [sort]);
 
   useEffect(() => {
+    if (!hydrated.current) return;
     localStorage.setItem("manhwa-source", source);
   }, [source]);
 
@@ -173,21 +116,6 @@ export function HomeClient({
       {recentHistory.length > 0 && (
         <SedangDibaca history={recentHistory} />
       )}
-
-      <BaruDiupdate items={updatedData} />
-
-      <Populer
-        items={popularQuery.data}
-        onSeeAll={() => setSort("popularity")}
-      />
-
-      <GenrePopuler genres={genresQuery.data} />
-
-      <KamuMungkinSuka
-        items={recommendationsQuery.data}
-        isLoading={recommendationsQuery.isLoading}
-        hasHistory={recentHistory.length > 0}
-      />
 
       <SemuaManga
         sort={sort}

@@ -65,6 +65,20 @@ export default function NavMobile({
           Beranda
         </Link>
         <Link
+          href="/latest"
+          onClick={closeMenu}
+          className={mobileLinkClass("/latest")}
+        >
+          Terbaru
+        </Link>
+        <Link
+          href="/genres"
+          onClick={closeMenu}
+          className={mobileLinkClass("/genres")}
+        >
+          Genre
+        </Link>
+        <Link
           href="/favorites"
           onClick={closeMenu}
           className={mobileLinkClass("/favorites")}
@@ -75,20 +89,6 @@ export default function NavMobile({
               {favCount}
             </span>
           )}
-        </Link>
-        <Link
-          href="/history"
-          onClick={closeMenu}
-          className={mobileLinkClass("/history")}
-        >
-          Riwayat
-        </Link>
-        <Link
-          href="/genres"
-          onClick={closeMenu}
-          className={mobileLinkClass("/genres")}
-        >
-          Genre
         </Link>
         {/* Lainnya collapsible */}
         <div>
@@ -122,6 +122,22 @@ export default function NavMobile({
             }`}
           >
             <div className="pl-4 flex flex-col gap-1 py-1">
+              <Link
+                href="/history"
+                onClick={closeMenu}
+                className={[
+                  "px-4 py-2 text-[13px] font-medium rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full",
+                  isActive(pathname, "/history")
+                    ? "text-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                    : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
+                ].join(" ")}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                Riwayat
+              </Link>
               <Link
                 href="/stats"
                 onClick={closeMenu}
