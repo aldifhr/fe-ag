@@ -31,8 +31,15 @@ function safeGetHistory(): HistoryEntry[] {
   }
 }
 
+/** Check if title is a bad fallback (e.g., "Manga i-random", "Unknown"). */
+function isFallbackTitle(title: string): boolean {
+  return /^Manga [a-z0-9-]{1,20}$/i.test(title) || title === "Unknown";
+}
+
 /** Record a chapter read. Moves entry to top, dedupes, caps at MAX_ENTRIES. */
 export function addHistory(entry: Omit<HistoryEntry, "readAt">): void {
+  // Skip recording if title is a fallback — would pollute history with garbage
+  if (isFallbackTitle(entry.title)) return;
   const all = safeGetHistory();
   // Remove existing entry for same manga+chapter
   const filtered = all.filter(
@@ -46,6 +53,10 @@ export function addHistory(entry: Omit<HistoryEntry, "readAt">): void {
     STORAGE_KEY,
     JSON.stringify(filtered.slice(0, MAX_ENTRIES)),
   );
+  // Notify listeners (MangaCard, SedangDibaca, etc.)
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("manhwa-history-change"));
+  }
 }
 
 /** Get all history entries. */
@@ -57,9 +68,17 @@ export function getHistory(): HistoryEntry[] {
  * Get history grouped by manga.
  * Each group shows the manga info + sorted chapter numbers + most recent readAt.
  * Groups are sorted by latestReadAt descending (most recently read first).
+ * Auto-cleans entries with fallback titles on first read.
  */
 export function getGroupedHistory(): GroupedHistory[] {
-  const entries = safeGetHistory();
+  let entries = safeGetHistory();
+
+  // One-time cleanup: remove entries with fallback titles like "Manga i-random"
+  const hasStale = entries.some((e) => isFallbackTitle(e.title));
+  if (hasStale) {
+    entries = entries.filter((e) => !isFallbackTitle(e.title));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  }
   const map = new Map<string, GroupedHistory>();
 
   for (const e of entries) {

@@ -17,7 +17,7 @@ import { readLS } from "@/lib/readLS";
 import { usePagedFetch } from "@/lib/hooks/usePagedFetch";
 import SedangDibaca from "@/components/sections/SedangDibaca";
 import SemuaManga from "@/components/sections/SemuaManga";
-import HeroSection from "@/components/sections/HeroSection";
+
 import GenreChips from "@/components/sections/GenreChips";
 
 interface HomeClientProps {
@@ -103,8 +103,6 @@ export function HomeClient({
 
   return (
     <div className="space-y-6">
-      <HeroSection onRandom={handleRandom} randomLoading={randomLoading} />
-
       <GenreChips genres={initialGenres ?? []} />
 
       {recentHistory.length > 0 && (

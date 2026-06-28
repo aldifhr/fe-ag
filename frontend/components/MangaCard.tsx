@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { timeAgo, getReadChapters, getReadingProgress } from "@/lib/history";
 import { proxyCover } from "@/lib/api";
 import { normalizeStatus } from "@/lib/normalizeStatus";
@@ -66,8 +66,25 @@ function MangaCard({
     ? Date.now() - new Date(time).getTime() < 24 * 60 * 60 * 1000
     : false;
 
-  const readChapters = useMemo(() => getReadChapters(id), [id]);
-  const progress = useMemo(() => getReadingProgress(id), [id]);
+  // Recompute read state when history changes
+  const [historyTick, setHistoryTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setHistoryTick((t) => t + 1);
+    // Same-tab: custom event fired by addHistory()
+    window.addEventListener("manhwa-history-change", bump);
+    // Cross-tab: native storage event
+    window.addEventListener("storage", bump);
+    // Fallback: recompute when tab becomes visible (covers slow storage events)
+    document.addEventListener("visibilitychange", bump);
+    return () => {
+      window.removeEventListener("manhwa-history-change", bump);
+      window.removeEventListener("storage", bump);
+      document.removeEventListener("visibilitychange", bump);
+    };
+  }, []);
+
+  const readChapters = useMemo(() => getReadChapters(id), [id, historyTick]);
+  const progress = useMemo(() => getReadingProgress(id), [id, historyTick]);
 
   const handleFav = (e: React.MouseEvent) => {
     e.preventDefault();

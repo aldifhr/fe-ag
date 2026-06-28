@@ -22,6 +22,7 @@ export default function SearchModal({ open, onClose }: Props) {
   const lastSearchedRef = useRef("");
   const inputRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const router = useRouter();
   const MAX_RESULTS = 8;
 
@@ -60,14 +61,19 @@ export default function SearchModal({ open, onClose }: Props) {
       setSelectedIndex(-1);
       return;
     }
+    // Abort previous in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     setHasSearched(true);
     try {
-      const res = await searchManga(q, "shinigami");
+      const res = await searchManga(q, "shinigami", undefined, undefined, controller.signal);
       setResults(res);
       setSelectedIndex(res.length > 0 ? 0 : -1);
-    } catch {
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError("Gagal mengambil data. Coba lagi.");
       setSelectedIndex(-1);
     } finally {
@@ -122,6 +128,7 @@ export default function SearchModal({ open, onClose }: Props) {
 
   // Reset on close
   const handleClose = () => {
+    abortRef.current?.abort();
     setQuery("");
     setResults([]);
     setHasSearched(false);
@@ -155,11 +162,8 @@ export default function SearchModal({ open, onClose }: Props) {
         </svg>
       </button>
 
-      {/* Spacer to push input to center */}
-      <div className="mt-[50vh]" />
-
-      {/* Search input centered */}
-      <div className="shrink-0 px-4 sm:px-6 pb-4">
+      {/* Centered search block */}
+      <div className="flex-1 flex flex-col justify-start pt-[35vh] sm:pt-[30vh] px-4 sm:px-6">
         <div className="relative max-w-2xl mx-auto w-full">
           <svg
             className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[var(--color-text-muted)] pointer-events-none"
@@ -191,11 +195,9 @@ export default function SearchModal({ open, onClose }: Props) {
             </button>
           )}
         </div>
-      </div>
 
-      {/* Scrollable results */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-10">
-        <div className="max-w-5xl mx-auto space-y-6">
+        {/* Results directly below input */}
+        <div className="max-w-2xl mx-auto w-full mt-4 space-y-4">
           {/* Results count */}
           {hasSearched && !loading && !error && (
             <p className="text-[13px] text-[var(--color-text-muted)] text-center">
@@ -205,7 +207,7 @@ export default function SearchModal({ open, onClose }: Props) {
 
           {/* Loading */}
           {loading && (
-            <div className="max-w-2xl mx-auto flex flex-col">
+            <div className="flex flex-col">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 px-3 py-2">
                   <div className="w-9 h-[52px] skeleton rounded shrink-0" />
@@ -220,7 +222,7 @@ export default function SearchModal({ open, onClose }: Props) {
 
           {/* Error */}
           {!loading && error && (
-            <div className="text-center py-16">
+            <div className="text-center py-8">
               <p className="text-sm text-[var(--color-text-secondary)] mb-3">{error}</p>
               <button
                 onClick={() => doSearch(query)}
@@ -233,7 +235,7 @@ export default function SearchModal({ open, onClose }: Props) {
 
           {/* Results list */}
           {!loading && !error && results.length > 0 && (
-            <div className="max-w-2xl mx-auto flex flex-col">
+            <div className="flex flex-col max-h-[40vh] overflow-y-auto">
               {results.slice(0, MAX_RESULTS).map((item, i) => (
                 <Link
                   key={`${item.source}-${item.id}-${i}`}

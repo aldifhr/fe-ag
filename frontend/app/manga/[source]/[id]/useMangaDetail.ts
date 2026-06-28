@@ -68,6 +68,14 @@ export function useMangaDetail({ initialData }: { initialData?: MangaDetail }) {
     }
   }, [data?.manga.genres, queryClient]);
 
+  // Update page title
+  useEffect(() => {
+    if (data?.manga.title) {
+      document.title = `${data.manga.title} — Manhwa.agg`;
+      return () => { document.title = "Manhwa.agg"; };
+    }
+  }, [data?.manga.title]);
+
   const errorMsg = queryError
     ? queryError instanceof Error
       ? queryError.message

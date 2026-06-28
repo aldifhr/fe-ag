@@ -182,8 +182,9 @@ export function useReaderState({
   // Set page title
   useEffect(() => {
     document.title = mangaTitle
-      ? `${mangaTitle} - Chapter ${chapterNum}`
-      : "Manga Reader";
+      ? `${mangaTitle} — Ch. ${chapterNum} — Manhwa.agg`
+      : "Manhwa.agg";
+    return () => { document.title = "Manhwa.agg"; };
   }, [mangaTitle, chapterNum]);
 
   // Record reading history when images load

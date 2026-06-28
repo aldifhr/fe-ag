@@ -45,8 +45,8 @@ export interface PageResult {
   url: string;
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, init);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || `HTTP ${res.status}`);
@@ -59,12 +59,14 @@ export async function searchManga(
   source = "all",
   sort?: string,
   status?: string,
+  signal?: AbortSignal,
 ): Promise<SearchResult[]> {
   const params = new URLSearchParams({ q, source });
   if (sort) params.set("sort", sort);
   if (status) params.set("status", status);
   const data = await fetchJson<{ results: SearchResult[] }>(
     `/api/reader/search?${params.toString()}`,
+    signal ? { signal } : undefined,
   );
   return data.results;
 }
