@@ -102,13 +102,6 @@ export function useReaderState({
     number | undefined
   >(undefined);
 
-  // Strip mode drag-scroll refs
-  const stripDragRef = useRef({
-    dragging: false,
-    startY: 0,
-    startScrollY: 0,
-  });
-
   const mangaHref = `/manga/${source}/${encodeURIComponent(id)}`;
 
   // Save chapter meta to localStorage for clean URLs
@@ -578,6 +571,5 @@ export function useReaderState({
     setBubblePos,
     // Refs
     settingsRef,
-    stripDragRef,
   };
 }

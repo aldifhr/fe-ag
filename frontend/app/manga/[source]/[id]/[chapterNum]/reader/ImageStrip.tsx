@@ -14,7 +14,6 @@ interface ImageStripProps {
   markImageLoaded: (idx: number) => void;
   retryKeys: Map<number, number>;
   setRetryKeys: React.Dispatch<React.SetStateAction<Map<number, number>>>;
-  stripDragRef: React.RefObject<{ dragging: boolean; startY: number; startScrollY: number }>;
   effectiveBaseUrl: string;
   chapterNum: string;
 }
@@ -29,7 +28,6 @@ export function ImageStrip({
   markImageLoaded,
   retryKeys,
   setRetryKeys,
-  stripDragRef,
   effectiveBaseUrl,
   chapterNum,
 }: ImageStripProps) {
@@ -66,27 +64,6 @@ export function ImageStrip({
     window.addEventListener("scroll", checkScroll, { passive: true });
     return () => window.removeEventListener("scroll", checkScroll);
   }, [zoomedImageIdx, resetZoom, pinchActiveRef]);
-
-  // Strip mode drag-to-scroll (disabled during pinch)
-  function handleStripPointerDown(e: React.PointerEvent) {
-    if (e.button !== 0 || pinchActiveRef.current) return;
-    stripDragRef.current = {
-      dragging: true,
-      startY: e.clientY,
-      startScrollY: window.scrollY,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }
-
-  function handleStripPointerMove(e: React.PointerEvent) {
-    if (!stripDragRef.current.dragging || pinchActiveRef.current) return;
-    const delta = e.clientY - stripDragRef.current.startY;
-    window.scrollTo(0, stripDragRef.current.startScrollY - delta);
-  }
-
-  function handleStripPointerUp() {
-    stripDragRef.current = { ...stripDragRef.current, dragging: false };
-  }
 
   return (
     <>
@@ -132,11 +109,8 @@ export function ImageStrip({
       {/* Images — strip mode */}
       {!loading && !error && images.length > 0 && (
         <div
-          className={`flex flex-col items-center select-none cursor-grab active:cursor-grabbing ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}
+          className={`flex flex-col items-center select-none ${bgColor === "dark" ? "bg-black" : bgColor === "sepia" ? "bg-[#d4c5a0]" : bgColor === "white" ? "bg-white" : ""}`}
           style={{ touchAction: "pan-y" }}
-          onPointerDown={handleStripPointerDown}
-          onPointerMove={handleStripPointerMove}
-          onPointerUp={handleStripPointerUp}
         >
           {images.map((src, i) => {
             const loaded = loadedImagesRef.current.has(i);

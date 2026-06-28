@@ -83,7 +83,6 @@ export default function ReaderPage() {
         markImageLoaded={state.markImageLoaded}
         retryKeys={state.retryKeys}
         setRetryKeys={state.setRetryKeys}
-        stripDragRef={state.stripDragRef}
         effectiveBaseUrl={effectiveBaseUrl}
         chapterNum={chapterNum}
       />
