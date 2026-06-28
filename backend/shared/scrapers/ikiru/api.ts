@@ -152,6 +152,37 @@ export async function getIkiruChapterImages(chapterId: number | string): Promise
   return rest;
 }
 
+/** Fetch full chapter list via WP REST API (bypasses HTML scraper / CF block) */
+export async function fetchIkiruChaptersByTitle(title: string): Promise<{ id: number; number: string; title: string; url: string; updatedTime: string | null }[]> {
+  // Search WP REST API for chapters matching the manga title
+  const perPage = 100;
+  let page = 1;
+  const all: { id: number; number: string; title: string; url: string; updatedTime: string | null }[] = [];
+
+  while (page <= 10) { // max 1000 chapters
+    const data = await ikiruFetch<any[]>(
+      `/wp/v2/chapter?search=${encodeURIComponent(title)}&_fields=id,title,slug,link,modified&per_page=${perPage}&page=${page}`
+    );
+    if (!data || !Array.isArray(data) || data.length === 0) break;
+
+    for (const c of data) {
+      const rawTitle = c.title?.rendered || c.title || "";
+      const numMatch = rawTitle.match(/chapter\s+([\d.]+)/i);
+      const num = numMatch ? numMatch[1] : "";
+      all.push({
+        id: c.id,
+        number: num,
+        title: rawTitle,
+        url: c.link || "",
+        updatedTime: c.modified || null,
+      });
+    }
+    if (data.length < perPage) break;
+    page++;
+  }
+  return all;
+}
+
 /** Types and genres filter lists */
 export async function getIkiruFilters(): Promise<{ types: IkiruFilter[]; genres: IkiruFilter[] }> {
   const data = await ikiruFetch<{

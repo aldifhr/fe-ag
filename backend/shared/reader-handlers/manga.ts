@@ -1,7 +1,7 @@
 import { normalizeIkiruUrl } from "../../shared/scrapers/shared.js";
 import { fetchReaderManga } from "../../shared/scrapers/secondary/reader.js";
 import { fetchIkiruChapters } from "../../shared/scrapers/ikiru/index.js";
-import { getIkiruSeries } from "../../shared/scrapers/ikiru/api.js";
+import { getIkiruSeries, fetchIkiruChaptersByTitle } from "../../shared/scrapers/ikiru/api.js";
 import { pickCover } from "./helpers.js";
 import type { Request, Response } from "express";
 
@@ -65,8 +65,11 @@ export async function handleManga(req: Request, res: Response) {
       ? { title: series.title, description: series.description, genres: series.genre, status: null, rating: series.rating, cover: series.cover }
       : null;
 
-    // Keep Scrapling for full chapter list (REST API only gives latest chapters)
-    const chapters = await fetchIkiruChapters(fullUrl);
+    // Try REST API first (fast, reliable), fallback to HTML scraper
+    let chapters = await fetchIkiruChaptersByTitle(meta?.title || slug);
+    if (!chapters.length) {
+      chapters = await fetchIkiruChapters(fullUrl);
+    }
 
     return res.json({
       manga: {
@@ -80,7 +83,7 @@ export async function handleManga(req: Request, res: Response) {
         genres: meta?.genres || [],
       },
       chapters: (chapters || []).map((c: any) => {
-        const rawNum = String(c.chapter ?? "");
+        const rawNum = String(c.number ?? c.chapter ?? "");
         const numOnly = rawNum.replace(/^chapter\s+/i, "").trim() || rawNum;
         const rawTitle = String(c.title ?? "");
         const cleanTitle = rawTitle.replace(/^chapter\s+/i, "").trim();
