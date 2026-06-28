@@ -117,7 +117,14 @@ export async function handleLatest(req: Request, res: Response) {
   })() : Promise.resolve<LatestResultItem[]>([]);
 
   const [shinigamiItems, ikiruItems] = await Promise.all([shinigamiPromise, ikiruPromise]);
-  const all: LatestResultItem[] = [...shinigamiItems, ...ikiruItems];
+  // Interleave: Shinigami×2 + Ikiru×1 so both sources appear on page 1
+  const all: LatestResultItem[] = [];
+  let si = 0, ik = 0;
+  while (si < shinigamiItems.length || ik < ikiruItems.length) {
+    if (si < shinigamiItems.length) all.push(shinigamiItems[si++]);
+    if (si < shinigamiItems.length) all.push(shinigamiItems[si++]);
+    if (ik < ikiruItems.length) all.push(ikiruItems[ik++]);
+  }
 
   const total = all.length;
   // For popularity/rating the API already paginated; for latest we slice client-side
