@@ -220,6 +220,72 @@ export function formatChapters(chapters: number[]): string {
   return "Ch. " + ranges.join(", ");
 }
 
+// ─── Async (API + localStorage) — try API first, fallback to sync ──
+
+export async function syncHistoryFromApi(): Promise<void> {
+  try {
+    const res = await fetch("/api/user-history?limit=200");
+    if (!res.ok) throw new Error("API unavailable");
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error?.message);
+
+    const mapped: HistoryEntry[] = json.data.map(
+      (f: {
+        manga_id: string;
+        manga_title: string;
+        manga_cover: string | null;
+        manga_source: string;
+        chapter: string;
+        last_read: string;
+      }) => ({
+        mangaId: f.manga_id,
+        title: f.manga_title,
+        cover: f.manga_cover || null,
+        source: f.manga_source,
+        chapterNumber: Number(f.chapter),
+        readAt: new Date(f.last_read).getTime(),
+      }),
+    );
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("manhwa-history-change"));
+    }
+  } catch {
+    // Silently fall back to localStorage
+  }
+}
+
+export async function addHistoryApi(
+  entry: Omit<HistoryEntry, "readAt">,
+): Promise<void> {
+  addHistory(entry);
+  try {
+    await fetch("/api/user-history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: entry.mangaId,
+        title: entry.title,
+        cover: entry.cover ?? "",
+        source: entry.source,
+        chapter: String(entry.chapterNumber),
+      }),
+    });
+  } catch {
+    // Local write already succeeded
+  }
+}
+
+export async function clearHistoryApi(): Promise<void> {
+  clearHistory();
+  try {
+    await fetch("/api/user-history", { method: "DELETE" });
+  } catch {
+    // Local already cleared
+  }
+}
+
 /** Relative time string in Indonesian */
 export function timeAgo(timestamp: number): string {
   const diff = Date.now() - timestamp;

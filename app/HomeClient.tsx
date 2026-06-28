@@ -10,6 +10,7 @@ import {
 import type { SearchResult } from "@/lib/api";
 import {
   getGroupedHistory,
+  syncHistoryFromApi,
   GroupedHistory,
 } from "@/lib/history";
 import type { SourceOption } from "@/lib/home-types";
@@ -72,8 +73,11 @@ export function HomeClient({
   const { items, loadingMore, sentinelRef } = usePagedFetch(initialData, fetchFn);
 
   useEffect(() => {
-    const history = getGroupedHistory();
-    setRecentHistory(history.slice(0, 8));
+    (async () => {
+      await syncHistoryFromApi();
+      const history = getGroupedHistory();
+      setRecentHistory(history.slice(0, 8));
+    })();
   }, []);
 
   // Persist settings (skip initial render to avoid overwriting saved prefs with defaults)

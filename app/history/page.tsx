@@ -4,7 +4,7 @@ import {
   getGroupedHistory,
   removeMangaHistory,
   removeMultipleMangaHistory,
-  clearHistory,
+  clearHistoryApi,
   formatChapters,
   timeAgo,
   GroupedHistory,
@@ -282,7 +282,7 @@ export default function HistoryPage() {
       setConfirmClear(true);
       return;
     }
-    clearHistory();
+    clearHistoryApi();
     setItems([]);
     setConfirmClear(false);
     showToast("Semua riwayat dihapus");

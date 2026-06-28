@@ -6,7 +6,7 @@ import {
   getMangaDetail,
   MangaDetail,
 } from "@/lib/api";
-import { addHistory } from "@/lib/history";
+import { addHistoryApi } from "@/lib/history";
 
 interface UseReaderStateParams {
   source: string;
@@ -194,7 +194,7 @@ export function useReaderState({
       if (historyRecorded.current) return;
       historyRecorded.current = true;
       if (mangaTitle) {
-        addHistory({
+        addHistoryApi({
           mangaId: id,
           title: mangaTitle,
           cover: mangaCover,
@@ -208,7 +208,7 @@ export function useReaderState({
         }
         detailFetchRef.current
           .then((detail) => {
-            addHistory({
+            addHistoryApi({
               mangaId: id,
               title: detail.manga.title,
               cover: detail.manga.cover,
@@ -218,7 +218,7 @@ export function useReaderState({
             });
           })
           .catch(() => {
-            addHistory({
+            addHistoryApi({
               mangaId: id,
               title: `Manga ${id.slice(0, 8)}`,
               cover: null,
