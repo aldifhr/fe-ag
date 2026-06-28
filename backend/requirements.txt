@@ -1,3 +1,0 @@
-scrapling[fetchers]
-playwright
-playwright-stealth
