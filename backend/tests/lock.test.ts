@@ -3,7 +3,7 @@ import { withSupabaseLock } from "../shared/lock.js";
 
 const mockRpc = vi.hoisted(() => vi.fn<(...args: unknown[]) => unknown>());
 
-vi.mock("../shared/supabase.js", () => ({
+vi.mock("../lib/supabase.js", () => ({
   supabase: { rpc: (...args: unknown[]) => mockRpc(...args) },
 }));
 

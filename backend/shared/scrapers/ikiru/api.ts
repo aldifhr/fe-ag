@@ -9,12 +9,12 @@
  */
 
 import { getLogger } from "../../logger.js";
+import { getIkiruPublicBase } from "../../domain.js";
 
 const logger = getLogger({ scope: "ikiru:api" });
 
 const PROXY_URL = process.env.IKIRU_PROXY_URL || "";
 const PROXY_TOKEN = process.env.IKIRU_PROXY_TOKEN || "";
-const IKIRU_API = "https://06.ikiru.wtf/wp-json/readerkiru/v1";
 const TIMEOUT_MS = 10_000;
 
 // ─── Types ─────────────────────────────────────────────────────────────
@@ -75,11 +75,11 @@ export interface IkiruFilter {
 
 async function ikiruFetch<T>(path: string): Promise<T | null> {
   try {
-    // Route through VPS proxy if configured (bypasses CF blocks from Vercel)
     const useProxy = PROXY_URL && PROXY_TOKEN;
+    const ikiruBase = getIkiruPublicBase();
     const url = useProxy
       ? `${PROXY_URL}/wp-json/readerkiru/v1${path}`
-      : `${IKIRU_API}${path}`;
+      : `${ikiruBase}/wp-json/readerkiru/v1${path}`;
 
     const headers: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",

@@ -171,7 +171,7 @@ export function proxyCover(url: string | null): string {
   if (!url) return "";
   try {
     const hostname = new URL(url).hostname;
-    const needsProxy = ["06.ikiru.wtf", "03.ikiru.wtf"].includes(hostname);
+    const needsProxy = hostname.endsWith("ikiru.wtf");
     return needsProxy
       ? `/api/reader/image?src=${encodeURIComponent(url)}`
       : url;
@@ -181,13 +181,14 @@ export function proxyCover(url: string | null): string {
 }
 
 /** Proxy images from domains that block hotlinking or benefit from WebP conversion */
-const PROXY_DOMAINS = new Set(["06.ikiru.wtf", "03.ikiru.wtf"]);
 export function proxyImage(url: string | null | undefined): string {
   if (!url) return "";
   try {
     const parsed = new URL(url);
     if (!["http:", "https:"].includes(parsed.protocol)) return url;
-    return PROXY_DOMAINS.has(parsed.hostname)
+    const hostname = parsed.hostname;
+    const needsProxy = hostname.endsWith("ikiru.wtf");
+    return needsProxy
       ? `/api/reader/image?src=${encodeURIComponent(url)}`
       : url;
   } catch {

@@ -93,6 +93,10 @@ const envSchema = z.object({
     IKIRU_EMAIL: z.string().optional(),
     IKIRU_PASSWORD: z.string().optional(),
 
+    // VPS Proxy Configuration (optional - to bypass Cloudflare block)
+    IKIRU_PROXY_URL: z.string().optional(),
+    IKIRU_PROXY_TOKEN: z.string().optional(),
+
 
     // Scraper tuning
     SECONDARY_SOURCE_URL: z.string().url().default("https://api.shngm.io"),
