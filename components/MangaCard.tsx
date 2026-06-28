@@ -218,7 +218,8 @@ function MangaCard({
         {statusLabel && (
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded text-(--color-text-muted) bg-(--color-surface-hover)">
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`}
+              className="w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ backgroundColor: statusColor }}
             />
             {statusLabel}
           </span>
