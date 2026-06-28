@@ -63,7 +63,7 @@ export default function NavDesktop({
           href="/"
           className="font-semibold text-[15px] tracking-tight text-(--color-text)"
         >
-          Manwa<span className="text-(--color-accent)">.Agg</span>
+          <span className="text-(--color-accent)">Aggregator</span>
         </Link>
 
         {/* Desktop links */}

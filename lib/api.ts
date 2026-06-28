@@ -5,6 +5,7 @@ export interface SearchResult {
   url?: string;
   source: string;
   chapter?: string;
+  country?: string | null;
   description?: string | null;
   time?: string;
   chapters?: { number: string; time: string | null }[];
@@ -60,10 +61,12 @@ export async function searchManga(
   sort?: string,
   status?: string,
   signal?: AbortSignal,
+  genres?: string,
 ): Promise<SearchResult[]> {
   const params = new URLSearchParams({ q, source });
   if (sort) params.set("sort", sort);
   if (status) params.set("status", status);
+  if (genres) params.set("genres", genres);
   const data = await fetchJson<{ results: SearchResult[] }>(
     `/api/reader/search?${params.toString()}`,
     signal ? { signal } : undefined,

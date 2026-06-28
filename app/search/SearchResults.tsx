@@ -58,6 +58,7 @@ export default function SearchResults({
               time={item.time}
               status={item.status}
               rating={item.rating}
+              country={item.country}
             />
           ))}
         </div>

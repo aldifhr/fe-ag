@@ -4,7 +4,7 @@ export default function LoadingScreen() {
       {/* Logo pulse */}
       <div className="relative">
         <h1 className="text-2xl font-bold tracking-tight text-(--color-text)">
-          Manwa<span className="text-(--color-accent)">.Agg</span>
+          Manhwa<span className="text-(--color-accent)">.Agg</span>
         </h1>
         <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-(--color-accent)/30 rounded-full overflow-hidden">
           <div className="h-full w-1/3 bg-(--color-accent) rounded-full animate-loading-bar" />

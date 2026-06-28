@@ -17,6 +17,7 @@ interface Props {
   time?: string;
   status?: string | number | null;
   rating?: string | number | null;
+  country?: string | null;
   chapters?: { number: string; time: string | null }[];
 }
 
@@ -40,6 +41,7 @@ function MangaCard({
   time,
   status,
   rating,
+  country,
   chapters,
 }: Props) {
   const [imgErr, setImgErr] = useState(false);
@@ -121,19 +123,12 @@ function MangaCard({
 
           {/* Source flag — bottom-left */}
           <img
-            src={source === "ikiru" ? "https://flagsapi.com/JP/flat/64.png" : "https://flagsapi.com/KR/flat/64.png"}
-            alt={source === "ikiru" ? "Japan" : "Korea"}
+            src={country === "CN" ? "https://flagsapi.com/CN/flat/64.png" : country === "JP" ? "https://flagsapi.com/JP/flat/64.png" : "https://flagsapi.com/KR/flat/64.png"}
+            alt={country === "CN" ? "China" : country === "JP" ? "Japan" : "Korea"}
             className="absolute bottom-2 left-2 z-10 w-5 h-[15px] rounded-[2px] shadow-md object-cover"
           />
 
-          {/* Source name badge — bottom-right */}
-          <span className={`absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded backdrop-blur-sm ${
-            source === "shinigami"
-              ? "bg-black text-red-400"
-              : "bg-emerald-600 text-white"
-          }`}>
-            {source === "ikiru" ? "Ikiru" : "Shinigami"}
-          </span>
+
 
           {cover && !imgErr ? (
             <img

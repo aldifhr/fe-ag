@@ -1,11 +1,22 @@
+# dependencies
 node_modules/
+
+# build
+.next/
+dist/
+tsconfig.tsbuildinfo
+
+# env
 .env
 .env.local
 .env.bak.*
+.env*.local
+
+# vercel
 .vercel/
+
+# misc
 .slim/
-dist/
+.qoder/
 *.pyc
 __pycache__/
-
-.vercel

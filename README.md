@@ -1,8 +1,20 @@
-# Manhwa Aggregator
+# Manhwa Aggregator — Frontend
 
-Manga/manhwa update aggregator with Discord notifications and a reader web app.
+Next.js manga reader UI. Connects to the backend API at `NEXT_PUBLIC_API_BASE`.
 
-- **Backend** (`backend/`) — Discord bot + Reader API, deployed as 1 Vercel project
-- **Frontend** (`frontend/`) — Next.js reader UI, deployed separately
+- **Backend**: https://github.com/aldifhr/be-ag
+- **Frontend**: https://github.com/aldifhr/fe-ag
 
-See [backend/README.md](backend/README.md) for full documentation.
+## Development
+
+```bash
+npm install
+npm run dev    # http://localhost:3001
+```
+
+## Production
+
+```bash
+npm run build
+npm start
+```

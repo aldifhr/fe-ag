@@ -224,6 +224,7 @@ export default function SemuaManga({
                   time={item.time}
                   status={item.status}
                   rating={item.rating}
+                  country={item.country}
                   chapters={item.chapters}
                 />
               ))}
@@ -265,8 +266,14 @@ export default function SemuaManga({
                         {item.title}
                       </h3>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded bg-(--color-surface-hover) text-(--color-text-muted)">
-                          {item.source}
+                        <span className={`px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded ${
+                          item.country === "CN"
+                            ? "bg-red-600 text-white"
+                            : item.country === "JP"
+                              ? "bg-blue-600 text-white"
+                              : "bg-black text-red-400"
+                        }`}>
+                          {item.country === "CN" ? "Manhua" : item.country === "JP" ? "Manga" : "Manhwa"}
                         </span>
                         {item.status != null &&
                           (() => {

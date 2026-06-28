@@ -49,13 +49,7 @@ export function DetailHero({ manga, id, fav, setFav, descExpanded, setDescExpand
             <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight">
               {manga.title}
             </h1>
-            <span className={`shrink-0 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider rounded ${
-              manga.source === "shinigami"
-                ? "bg-black text-red-400"
-                : "bg-emerald-600 text-white"
-            }`}>
-              {manga.source}
-            </span>
+
           </div>
 
           {/* Alternative title */}

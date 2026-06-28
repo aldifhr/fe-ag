@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { searchManga, SearchResult } from "@/lib/api";
+import { searchManga, getGenres, Genre, SearchResult } from "@/lib/api";
 import {
   addSearchHistory,
   getSearchHistory,
@@ -48,6 +48,26 @@ function SearchContent() {
   const [statusFilter, setStatusFilter] = useState<string>(() =>
     readLS("manhwa-search-status", ["", "ongoing", "completed", "hiatus", "cancelled"], ""),
   );
+  const [sourceFilter, setSourceFilter] = useState<string>(() =>
+    readLS("manhwa-search-source", ["", "shinigami"], ""),
+  );
+  const [genreFilters, setGenreFilters] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("manhwa-search-genres");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  const { data: genresData = [], isLoading: genresLoading } = useQuery({
+    queryKey: ["genres"],
+    queryFn: getGenres,
+    staleTime: 30 * 60 * 1000,
+  });
+  const genres = genresData;
 
   const {
     data: rawResults = [],
@@ -55,13 +75,15 @@ function SearchContent() {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ["search", debouncedQuery, sortFilter, statusFilter],
+    queryKey: ["search", debouncedQuery, sortFilter, statusFilter, sourceFilter, genreFilters],
     queryFn: () =>
       searchManga(
         debouncedQuery,
-        "shinigami",
+        sourceFilter || "all",
         sortFilter === "az" ? undefined : sortFilter || undefined,
         statusFilter || undefined,
+        undefined,
+        genreFilters.length > 0 ? genreFilters.join(",") : undefined,
       ),
     enabled: debouncedQuery.trim().length >= 2,
     staleTime: 5 * 60 * 1000,
@@ -138,6 +160,12 @@ function SearchContent() {
   useEffect(() => {
     localStorage.setItem("manhwa-search-status", statusFilter);
   }, [statusFilter]);
+  useEffect(() => {
+    localStorage.setItem("manhwa-search-source", sourceFilter);
+  }, [sourceFilter]);
+  useEffect(() => {
+    localStorage.setItem("manhwa-search-genres", JSON.stringify(genreFilters));
+  }, [genreFilters]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -200,6 +228,12 @@ function SearchContent() {
         setSortFilter={setSortFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        sourceFilter={sourceFilter}
+        setSourceFilter={setSourceFilter}
+        genreFilters={genreFilters}
+        setGenreFilters={setGenreFilters}
+        genres={genres}
+        genresLoading={genresLoading}
         hasSearched={hasSearched}
       />
 
