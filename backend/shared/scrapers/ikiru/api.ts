@@ -73,6 +73,34 @@ export interface IkiruFilter {
 
 // ─── Internal fetch helper ─────────────────────────────────────────────
 
+async function wpFetch<T>(path: string): Promise<T | null> {
+  try {
+    const useProxy = PROXY_URL && PROXY_TOKEN;
+    const ikiruBase = getIkiruPublicBase();
+    const url = useProxy
+      ? `${PROXY_URL}/wp-json/wp/v2${path}`
+      : `${ikiruBase}/wp-json/wp/v2${path}`;
+
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+    };
+    if (useProxy) {
+      headers["Authorization"] = `Bearer ${PROXY_TOKEN}`;
+    }
+
+    const res = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch (err: unknown) {
+    logger.warn({ path, err: String(err) }, "WP REST API error");
+    return null;
+  }
+}
+
 async function ikiruFetch<T>(path: string): Promise<T | null> {
   try {
     const useProxy = PROXY_URL && PROXY_TOKEN;
@@ -150,6 +178,37 @@ export async function getIkiruChapterImages(chapterId: number | string): Promise
   if (!data) return null;
   const { ok: _, ...rest } = data;
   return rest;
+}
+
+/** Fetch full chapter list via WP REST API (bypasses HTML scraper / CF block) */
+export async function fetchIkiruChaptersByTitle(title: string): Promise<{ id: number; number: string; title: string; url: string; updatedTime: string | null }[]> {
+  // Search WP REST API for chapters matching the manga title
+  const perPage = 100;
+  let page = 1;
+  const all: { id: number; number: string; title: string; url: string; updatedTime: string | null }[] = [];
+
+  while (page <= 10) { // max 1000 chapters
+    const data = await wpFetch<any[]>(
+      `/chapter?search=${encodeURIComponent(title)}&_fields=id,title,slug,link,modified&per_page=${perPage}&page=${page}`
+    );
+    if (!data || !Array.isArray(data) || data.length === 0) break;
+
+    for (const c of data) {
+      const rawTitle = c.title?.rendered || c.title || "";
+      const numMatch = rawTitle.match(/chapter\s+([\d.]+)/i);
+      const num = numMatch ? numMatch[1] : "";
+      all.push({
+        id: c.id,
+        number: num,
+        title: rawTitle,
+        url: c.link || "",
+        updatedTime: c.modified || null,
+      });
+    }
+    if (data.length < perPage) break;
+    page++;
+  }
+  return all;
 }
 
 /** Types and genres filter lists */
