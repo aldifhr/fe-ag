@@ -50,19 +50,19 @@ export default function ErrorView({
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0f] px-4">
-      <div className="w-14 h-14 rounded-full bg-[#14141f] border border-[#27273a] flex items-center justify-center mb-5" style={{ color: "#818cf8" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-(--color-bg) px-4">
+      <div className="w-14 h-14 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center mb-5" style={{ color: "var(--color-accent)" }}>
         <ErrorIcon size={24} />
       </div>
 
-      <h1 className="text-lg font-semibold text-[#e4e4e7] mb-1">
+      <h1 className="text-lg font-semibold text-(--color-text) mb-1">
         Terjadi kesalahan
       </h1>
-      <p className="text-sm text-[#71717a] mb-2 text-center max-w-md">
+      <p className="text-sm text-(--color-text-secondary) mb-2 text-center max-w-md">
         {ERROR_MESSAGES[type]}
       </p>
       {message && (
-        <p className="text-[11px] text-[#52525b] mb-6 text-center max-w-md break-all">
+        <p className="text-[11px] text-(--color-text-muted) mb-6 text-center max-w-md break-all">
           {message}
         </p>
       )}
@@ -70,27 +70,27 @@ export default function ErrorView({
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={reset}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-[#818cf8] text-white hover:bg-[#6366f1] transition-colors duration-150 cursor-pointer"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-(--color-accent) text-white hover:bg-(--color-accent-hover) transition-colors duration-150 cursor-pointer"
         >
           Coba Lagi
         </button>
         <button
           onClick={testConnection}
           disabled={checking}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-[#14141f] border border-[#27273a] text-[#a1a1aa] hover:text-[#e4e4e7] hover:border-[#3f3f55] transition-colors duration-150 cursor-pointer disabled:opacity-50"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150 cursor-pointer disabled:opacity-50"
         >
           {checking ? "Menguji..." : "Test koneksi"}
         </button>
       </div>
 
       {connStatus && (
-        <div className="w-full max-w-sm rounded-lg bg-[#14141f] border border-[#27273a] p-4 text-center">
-          <p className="text-[12px] text-[#71717a] mb-3 font-medium uppercase tracking-wider">
+        <div className="w-full max-w-sm rounded-lg bg-(--color-surface) border border-(--color-border) p-4 text-center">
+          <p className="text-[12px] text-(--color-text-secondary) mb-3 font-medium uppercase tracking-wider">
             Status Koneksi
           </p>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-[#a1a1aa]">Backend</span>
+              <span className="text-(--color-text-secondary)">Backend</span>
               <span
                 className={
                   connStatus.backend ? "text-emerald-400" : "text-red-400"
@@ -100,7 +100,7 @@ export default function ErrorView({
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-[#a1a1aa]">Shinigami</span>
+              <span className="text-(--color-text-secondary)">Shinigami</span>
               <span
                 className={
                   connStatus.shinigami ? "text-emerald-400" : "text-red-400"
@@ -125,7 +125,7 @@ export default function ErrorView({
 
       <Link
         href="/"
-        className="text-[12px] text-[#71717a] mt-6 hover:text-[#a1a1aa] underline underline-offset-2 decoration-[#27273a] hover:decoration-[#52525b] transition-colors duration-150"
+        className="text-[12px] text-(--color-text-secondary) mt-6 hover:text-(--color-text-muted) underline underline-offset-2 decoration-(--color-border) hover:decoration-(--color-text-muted) transition-colors duration-150"
       >
         Kembali ke Beranda
       </Link>

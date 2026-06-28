@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getLatest, SearchResult } from "@/lib/api";
+import { getLatest } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import Spinner from "@/components/Spinner";
 import { GRID_CLASS } from "@/lib/gridClass";
 import SkeletonGrid from "@/components/SkeletonGrid";
-import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
+import { usePagedFetch } from "@/lib/hooks/usePagedFetch";
 import EmptyState from "@/components/EmptyState";
 
 export default function LatestPage() {
@@ -16,43 +16,14 @@ export default function LatestPage() {
     document.title = "Baru Diupdate | Manga Reader";
   }, []);
 
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [extraItems, setExtraItems] = useState<SearchResult[]>([]);
-
   const { data: initialData, isLoading } = useQuery({
     queryKey: ["latest-page"],
     queryFn: () => getLatest("all", 1, "latest"),
   });
 
-  // Reset on filter change
-  useEffect(() => {
-    if (initialData) {
-      setExtraItems([]);
-      setPage(1);
-      setHasMore(initialData.length >= 50);
-    }
-  }, [initialData]);
+  const fetchFn = useCallback((p: number) => getLatest("all", p, "latest"), []);
 
-  const items = [...(initialData ?? []), ...extraItems];
-
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    const nextPage = page + 1;
-    setLoadingMore(true);
-    try {
-      const res = await getLatest("all", nextPage, "latest");
-      setExtraItems((prev) => [...prev, ...res]);
-      setPage(nextPage);
-      setHasMore(res.length >= 50);
-    } catch {
-      /* silent */
-    }
-    setLoadingMore(false);
-  }, [page, loadingMore, hasMore]);
-
-  const sentinelRef = useInfiniteScroll(loadMore, { enabled: !isLoading && hasMore });
+  const { items, loadingMore, sentinelRef } = usePagedFetch(initialData, fetchFn);
 
   return (
     <div className="space-y-6">

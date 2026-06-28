@@ -36,6 +36,30 @@ function parseBoolLike(value: unknown, fallback: boolean | null = null): boolean
   return fallback;
 }
 
+function buildCronScrapeOptions(query: Record<string, unknown>) {
+  const mode = String(query?.mode || "normal").toLowerCase();
+  const forceFull = mode === "full";
+  const fastMode = mode === "fast";
+  const parsedFastLimit = Number(query?.fastLimit);
+  const fastSecondaryLimit = Number.isFinite(parsedFastLimit)
+    ? Math.max(0, Math.trunc(parsedFastLimit))
+    : fastMode ? 4 : 0;
+
+  const incremental = parseBoolLike(query?.incremental, forceFull ? false : null) ?? undefined;
+  const deduplicate = parseBoolLike(query?.deduplicate, forceFull ? false : null) ?? undefined;
+
+  return {
+    mode,
+    scrapeOptions: {
+      incremental: incremental ?? !forceFull,
+      deduplicate: deduplicate ?? !forceFull,
+      fullRefresh: forceFull,
+      force: forceFull,
+      fastSecondaryLimit,
+    },
+  };
+}
+
 async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnType<typeof logApiHit>, query: Record<string, unknown> = {}) {
   try {
     const forceUnlock = parseBoolLike(query?.forceUnlock, false);
@@ -72,24 +96,7 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
         });
       }
 
-      const mode = String(query?.mode || "normal").toLowerCase();
-      const forceFull = mode === "full";
-      const fastMode = mode === "fast";
-      const parsedFastLimit = Number(query?.fastLimit);
-      const fastSecondaryLimit = Number.isFinite(parsedFastLimit)
-        ? Math.max(0, Math.trunc(parsedFastLimit))
-        : fastMode ? 4 : 0;
-
-      const incremental = parseBoolLike(query?.incremental, forceFull ? false : null) ?? undefined;
-      const deduplicate = parseBoolLike(query?.deduplicate, forceFull ? false : null) ?? undefined;
-
-      const scrapeOptions = {
-        incremental: incremental ?? !forceFull,
-        deduplicate: deduplicate ?? !forceFull,
-        fullRefresh: forceFull,
-        force: forceFull,
-        fastSecondaryLimit,
-      };
+      const { mode, scrapeOptions } = buildCronScrapeOptions(query ?? {});
 
       const providersToScrape = ["ikiru", "shinigami"] as const;
       // Publish sequentially to avoid QStash race condition on shared cron lock
@@ -147,24 +154,7 @@ async function handleUpdateCron(req: Request, res: Response, reqLogger: ReturnTy
       try {
         await withSupabaseLock("cron:run:lock", async () => {
           const lifecycle: { currentStep: string } = { currentStep: "initializing" };
-          const mode = String(query?.mode || "normal").toLowerCase();
-          const forceFull = mode === "full";
-          const fastMode = mode === "fast";
-          const parsedFastLimit = Number(query?.fastLimit);
-          const fastSecondaryLimit = Number.isFinite(parsedFastLimit)
-            ? Math.max(0, Math.trunc(parsedFastLimit))
-            : fastMode ? 4 : 0;
-
-          const incremental = parseBoolLike(query?.incremental, forceFull ? false : null) ?? undefined;
-          const deduplicate = parseBoolLike(query?.deduplicate, forceFull ? false : null) ?? undefined;
-
-          const scrapeOptions = {
-            incremental: incremental ?? !forceFull,
-            deduplicate: deduplicate ?? !forceFull,
-            fullRefresh: forceFull,
-            force: forceFull,
-            fastSecondaryLimit,
-          };
+          const { mode, scrapeOptions } = buildCronScrapeOptions(query ?? {});
 
           const result = await withTimeout(
             runCronJob({

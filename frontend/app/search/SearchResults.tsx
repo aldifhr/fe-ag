@@ -2,6 +2,7 @@ import { SearchResult } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
 import ErrorState from "@/components/ErrorState";
 import EmptyState from "@/components/EmptyState";
+import SkeletonGrid from "@/components/SkeletonGrid";
 import { GRID_CLASS } from "@/lib/gridClass";
 
 type Props = {
@@ -36,17 +37,7 @@ export default function SearchResults({
 
       {/* Loading */}
       {loading && (
-        <div className={GRID_CLASS}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="flex flex-col">
-              <div className="skeleton aspect-3/4 w-full rounded-lg" />
-              <div className="mt-2 space-y-1.5 px-0.5">
-                <div className="skeleton h-3.5 w-3/4 rounded" />
-                <div className="skeleton h-3 w-1/2 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <SkeletonGrid variant="grid" />
       )}
 
       {/* Error */}

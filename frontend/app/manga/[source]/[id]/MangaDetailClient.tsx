@@ -44,7 +44,7 @@ function Skeleton() {
   );
 }
 
-export function MangaDetailClient() {
+export function MangaDetailClient({ initialData }: { initialData?: MangaDetail }) {
   const params = useParams<{ source: string; id: string }>();
   const source = params.source;
   const id = params.id;
@@ -79,6 +79,7 @@ export function MangaDetailClient() {
     queryKey: ["manga", id],
     queryFn: () => getMangaDetail(mangaId, source),
     staleTime: 5 * 60 * 1000,
+    initialData,
   });
 
   const queryClient = useQueryClient();

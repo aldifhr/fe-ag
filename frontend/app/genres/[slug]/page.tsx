@@ -11,25 +11,7 @@ import EmptyState from "@/components/EmptyState";
 import Spinner from "@/components/Spinner";
 import ErrorIcon from "@/components/ErrorIcon";
 import { GRID_CLASS } from "@/lib/gridClass";
-
-function SkeletonGrid() {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {Array.from({ length: 12 }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border)"
-        >
-          <div className="aspect-3/4 skeleton" />
-          <div className="px-3 py-2.5 space-y-2">
-            <div className="skeleton h-4 w-2/3 rounded" />
-            <div className="skeleton h-3 w-1/2 rounded" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+import SkeletonGrid from "@/components/SkeletonGrid";
 
 function formatSlug(slug: string): string {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -123,7 +105,7 @@ export default function GenreMangaPage() {
       {error ? (
         <ErrorState message={`Gagal memuat: ${error}`} onRetry={() => setRetryKey((k) => k + 1)} />
       ) : loading ? (
-        <SkeletonGrid />
+        <SkeletonGrid variant="grid" />
       ) : items.length === 0 ? (
         <EmptyState title="Tidak ada manga untuk genre ini" />
       ) : (

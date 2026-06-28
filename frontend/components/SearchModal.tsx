@@ -108,7 +108,7 @@ export default function SearchModal({ open, onClose }: Props) {
       onClick={(e) => { if (e.target === overlayRef.current) handleClose(); }}
       className="fixed inset-0 z-100 flex flex-col overflow-hidden"
       style={{
-        backgroundColor: "rgba(5, 5, 16, 0.8)",
+        backgroundColor: "rgba(10, 10, 15, 0.8)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
       }}
@@ -116,7 +116,7 @@ export default function SearchModal({ open, onClose }: Props) {
       {/* Close button */}
       <button
         onClick={handleClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5 transition-colors duration-150"
+        className="absolute top-4 right-4 z-10 p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-(--color-surface-hover) transition-colors duration-150"
         aria-label="Tutup"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -147,7 +147,7 @@ export default function SearchModal({ open, onClose }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleEnter}
             placeholder="Cari judul manhwa..."
-            className="w-full pl-12 pr-10 py-3.5 rounded-xl bg-white/5 border border-white/10 text-[var(--color-text)] text-[15px] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] transition-colors duration-150"
+            className="w-full pl-12 pr-10 py-3.5 rounded-xl bg-(--color-surface) border border-(--color-border) text-[var(--color-text)] text-[15px] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] transition-colors duration-150"
           />
           {query && (
             <button
@@ -194,7 +194,7 @@ export default function SearchModal({ open, onClose }: Props) {
               <p className="text-sm text-[var(--color-text-secondary)] mb-3">{error}</p>
               <button
                 onClick={() => doSearch(query)}
-                className="px-4 py-2 text-[13px] font-medium rounded-lg bg-white/5 border border-white/10 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-white/15 transition-colors duration-150"
+                className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:border-(--color-border-hover) transition-colors duration-150"
               >
                 Coba Lagi
               </button>
@@ -209,10 +209,10 @@ export default function SearchModal({ open, onClose }: Props) {
                   key={`${item.source}-${item.id}-${i}`}
                   href={`/manga/${item.source}/${encodeURIComponent(item.id)}`}
                   onClick={handleClose}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150 group"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-(--color-surface-hover) transition-colors duration-150 group"
                 >
                   {/* Thumbnail */}
-                  <div className="w-10 h-13 shrink-0 rounded overflow-hidden bg-white/5">
+                  <div className="w-10 h-13 shrink-0 rounded overflow-hidden bg-(--color-surface)">
                     {item.cover ? (
                       <img
                         src={proxyCover(item.cover)}
@@ -228,7 +228,7 @@ export default function SearchModal({ open, onClose }: Props) {
                   </div>
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-[var(--color-text)] truncate group-hover:text-white transition-colors">
+                    <p className="text-[13px] font-medium text-[var(--color-text)] truncate group-hover:text-(--color-text) transition-colors">
                       {item.title}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -237,7 +237,7 @@ export default function SearchModal({ open, onClose }: Props) {
                           Ch. {item.chapter}
                         </span>
                       )}
-                      <span className="text-[10px] uppercase tracking-wider text-text-muted">
+                      <span className="text-[10px] uppercase tracking-wider text-(--color-text-muted)">
                         {item.source}
                       </span>
                     </div>

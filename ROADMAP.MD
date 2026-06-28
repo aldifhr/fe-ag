@@ -10,8 +10,8 @@
 |-------|--------|------|
 | Phase 1 — Quick Wins | ✅ Done | 2026-06-28 |
 | Phase 2 — Performance | ✅ Done | 2026-06-28 |
-| Phase 3 — Refactors | ⏳ Pending | — |
-| Phase 4 — Theme + SSR | ⏳ Pending | — |
+| Phase 3 — Refactors | ✅ Done | 2026-06-28 |
+| Phase 4 — Theme + SSR | ✅ Done | 2026-06-28 |
 
 ### Phase 1 Completed Items
 FE: H9 ✅, H2 ✅, M3 ✅, M9 ✅, L1 ✅, L2 ✅, L5 ✅, L7 ✅, L8 ✅, L10 ✅, L11 ✅
@@ -20,6 +20,13 @@ BE: B6 ✅, B14 ✅, L28 ✅, L30 ✅, L31 ✅, L33 ✅, L35 ✅, L25 ✅
 ### Phase 2 Completed Items
 FE: H3 ✅, H4 ✅, M1 ✅, M2 ✅, M4 ✅, M7 ✅, M8 ✅, M10 ✅
 BE: B1 ✅, B2 ✅, B3 ✅, B5 ✅, B7 ✅, B8 ✅, B15 ✅, B18 ✅, B19 ✅, B20 ✅, B21 ✅, B23 ✅, B24 ✅
+
+### Phase 3 Completed Items
+FE: H5 ✅ (useZoomPan + useReaderState hooks), H6 ✅ (loadedImages ref), H7 ✅ (ImageStrip zoom extraction), M6 ✅ (usePagedFetch hook), M14 ✅ (server data initialData), M17 ✅ (SkeletonGrid grid variant)
+BE: B9 ✅ (pickCover/pickTime helpers), B13 ✅ (buildCronScrapeOptions)
+
+### Phase 4 Completed Items
+FE: M11 ✅ (dynamic genre list from API), M12 ✅ (ErrorView CSS vars), M13 ✅ (SearchModal CSS vars), M16 ✅ (homepage SSR split)
 
 ---
 
@@ -74,18 +81,18 @@ BE: B1 ✅, B2 ✅, B3 ✅, B5 ✅, B7 ✅, B8 ✅, B15 ✅, B18 ✅, B19 ✅, B
 | M3 | MangaCard not memoized — used in large lists, re-renders cascade | `MangaCard.tsx` | Wrap with `React.memo` | ✅ |
 | M4 | Search page duplicate history loading (mount + debouncedQuery) | `search/page.tsx:140-150` | Remove redundant mount effect | ✅ |
 | M5 | Suggestion fetch wasted when full search fires 100ms later | `search/page.tsx:110-130` | Only fetch suggestions when query < 2 chars | |
-| M6 | Infinite scroll pattern duplicated across Home + Latest pages | `page.tsx:173-198`, `latest/page.tsx:73-98` | Extract `useInfiniteScroll` hook or use `useInfiniteQuery` | |
+| M6 | Infinite scroll pattern duplicated across Home + Latest pages | `page.tsx:173-198`, `latest/page.tsx:73-98` | Extract `useInfiniteScroll` hook or use `useInfiniteQuery` | ✅ |
 | M7 | Reader keyboard scroll reimplements `scrollToNextImage`/`scrollToPrevImage` | `reader page:514-537 vs 436-458` | Call existing functions from keyboard handler | ✅ |
 | M8 | `getMangaDetail` called twice for history recording if detail fetch is slow | `reader page:217-266` | Use ref to track in-flight fetch | ✅ |
 | M9 | `fadeIn` keyframe referenced but never defined in CSS | `reader page:1356, 1374, 1392` | Add `@keyframes fadeIn` to globals.css | ✅ |
 | M10 | Dynamic import of `getLatest` is unnecessary (already in static imports) | `MangaDetailClient.tsx:161` | Add to existing static import | ✅ |
-| M11 | Genre Populer section uses hardcoded slug list (breaks if renamed) | `page.tsx:332-345` | Sort by API count, take top 12 | |
-| M12 | ErrorView has hardcoded dark-mode colors (broken in light mode) | `ErrorView.tsx:52-143` | Replace with CSS variables | |
-| M13 | SearchModal has hardcoded dark-mode colors | `SearchModal.tsx:112-115, 151` | Replace with CSS variables | |
-| M14 | Server-side fetch not passed to client (duplicate fetch) | `manga/[source]/[id]/page.tsx:4-19, 54-56` | Pass server data as initialData prop | |
+| M11 | Genre Populer section uses hardcoded slug list (breaks if renamed) | `page.tsx:332-345` | Sort by API count, take top 12 | ✅ |
+| M12 | ErrorView has hardcoded dark-mode colors (broken in light mode) | `ErrorView.tsx:52-143` | Replace with CSS variables | ✅ |
+| M13 | SearchModal has hardcoded dark-mode colors | `SearchModal.tsx:112-115, 151` | Replace with CSS variables | ✅ |
+| M14 | Server-side fetch not passed to client (duplicate fetch) | `manga/[source]/[id]/page.tsx:4-19, 54-56` | Pass server data as initialData prop | ✅ |
 | M15 | Stats page has no `<title>` metadata | `stats/page.tsx` | Add generateMetadata or document.title | |
-| M16 | Homepage entirely "use client" (misses SSR opportunity) | `page.tsx:1` | Split to server component + HomeClient | |
-| M17 | SkeletonGrid copy-pasted across 4+ files | `page.tsx`, `latest/`, `search/`, `genres/[slug]/` | Extract shared SkeletonGrid component | |
+| M16 | Homepage entirely "use client" (misses SSR opportunity) | `page.tsx:1` | Split to server component + HomeClient | ✅ |
+| M17 | SkeletonGrid copy-pasted across 4+ files | `page.tsx`, `latest/`, `search/`, `genres/[slug]/` | Extract shared SkeletonGrid component | ✅ |
 
 ### Backend
 
@@ -94,7 +101,7 @@ BE: B1 ✅, B2 ✅, B3 ✅, B5 ✅, B7 ✅, B8 ✅, B15 ✅, B18 ✅, B19 ✅, B
 | B10 | Unused export: `getIkiruLatestUpdates` | `ikiru/api.ts:105-109` | Remove or wire to consumer | |
 | B11 | Unused export: `fetchRandomShinigamiManga` | `secondary/api.ts:218-236` | Remove | |
 | B12 | Duplicate `extractSlugFromUrl` implementations | `ikiru/index.ts:21` vs `scraping.ts:140` | Use shared version | |
-| B13 | `scrapeOptions` construction duplicated in QStash + non-QStash paths | `cron.ts:75-92, 150-167` | Extract `buildScrapeOptions(query)` | |
+| B13 | `scrapeOptions` construction duplicated in QStash + non-QStash paths | `cron.ts:75-92, 150-167` | Extract `buildScrapeOptions(query)` | ✅ |
 | B14 | `r.title!` non-null assertion on optional field | `secondary/api.ts:192` | Use `r.title ?? "Unknown"` | ✅ |
 | B15 | `ScrapeCacheManager` TTL completely ignored — cache never expires | `optimizer.ts:125-145` | Store TTL with entry, check in `get()` | ✅ |
 | B16 | Test mode env Proxy re-parses Zod schema every property access | `env.ts:167-187` | Cache parsed result per test run | |
@@ -119,9 +126,9 @@ BE: B1 ✅, B2 ✅, B3 ✅, B5 ✅, B7 ✅, B8 ✅, B15 ✅, B18 ✅, B19 ✅, B
 | H2 | `SectionCard` defined inside HomePage — remounts every render | `page.tsx:215-262` | Move outside HomePage component | ✅ |
 | H3 | `getContinueReading()` called on every render (JSON.parse of full history) | `MangaDetailClient.tsx:70` | Wrap in useMemo or useState init | ✅ |
 | H4 | `getReadChapters()` re-parses full history on every chapter toggle | `MangaDetailClient.tsx:636` | Compute read status update locally | ✅ |
-| H5 | Reader page is 1573-line monolith with 30+ useState hooks | `reader page` | Split into ReaderToolbar, ImageStrip, PagedViewer, FloatingBubble | |
-| H6 | `loadedImages` Set creates new reference per image load → 50+ re-renders | `reader page:1080-1084` | Boolean `allLoaded` flag or ref + DOM toggle | |
-| H7 | 200+ inline anonymous functions per render (touch/wheel per image) | `reader page:928-1050` | Extract memoized ImageItem component | |
+| H5 | Reader page is 1573-line monolith with 30+ useState hooks | `reader page` | Split into ReaderToolbar, ImageStrip, PagedViewer, FloatingBubble | ✅ |
+| H6 | `loadedImages` Set creates new reference per image load → 50+ re-renders | `reader page:1080-1084` | Boolean `allLoaded` flag or ref + DOM toggle | ✅ |
+| H7 | 200+ inline anonymous functions per render (touch/wheel per image) | `reader page:928-1050` | Extract memoized ImageItem component | ✅ |
 | H8 | **Security**: `siteAuth.ts` hash comparison uses non-constant-time `===` | `siteAuth.ts:33` | Use `crypto.subtle.timingSafeEqual` | |
 | H9 | **Bug**: `descriptionFilter` regex `\b` anchors never match `<p>`/`</p>` | `descriptionFilter.ts:14-17` | Remove `\b` anchors, use simple `.replace()` | ✅ |
 
@@ -137,7 +144,7 @@ BE: B1 ✅, B2 ✅, B3 ✅, B5 ✅, B7 ✅, B8 ✅, B15 ✅, B18 ✅, B19 ✅, B
 | B6 | Dead `existingCookies` variable and branches in scrapling-bridge | `scrapling-bridge.ts:39, 55-57, 109` | Remove dead variable and references | ✅ |
 | B7 | `writeCronStatus` fire-and-forget with no `.catch()` | `storage.ts:33-37` | Add `.catch()` or use await+try/catch | ✅ |
 | B8 | `handlePages` tries URL fallbacks sequentially (slow) | `reader.ts:444-453` | `Promise.allSettled` for parallel, return first with results | ✅ |
-| B9 | Cover extraction logic duplicated 6+ times | `reader.ts:54,75,534,564`, `api.ts:230` | Extract `pickCover(row)` + `pickTime(row)` helpers | |
+| B9 | Cover extraction logic duplicated 6+ times | `reader.ts:54,75,534,564`, `api.ts:230` | Extract `pickCover(row)` + `pickTime(row)` helpers | ✅ |
 
 ---
 
@@ -160,15 +167,15 @@ BE: B1 ✅, B2 ✅, B3 ✅, B5 ✅, B7 ✅, B8 ✅, B15 ✅, B18 ✅, B19 ✅, B
 - B15: Fix ScrapeCacheManager TTL
 - B5: Fix optimizer re-init destroying cache
 
-**Phase 3 — Refactors (2-4 hours)** ⏳ Pending
-- H5+H6+H7: Split reader page into sub-components + memoize ImageItem
-- M6: Extract infinite scroll hook
-- M17: Extract shared SkeletonGrid
+**Phase 3 — Refactors (2-4 hours)** ✅ Done
+- H5+H6+H7: Split reader page into sub-components + useZoomPan + useReaderState + loadedImages ref fix
+- M6: Extract usePagedFetch hook
+- M17: Extract shared SkeletonGrid with grid variant
 - B9: Extract pickCover/pickTime helpers
-- B13: Extract buildScrapeOptions
+- B13: Extract buildCronScrapeOptions
 - M14: Pass server data as initialData to MangaDetailClient
 
-**Phase 4 — Theme + SSR (optional, 2+ hours)** ⏳ Pending
+**Phase 4 — Theme + SSR (optional, 2+ hours)** ✅ Done
 - M12+M13: Fix hardcoded dark-mode colors in ErrorView/SearchModal
-- M16: Split homepage to server component
-- M11: Dynamic genre list from API
+- M16: Split homepage to server component + HomeClient (SSR)
+- M11: Dynamic genre list from API (no more hardcoded FEATURED_SLUGS)

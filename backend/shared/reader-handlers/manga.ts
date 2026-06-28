@@ -2,6 +2,7 @@ import { normalizeIkiruUrl } from "../../shared/scrapers/shared.js";
 import { fetchReaderManga } from "../../shared/scrapers/secondary/reader.js";
 import { fetchIkiruChapters } from "../../shared/scrapers/ikiru/index.js";
 import { getIkiruSeries } from "../../shared/scrapers/ikiru/api.js";
+import { pickCover } from "./helpers.js";
 import type { Request, Response } from "express";
 
 // ─── Handler ────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ export async function handleManga(req: Request, res: Response) {
       manga: {
         id,
         ...info.manga,
-        cover: info.manga.cover_image_url ?? info.manga.cover_portrait_url ?? info.manga.cover ?? null,
+        cover: pickCover(info.manga),
         status: mangaStatus,
         source: "shinigami",
       },

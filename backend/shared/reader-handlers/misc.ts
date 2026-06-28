@@ -3,6 +3,7 @@ import { SECONDARY_CONFIG } from "../../reader/config.js";
 import { fetchWithRetry, JSON_HEADERS } from "../../shared/scrapers/secondary/api.js";
 import { isAxiosLikeResponse, isSecondaryApiData } from "../../shared/scrapers/secondary/types.js";
 import { getIkiruPopularToday, getIkiruFilters } from "../../shared/scrapers/ikiru/api.js";
+import { pickCover } from "./helpers.js";
 import type { Request, Response } from "express";
 
 // ─── Popular (Ikiru) ─────────────────────────────────────────────────
@@ -87,7 +88,7 @@ export async function handleGenreManga(req: Request, res: Response) {
     const results = raw.map((item: any) => ({
       id: String(item.manga_id ?? item.id ?? ""),
       title: item.title || "Unknown",
-      cover: item.cover_portrait_url || item.cover_image_url || item.cover || null,
+      cover: pickCover(item),
       source: "shinigami",
       chapter: String(item.latest_chapter_number ?? ""),
       time: item.latest_chapter_time || item.updated_at || undefined,
@@ -121,7 +122,7 @@ export async function handleRandom(_req: Request, res: Response) {
   const result = {
     id: String(row.manga_id ?? row.id ?? ""),
     title: row.title || "Unknown",
-    cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
+    cover: pickCover(row),
     source: "shinigami",
     chapter: String(row.latest_chapter_number ?? ""),
     time: row.latest_chapter_time || row.updated_at || undefined,

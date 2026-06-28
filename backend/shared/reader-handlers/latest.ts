@@ -4,6 +4,7 @@ import { fetchWithRetry, JSON_HEADERS, fetchUpdateList } from "../../shared/scra
 import { isAxiosLikeResponse } from "../../shared/scrapers/secondary/types.js";
 import { scrapeIkiruUpdatesWithMeta } from "../../shared/scrapers/ikiru/index.js";
 import { getIkiruPopularToday } from "../../shared/scrapers/ikiru/api.js";
+import { pickCover, pickTime } from "./helpers.js";
 import type { Request, Response } from "express";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -39,11 +40,11 @@ export async function handleLatest(req: Request, res: Response) {
         items.push({
           id: String(row.manga_id),
           title: row.title || "Unknown",
-          cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
+          cover: pickCover(row),
           url: row.direct_series_url || null,
           source: "shinigami",
           chapter: String(row.latest_chapter_number ?? ""),
-          time: row.latest_chapter_time || row.updated_at || undefined,
+          time: pickTime(row),
           status: row.status ?? null,
           rating: row.user_rate ?? null,
           chapters: (row as any).chapters?.slice(0, 2).map((c: any) => ({ number: String(c.chapter_number), time: c.created_at ?? null })),
@@ -60,11 +61,11 @@ export async function handleLatest(req: Request, res: Response) {
           items.push({
             id: String(row.manga_id ?? row.id ?? ""),
             title: row.title || "Unknown",
-            cover: row.cover_portrait_url || row.cover_image_url || row.cover || null,
+            cover: pickCover(row),
             url: row.direct_series_url || null,
             source: "shinigami",
             chapter: String(row.latest_chapter_number ?? ""),
-            time: row.latest_chapter_time || row.updated_at || undefined,
+            time: pickTime(row),
             status: row.status ?? null,
             rating: row.user_rate ?? null,
             chapters: row.chapters?.slice(0, 2).map((c: any) => ({ number: String(c.chapter_number), time: c.created_at ?? null })),

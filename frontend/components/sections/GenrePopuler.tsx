@@ -1,27 +1,13 @@
 import Link from "next/link";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 
-const FEATURED_SLUGS = [
-  "action",
-  "romance",
-  "fantasy",
-  "comedy",
-  "drama",
-  "isekai",
-  "adventure",
-  "shounen",
-  "slice-of-life",
-  "supernatural",
-  "martial-arts",
-  "sci-fi",
-];
-
 export default function GenrePopuler({
   genres,
 }: {
   genres: { slug: string; name: string }[] | undefined;
 }) {
   if (!genres || genres.length === 0) return null;
+  const featured = genres.slice(0, 12);
   return (
     <SectionErrorBoundary>
       <div className="space-y-3">
@@ -37,17 +23,15 @@ export default function GenrePopuler({
           </Link>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {genres
-            .filter((g) => FEATURED_SLUGS.includes(g.slug))
-            .map((g) => (
-              <Link
-                key={g.slug}
-                href={`/genres/${g.slug}`}
-                className="px-3 py-1.5 rounded-full text-[12px] bg-(--color-surface) border border-(--color-border) text-(--color-text) hover:border-(--color-accent) hover:text-(--color-accent) transition-colors duration-150"
-              >
-                {g.name}
-              </Link>
-            ))}
+          {featured.map((g) => (
+            <Link
+              key={g.slug}
+              href={`/genres/${g.slug}`}
+              className="px-3 py-1.5 rounded-full text-[12px] bg-(--color-surface) border border-(--color-border) text-(--color-text) hover:border-(--color-accent) hover:text-(--color-accent) transition-colors duration-150"
+            >
+              {g.name}
+            </Link>
+          ))}
         </div>
       </div>
     </SectionErrorBoundary>
