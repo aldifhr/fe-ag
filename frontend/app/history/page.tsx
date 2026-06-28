@@ -12,6 +12,9 @@ import {
 import { showToast } from "@/lib/toast";
 import Link from "next/link";
 import { proxyCover } from "@/lib/api";
+// TODO: shared DRY modules (created by parallel agent)
+import EmptyState from "@/components/EmptyState";
+import { useOutsideClick } from "@/lib/hooks/useOutsideClick";
 
 export default function HistoryPage() {
   const [items, setItems] = useState<GroupedHistory[]>([]);
@@ -31,34 +34,10 @@ export default function HistoryPage() {
   }, []);
 
   // Reset confirm state on outside click
-  useEffect(() => {
-    if (!confirmClear) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        confirmRef.current &&
-        !confirmRef.current.contains(e.target as Node)
-      ) {
-        setConfirmClear(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [confirmClear]);
+  useOutsideClick(confirmRef, () => setConfirmClear(false), confirmClear);
 
   // Reset bulk delete confirm on outside click
-  useEffect(() => {
-    if (!confirmBulkDelete) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        bulkDeleteRef.current &&
-        !bulkDeleteRef.current.contains(e.target as Node)
-      ) {
-        setConfirmBulkDelete(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [confirmBulkDelete]);
+  useOutsideClick(bulkDeleteRef, () => setConfirmBulkDelete(false), confirmBulkDelete);
 
   const refresh = () => {
     setItems(getGroupedHistory());
@@ -208,29 +187,16 @@ export default function HistoryPage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="py-20 text-center">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--color-text-muted)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+        <EmptyState
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-          </div>
-          <p className="text-(--color-text-secondary) text-sm mb-1">
-            Belum ada riwayat baca
-          </p>
-          <p className="text-(--color-text-muted) text-[13px]">
-            Mulai baca manga untuk melihat riwayat di sini
-          </p>
-        </div>
+          }
+          title="Belum ada riwayat baca"
+          subtitle="Mulai baca manga untuk melihat riwayat di sini"
+        />
       ) : (
         <div className="space-y-2">
           {items.map((item) => (

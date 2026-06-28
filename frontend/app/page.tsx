@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,6 +16,8 @@ import {
   GroupedHistory,
 } from "@/lib/history";
 import type { SortOption, SourceOption } from "@/lib/home-types";
+import { readLS } from "@/lib/readLS";
+import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
 import SedangDibaca from "@/components/sections/SedangDibaca";
 import BaruDiupdate from "@/components/sections/BaruDiupdate";
 import Populer from "@/components/sections/Populer";
@@ -35,37 +37,16 @@ export default function HomePage() {
   const [hasMore, setHasMore] = useState(true);
   const [extraItems, setExtraItems] = useState<import("@/lib/api").SearchResult[]>([]);
   const [recentHistory, setRecentHistory] = useState<GroupedHistory[]>([]);
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("manhwa-view-mode");
-      if (stored === "grid" || stored === "list") return stored;
-    }
-    return "grid";
-  });
-  const [sort, setSort] = useState<SortOption>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("manhwa-sort");
-      if (
-        stored === "latest" ||
-        stored === "popularity" ||
-        stored === "rating" ||
-        stored === "az"
-      )
-        return stored;
-    }
-    return "latest";
-  });
-  const [source, setSource] = useState<SourceOption>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("manhwa-source");
-      if (stored === "all" || stored === "shinigami")
-        return stored;
-    }
-    return "all";
-  });
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
+    readLS<"grid" | "list">("manhwa-view-mode", ["grid", "list"], "grid"),
+  );
+  const [sort, setSort] = useState<SortOption>(() =>
+    readLS<SortOption>("manhwa-sort", ["latest", "popularity", "rating", "az"], "latest"),
+  );
+  const [source, setSource] = useState<SourceOption>(() =>
+    readLS<SourceOption>("manhwa-source", ["all", "shinigami"], "all"),
+  );
   const [randomLoading, setRandomLoading] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: initialData,
@@ -175,17 +156,7 @@ export default function HomePage() {
     setLoadingMore(false);
   }, [page, loadingMore, hasMore, sort, source]);
 
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isLoading && hasMore) loadMore();
-      },
-      { rootMargin: "200px" },
-    );
-    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current);
-    return () => observerRef.current?.disconnect();
-  }, [isLoading, hasMore, loadMore]);
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: !isLoading && hasMore });
 
   // Feature 1: Random manhwa handler
   async function handleRandom() {

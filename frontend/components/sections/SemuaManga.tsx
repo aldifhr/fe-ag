@@ -5,6 +5,10 @@ import { timeAgo } from "@/lib/history";
 import MangaCard from "@/components/MangaCard";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import SkeletonGrid from "@/components/SkeletonGrid";
+import ErrorState from "@/components/ErrorState";
+import Spinner from "@/components/Spinner";
+import EmptyState from "@/components/EmptyState";
+import { GRID_CLASS } from "@/lib/gridClass";
 import { SORT_OPTIONS, SOURCE_OPTIONS } from "@/lib/home-types";
 import type { SortOption, SourceOption } from "@/lib/home-types";
 import type { RefObject } from "react";
@@ -68,17 +72,7 @@ export default function SemuaManga({
               title="Manga acak"
             >
               {randomLoading ? (
-                <svg
-                  className="animate-spin"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M21 12a9 9 0 11-6.219-8.56" />
-                </svg>
+                <Spinner size={14} />
               ) : (
                 <svg
                   width="14"
@@ -189,25 +183,7 @@ export default function SemuaManga({
       {/* Content */}
       {error ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <div className="w-12 h-12 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--color-danger)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <path d="M12 16h.01" />
-            </svg>
-          </div>
-          <p className="text-sm text-(--color-text-secondary)">
-            Gagal memuat: {error}
-          </p>
+          <ErrorState message={error} onRetry={() => refetch()} />
           {connStatus && !connStatus.backend && (
             <p className="text-[12px] text-(--color-danger)">
               Tidak dapat terhubung ke server. Pastikan backend berjalan di
@@ -219,26 +195,18 @@ export default function SemuaManga({
               Shinigami sedang tidak tersedia
             </p>
           )}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150"
-            >
-              Coba Lagi
-            </button>
-            <button
-              onClick={async () => {
-                setChecking(true);
-                const result = await checkConnection();
-                setConnStatus(result);
-                setChecking(false);
-              }}
-              disabled={checking}
-              className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150 disabled:opacity-50"
-            >
-              {checking ? "Menguji..." : "Test koneksi"}
-            </button>
-          </div>
+          <button
+            onClick={async () => {
+              setChecking(true);
+              const result = await checkConnection();
+              setConnStatus(result);
+              setChecking(false);
+            }}
+            disabled={checking}
+            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150 disabled:opacity-50"
+          >
+            {checking ? "Menguji..." : "Test koneksi"}
+          </button>
           {connStatus && (
             <div className="mt-2 flex items-center gap-4 text-[11px]">
               <span
@@ -261,13 +229,11 @@ export default function SemuaManga({
       ) : isLoading ? (
         <SkeletonGrid />
       ) : items.length === 0 ? (
-        <div className="py-20 text-center text-(--color-text-muted) text-sm">
-          Tidak ada manga ditemukan untuk source ini.
-        </div>
+        <EmptyState title="Tidak ada manga ditemukan untuk source ini." />
       ) : (
         <>
           {viewMode === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <div className={GRID_CLASS}>
               {items.map((item, i) => (
                 <MangaCard
                   key={`${item.source}-${item.id}-${i}`}
@@ -382,17 +348,7 @@ export default function SemuaManga({
           {loadingMore && (
             <div className="flex justify-center py-6">
               <div className="flex items-center gap-2 text-[13px] text-(--color-text-muted)">
-                <svg
-                  className="animate-spin"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M21 12a9 9 0 11-6.219-8.56" />
-                </svg>
+                <Spinner />
                 Memuat...
               </div>
             </div>

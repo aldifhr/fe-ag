@@ -166,12 +166,13 @@ export async function getFilters(): Promise<FiltersResult> {
   return fetchJson<FiltersResult>("/api/reader/filters");
 }
 
-/** Proxy cover images from domains that block hotlinking */
-export function proxyCover(url: string | null): string {
+/** Proxy images from domains that block hotlinking or benefit from WebP conversion */
+function proxyUrl(url: string | null | undefined, requireHttp?: boolean): string {
   if (!url) return "";
   try {
-    const hostname = new URL(url).hostname;
-    const needsProxy = hostname.endsWith("ikiru.wtf");
+    const parsed = new URL(url);
+    if (requireHttp && !["http:", "https:"].includes(parsed.protocol)) return url;
+    const needsProxy = parsed.hostname.endsWith("ikiru.wtf");
     return needsProxy
       ? `/api/reader/image?src=${encodeURIComponent(url)}`
       : url;
@@ -180,18 +181,12 @@ export function proxyCover(url: string | null): string {
   }
 }
 
+/** Proxy cover images from domains that block hotlinking */
+export function proxyCover(url: string | null): string {
+  return proxyUrl(url);
+}
+
 /** Proxy images from domains that block hotlinking or benefit from WebP conversion */
 export function proxyImage(url: string | null | undefined): string {
-  if (!url) return "";
-  try {
-    const parsed = new URL(url);
-    if (!["http:", "https:"].includes(parsed.protocol)) return url;
-    const hostname = parsed.hostname;
-    const needsProxy = hostname.endsWith("ikiru.wtf");
-    return needsProxy
-      ? `/api/reader/image?src=${encodeURIComponent(url)}`
-      : url;
-  } catch {
-    return url;
-  }
+  return proxyUrl(url, true);
 }

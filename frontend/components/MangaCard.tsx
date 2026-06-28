@@ -2,10 +2,11 @@
 import React from "react";
 import Link from "next/link";
 import { useState } from "react";
-import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
-import { showToast } from "@/lib/toast";
 import { timeAgo } from "@/lib/history";
 import { proxyCover } from "@/lib/api";
+import { normalizeStatus } from "@/lib/normalizeStatus";
+import { useFavoriteToggle } from "@/lib/hooks/useFavoriteToggle";
+import HeartIcon from "./HeartIcon";
 
 interface Props {
   title: string;
@@ -31,22 +32,12 @@ function MangaCard({
   chapters,
 }: Props) {
   const [imgErr, setImgErr] = useState(false);
-  const [fav, setFav] = useState(() => isFavorite(id));
   const [imgLoaded, setImgLoaded] = useState(false);
+  const { fav, toggle: toggleFav } = useFavoriteToggle(id, { title, cover, source });
 
   // Normalize status
-  const statusLabel: string | null =
-    typeof status === "number"
-      ? status === 1
-        ? "Ongoing"
-        : status === 2
-          ? "Completed"
-          : status === 3
-            ? "Hiatus"
-            : null
-      : typeof status === "string"
-        ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
-        : null;
+  const normalized = normalizeStatus(status);
+  const statusLabel = normalized?.label ?? null;
   const statusColor =
     statusLabel === "Ongoing"
       ? "bg-emerald-400"
@@ -64,20 +55,11 @@ function MangaCard({
     ? Date.now() - new Date(time).getTime() < 24 * 60 * 60 * 1000
     : false;
 
-  function toggleFav(e: React.MouseEvent) {
+  const handleFav = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // ponies: stopImmediatePropagation was overly aggressive — stops ALL handlers on same element
-    if (fav) {
-      removeFavorite(id);
-      setFav(false);
-      showToast("Dihapus dari bookmark");
-    } else {
-      addFavorite({ id, title, cover, source });
-      setFav(true);
-      showToast("Ditambahkan ke bookmark");
-    }
-  }
+    toggleFav();
+  };
 
   return (
     <div className="group flex flex-col rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border) hover:border-(--color-border-hover) transition-colors duration-200 min-h-65">
@@ -97,35 +79,14 @@ function MangaCard({
 
           {/* Bookmark toggle */}
           <button
-            onClick={toggleFav}
+            onClick={handleFav}
             className="absolute top-2 right-2 z-10 p-1.5 rounded-md bg-black/50 border border-white/10 hover:bg-black/70 transition-colors duration-150"
             aria-label={fav ? "Hapus dari favorit" : "Tambah ke favorit"}
           >
-            {fav ? (
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="text-(--color-danger)"
-              >
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-            ) : (
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-white/60"
-              >
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-            )}
+            <HeartIcon
+              filled={fav}
+              className={fav ? "text-(--color-danger)" : "text-white/60"}
+            />
           </button>
 
           {cover && !imgErr ? (

@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getGenres, Genre } from "@/lib/api";
+// TODO: shared DRY modules (created by parallel agent)
+import ErrorState from "@/components/ErrorState";
+import EmptyState from "@/components/EmptyState";
+import Spinner from "@/components/Spinner";
+import ErrorIcon from "@/components/ErrorIcon";
 
 function SkeletonChips() {
   return (
@@ -51,39 +56,11 @@ export default function GenresPage() {
       </div>
 
       {error ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <div className="w-12 h-12 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--color-danger)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <path d="M12 16h.01" />
-            </svg>
-          </div>
-          <p className="text-sm text-(--color-text-secondary)">
-            Gagal memuat: {error}
-          </p>
-          <button
-            onClick={() => setRetryKey((k) => k + 1)}
-            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150"
-          >
-            Coba Lagi
-          </button>
-        </div>
+        <ErrorState message={`Gagal memuat: ${error}`} onRetry={() => setRetryKey((k) => k + 1)} />
       ) : loading ? (
         <SkeletonChips />
       ) : genres.length === 0 ? (
-        <div className="py-20 text-center text-(--color-text-muted) text-sm">
-          Tidak ada genre tersedia
-        </div>
+        <EmptyState title="Tidak ada genre tersedia" />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {genres.map((g) => (

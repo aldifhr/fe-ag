@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getGenreManga, SearchResult } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
+// TODO: shared DRY modules (created by parallel agent)
+import ErrorState from "@/components/ErrorState";
+import EmptyState from "@/components/EmptyState";
+import Spinner from "@/components/Spinner";
+import ErrorIcon from "@/components/ErrorIcon";
+import { GRID_CLASS } from "@/lib/gridClass";
 
 function SkeletonGrid() {
   return (
@@ -115,42 +121,14 @@ export default function GenreMangaPage() {
 
       {/* Content */}
       {error ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <div className="w-12 h-12 rounded-full bg-(--color-surface) border border-(--color-border) flex items-center justify-center">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--color-danger)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <path d="M12 16h.01" />
-            </svg>
-          </div>
-          <p className="text-sm text-(--color-text-secondary)">
-            Gagal memuat: {error}
-          </p>
-          <button
-            onClick={() => setRetryKey((k) => k + 1)}
-            className="px-4 py-2 text-[13px] font-medium rounded-lg bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text) hover:border-(--color-border-hover) transition-colors duration-150"
-          >
-            Coba Lagi
-          </button>
-        </div>
+        <ErrorState message={`Gagal memuat: ${error}`} onRetry={() => setRetryKey((k) => k + 1)} />
       ) : loading ? (
         <SkeletonGrid />
       ) : items.length === 0 ? (
-        <div className="py-20 text-center text-(--color-text-muted) text-sm">
-          Tidak ada manga untuk genre ini
-        </div>
+        <EmptyState title="Tidak ada manga untuk genre ini" />
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className={GRID_CLASS}>
             {items.map((item, i) => (
               <MangaCard
                 key={`${item.source}-${item.id}-${i}`}
@@ -176,17 +154,7 @@ export default function GenreMangaPage() {
               >
                 {loadingMore ? (
                   <span className="flex items-center gap-2">
-                    <svg
-                      className="animate-spin"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M21 12a9 9 0 11-6.219-8.56" />
-                    </svg>
+                    <Spinner size={14} />
                     Memuat...
                   </span>
                 ) : (

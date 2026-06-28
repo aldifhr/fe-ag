@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { checkConnection } from "@/lib/connection";
+import ErrorIcon from "./ErrorIcon";
 
 function classifyError(message: string): "network" | "timeout" | "server" {
   const m = message.toLowerCase();
@@ -50,21 +51,8 @@ export default function ErrorView({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0f] px-4">
-      <div className="w-14 h-14 rounded-full bg-[#14141f] border border-[#27273a] flex items-center justify-center mb-5">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#818cf8"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 8v4" />
-          <path d="M12 16h.01" />
-        </svg>
+      <div className="w-14 h-14 rounded-full bg-[#14141f] border border-[#27273a] flex items-center justify-center mb-5" style={{ color: "#818cf8" }}>
+        <ErrorIcon size={24} />
       </div>
 
       <h1 className="text-lg font-semibold text-[#e4e4e7] mb-1">

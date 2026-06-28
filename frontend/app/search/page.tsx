@@ -11,11 +11,7 @@ import SearchInput from "./SearchInput";
 import SearchFilters from "./SearchFilters";
 import SearchHistory from "./SearchHistory";
 import SearchResults from "./SearchResults";
-
-function readLS(key: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  return localStorage.getItem(key) ?? fallback;
-}
+import { readLS } from "@/lib/readLS";
 
 export default function SearchPage() {
   return (
@@ -46,11 +42,11 @@ function SearchContent() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const suggestDebRef = useRef<ReturnType<typeof setTimeout>>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [sortFilter, setSortFilter] = useState(() =>
-    readLS("manhwa-search-sort", ""),
+  const [sortFilter, setSortFilter] = useState<string>(() =>
+    readLS("manhwa-search-sort", ["", "latest", "popularity", "rating", "az"], ""),
   );
-  const [statusFilter, setStatusFilter] = useState(() =>
-    readLS("manhwa-search-status", ""),
+  const [statusFilter, setStatusFilter] = useState<string>(() =>
+    readLS("manhwa-search-status", ["", "ongoing", "completed", "hiatus", "cancelled"], ""),
   );
 
   const {
@@ -79,6 +75,10 @@ function SearchContent() {
   const loading = isLoading;
   const error = queryError?.message ?? null;
   const hasSearched = debouncedQuery.trim().length >= 2;
+
+  // ponytail: debounce is tightly coupled to two separate timers (full search + suggestions),
+  // immediate clearing on Enter/history/suggestion clicks, and multi-state updates.
+  // Add useDebounce hook when it supports imperative cancel + dual-timer patterns.
 
   // Full search debounce (300ms)
   useEffect(() => {

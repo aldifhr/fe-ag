@@ -3,6 +3,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { searchManga, SearchResult, proxyCover } from "@/lib/api";
 import Link from "next/link";
+import EmptyState from "./EmptyState";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 interface Props {
   open: boolean;
@@ -15,7 +17,8 @@ export default function SearchModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const debouncedQuery = useDebounce(query, 300);
+  const lastSearchedRef = useRef("");
   const inputRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -70,24 +73,20 @@ export default function SearchModal({ open, onClose }: Props) {
 
   // Debounced search
   useEffect(() => {
-    if (!query.trim()) {
+    if (!debouncedQuery.trim()) {
       setResults([]);
       setHasSearched(false);
       setLoading(false);
       setError(null);
       return;
     }
-    setLoading(true);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query), 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, doSearch]);
+    if (debouncedQuery === lastSearchedRef.current) return;
+    doSearch(debouncedQuery);
+  }, [debouncedQuery, doSearch]);
 
   const handleEnter = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      lastSearchedRef.current = query;
       doSearch(query);
     }
   };
@@ -267,18 +266,12 @@ export default function SearchModal({ open, onClose }: Props) {
 
           {/* Empty results */}
           {!loading && !error && hasSearched && results.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-text-secondary">
-                Tidak ditemukan hasil untuk &lsquo;{query}&rsquo;
-              </p>
-            </div>
+            <EmptyState title={`Tidak ditemukan hasil untuk '${query}'`} />
           )}
 
           {/* Placeholder */}
           {!hasSearched && !loading && (
-            <div className="text-center py-16">
-              <p className="text-text-muted text-[13px]">Ketik judul manhwa untuk mulai mencari</p>
-            </div>
+            <EmptyState title="Ketik judul manhwa untuk mulai mencari" />
           )}
         </div>
       </div>

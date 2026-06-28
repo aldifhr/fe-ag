@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import ErrorIcon from "./ErrorIcon";
 
 interface Props {
   children: React.ReactNode;
@@ -29,20 +30,7 @@ export default class SectionErrorBoundary extends React.Component<
       if (this.props.fallback) return this.props.fallback;
       return (
         <div className="flex items-center gap-3 p-4 rounded-lg bg-(--color-surface) border border-(--color-border)">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--color-text-muted)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 8v4" />
-            <path d="M12 16h.01" />
-          </svg>
+          <span style={{ color: "var(--color-text-muted)" }}><ErrorIcon size={16} /></span>
           <p className="text-[13px] text-(--color-text-muted) flex-1">
             Gagal memuat section ini.
           </p>
