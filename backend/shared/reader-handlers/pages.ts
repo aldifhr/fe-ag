@@ -2,7 +2,7 @@ import { SECONDARY_SOURCE_URL } from "../../shared/scrapers/shared.js";
 import { SECONDARY_CONFIG } from "../../reader/config.js";
 import { fetchWithRetry, JSON_HEADERS } from "../../shared/scrapers/secondary/api.js";
 import { isAxiosLikeResponse } from "../../shared/scrapers/secondary/types.js";
-import { getIkiruChapterImages, getIkiruSeries } from "../../shared/scrapers/ikiru/api.js";
+import { getIkiruChapterImages, getIkiruSeries, wpFetch } from "../../shared/scrapers/ikiru/api.js";
 import { parse } from "node-html-parser";
 import type { Request, Response } from "express";
 
@@ -158,6 +158,23 @@ export async function handlePages(req: Request, res: Response) {
           const series = await getIkiruSeries(slugFromUrl);
           if (series?.latest_chapters?.length) {
             const match = series.latest_chapters.find((c: any) => String(c.number) === String(chapterNum));
+            if (match?.id) resolvedId = String(match.id);
+          }
+        } catch { /* fall through */ }
+      }
+    }
+
+    // Auto-resolve: search WP REST API by manga slug + chapter number
+    if (!resolvedId && chapterNum) {
+      const slugFromUrl = (url || baseUrl || "").match(/\/manga\/([^/]+)/)?.[1];
+      if (slugFromUrl) {
+        try {
+          const wpData = await wpFetch<any[]>(`/chapter?search=${encodeURIComponent(slugFromUrl.replace(/-/g, " "))} chapter ${chapterNum}&_fields=id,title,slug&per_page=5`);
+          if (wpData?.length) {
+            const match = wpData.find((c: any) => {
+              const t = (c.title?.rendered || "").toLowerCase();
+              return t.includes(`chapter ${chapterNum}`);
+            });
             if (match?.id) resolvedId = String(match.id);
           }
         } catch { /* fall through */ }

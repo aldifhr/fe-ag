@@ -73,7 +73,7 @@ export interface IkiruFilter {
 
 // ─── Internal fetch helper ─────────────────────────────────────────────
 
-async function wpFetch<T>(path: string): Promise<T | null> {
+export async function wpFetch<T>(path: string): Promise<T | null> {
   try {
     const useProxy = PROXY_URL && PROXY_TOKEN;
     const ikiruBase = getIkiruPublicBase();
@@ -175,9 +175,32 @@ export async function getIkiruChapterImages(chapterId: number | string): Promise
   const data = await ikiruFetch<{ ok: boolean } & IkiruChapterDetail>(
     `/chapter/${chapterId}`
   );
-  if (!data) return null;
-  const { ok: _, ...rest } = data;
-  return rest;
+  if (data) {
+    const { ok: _, ...rest } = data;
+    return rest;
+  }
+  // Fallback: extract images from WP REST API content HTML
+  return getIkiruChapterImagesFromWpContent(chapterId);
+}
+
+/** Fallback: get chapter images from WP REST API content.rendered HTML */
+async function getIkiruChapterImagesFromWpContent(wpChapterId: number | string): Promise<IkiruChapterDetail | null> {
+  try {
+    const data = await wpFetch<any>(
+      `/chapter/${wpChapterId}?_fields=id,content`
+    );
+    if (!data?.content?.rendered) return null;
+    const html: string = data.content.rendered;
+    const imgs = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)].map(m => m[1]);
+    // Dedupe and filter CDN images
+    const seen = new Set<string>();
+    const urls = imgs.filter(u => u.includes("cdn.itachi.my.id") && !seen.has(u) && seen.add(u));
+    if (!urls.length) return null;
+    const images = urls.map((url, i) => ({ url, page: i + 1 }));
+    return { images } as IkiruChapterDetail;
+  } catch {
+    return null;
+  }
 }
 
 /** Fetch full chapter list via WP REST API (bypasses HTML scraper / CF block) */
