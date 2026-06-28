@@ -135,8 +135,9 @@ export async function getIkiruPopularToday(): Promise<IkiruSearchItem[]> {
 
 /** Single series detail by slug (NOTE: latest_chapters only — NOT all chapters) */
 export async function getIkiruSeries(slug: string): Promise<IkiruSeries | null> {
+  // NOTE: /series/{slug} not in proxy ALLOWED_PATHS — use /series/info?slug= instead
   const data = await ikiruFetch<{ ok: boolean; series: IkiruSeries }>(
-    `/series/${encodeURIComponent(slug)}`
+    `/series/info?slug=${encodeURIComponent(slug)}`
   );
   return data?.series ?? null;
 }
