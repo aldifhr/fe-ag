@@ -1,9 +1,5 @@
-import Spinner from "@/components/Spinner";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Loading() {
-  return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <Spinner size={24} />
-    </div>
-  );
+  return <LoadingScreen />;
 }

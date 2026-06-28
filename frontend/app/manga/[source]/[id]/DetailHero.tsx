@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { proxyCover } from "@/lib/api";
 import type { MangaDetail } from "@/lib/api";
 import { isFavorite, addFavorite, removeFavorite } from "@/lib/favorites";
@@ -48,7 +49,11 @@ export function DetailHero({ manga, id, fav, setFav, descExpanded, setDescExpand
             <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight">
               {manga.title}
             </h1>
-            <span className="shrink-0 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider rounded bg-(--color-surface) border border-(--color-border) text-(--color-text-muted)">
+            <span className={`shrink-0 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider rounded ${
+              manga.source === "shinigami"
+                ? "bg-black text-red-400"
+                : "bg-emerald-600 text-white"
+            }`}>
               {manga.source}
             </span>
           </div>
@@ -203,12 +208,13 @@ export function DetailHero({ manga, id, fav, setFav, descExpanded, setDescExpand
           {uniqueGenres.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
               {uniqueGenres.map((g, i) => (
-                <span
+                <Link
                   key={`${g}-${i}`}
-                  className="px-2 py-0.5 text-[11px] font-medium rounded bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary)"
+                  href={`/genres/${g.toLowerCase().replace(/\s+/g, "-")}`}
+                  className="px-2 py-0.5 text-[11px] font-medium rounded bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-accent) hover:border-(--color-accent)/40 transition-colors duration-150"
                 >
                   {g}
-                </span>
+                </Link>
               ))}
             </div>
           )}

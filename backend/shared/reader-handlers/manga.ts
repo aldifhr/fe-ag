@@ -42,6 +42,7 @@ export async function handleManga(req: Request, res: Response) {
       manga: {
         id,
         ...info.manga,
+        genres: (info.manga as any).taxonomy?.Genre?.map((g: any) => g.name) ?? [],
         cover: pickCover(info.manga),
         status: mangaStatus,
         source: "shinigami",

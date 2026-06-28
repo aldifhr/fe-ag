@@ -17,9 +17,6 @@ export default function SedangDibaca({
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
           {history.map((h) => {
             const latest = Math.max(...h.chapters);
-            const pct = h.totalChapters
-              ? Math.min(100, (latest / h.totalChapters) * 100)
-              : null;
             return (
               <Link
                 key={h.mangaId}
@@ -45,18 +42,8 @@ export default function SedangDibaca({
                     {h.title}
                   </p>
                   <p className="text-[10px] text-(--color-text-muted) mt-0.5">
-                    {h.totalChapters
-                      ? `Chapter ${latest} / ${h.totalChapters}`
-                      : `Chapter ${latest}`}
+                    Chapter {latest}
                   </p>
-                  {pct !== null && (
-                    <div className="mt-1 h-1 rounded-full bg-(--color-surface)">
-                      <div
-                        className="h-1 rounded-full bg-(--color-accent)"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  )}
                   <p className="text-[9px] text-(--color-text-muted) mt-1">
                     {timeAgo(h.latestReadAt)}
                   </p>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { markAsRead, unmarkAsRead } from "@/lib/history";
+import { markAsRead, unmarkAsRead, timeAgo } from "@/lib/history";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 
 // ponytail: exact chapter shape from MangaDetail type; widen when API changes
@@ -318,8 +318,11 @@ export function ChapterList({
                       )}
                     </div>
                     {ch.createdAt && (
-                      <span className="text-[12px] text-(--color-text-muted) shrink-0 ml-4 tabular-nums">
-                        {new Date(ch.createdAt).toLocaleDateString("id-ID")}
+                      <span className="text-[12px] text-(--color-text-muted) shrink-0 ml-4 tabular-nums text-right">
+                        <span className="block">{timeAgo(new Date(ch.createdAt).getTime())}</span>
+                        <span className="block text-[10px] opacity-60">
+                          {new Date(ch.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
                       </span>
                     )}
                   </Link>
