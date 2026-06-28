@@ -1,4 +1,4 @@
-import { clearSearchHistory } from "@/lib/searchHistory";
+import { clearSearchHistoryApi } from "@/lib/searchHistory";
 
 type Props = {
   showHistory: boolean;
@@ -23,7 +23,7 @@ export default function SearchHistory({
         </span>
         <button
           onClick={() => {
-            clearSearchHistory();
+            clearSearchHistoryApi();
             setSearchHistory([]);
           }}
           className="text-[12px] text-(--color-text-muted) hover:text-(--color-danger) transition-colors"

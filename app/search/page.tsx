@@ -4,8 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { searchManga, getGenres, SearchResult } from "@/lib/api";
 import {
-  addSearchHistory,
+  addSearchHistoryApi,
   getSearchHistory,
+  syncSearchHistoryFromApi,
 } from "@/lib/searchHistory";
 import SearchInput from "./SearchInput";
 import SearchFilters from "./SearchFilters";
@@ -36,6 +37,14 @@ function SearchContent() {
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // Sync search history from API on mount
+  useEffect(() => {
+    (async () => {
+      await syncSearchHistoryFromApi();
+      setSearchHistory(getSearchHistory());
+    })();
+  }, []);
   const [inputFocused, setInputFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -148,7 +157,7 @@ function SearchContent() {
   // Record search history when debounced query changes
   useEffect(() => {
     if (hasSearched) {
-      addSearchHistory(debouncedQuery);
+      addSearchHistoryApi(debouncedQuery);
       setSearchHistory(getSearchHistory());
     }
   }, [hasSearched, debouncedQuery]);

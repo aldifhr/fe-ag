@@ -7,6 +7,10 @@ import {
   MangaDetail,
 } from "@/lib/api";
 import { addHistoryApi } from "@/lib/history";
+import {
+  syncReaderSettingsFromApi,
+  saveReaderSettingsApi,
+} from "@/lib/readerSettings";
 
 interface UseReaderStateParams {
   source: string;
@@ -281,11 +285,30 @@ export function useReaderState({
     [source, id],
   );
 
-  // Persist reading settings (consolidated)
+  // Sync reader settings from API on mount
+  useEffect(() => {
+    syncReaderSettingsFromApi().then(() => {
+      // Re-read from localStorage after sync
+      const storedBg = localStorage.getItem("manhwa-reader-bg");
+      if (storedBg === "default" || storedBg === "dark" || storedBg === "sepia" || storedBg === "white")
+        setBgColor(storedBg);
+      const storedBrightness = localStorage.getItem("manhwa-reader-brightness");
+      if (storedBrightness) {
+        const num = parseFloat(storedBrightness);
+        if (!isNaN(num) && num >= 0.5 && num <= 1) setBrightness(num);
+      }
+      const storedNight = localStorage.getItem("manhwa-night-mode");
+      if (storedNight === "true") setNightMode(true);
+      else if (storedNight === "false") setNightMode(false);
+    });
+  }, []);
+
+  // Persist reading settings (consolidated) + save to API
   useEffect(() => {
     localStorage.setItem("manhwa-reader-bg", bgColor);
     localStorage.setItem("manhwa-reader-brightness", String(brightness));
     localStorage.setItem("manhwa-night-mode", String(nightMode));
+    saveReaderSettingsApi({ bgColor, brightness, nightMode });
   }, [bgColor, brightness, nightMode]);
 
   // Cleanup night UI timer
