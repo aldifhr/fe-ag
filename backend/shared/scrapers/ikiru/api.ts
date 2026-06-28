@@ -189,7 +189,7 @@ export async function fetchIkiruChaptersByTitle(title: string): Promise<{ id: nu
 
   while (page <= 10) { // max 1000 chapters
     const data = await wpFetch<any[]>(
-      `?search=${encodeURIComponent(title)}&_fields=id,title,slug,link,modified&per_page=${perPage}&page=${page}`
+      `/chapter?search=${encodeURIComponent(title)}&_fields=id,title,slug,link,modified&per_page=${perPage}&page=${page}`
     );
     if (!data || !Array.isArray(data) || data.length === 0) break;
 
