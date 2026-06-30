@@ -1,171 +1,56 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { useState, useMemo, useEffect } from "react";
-import { timeAgo, getReadChapters } from "@/lib/history";
+import { useState } from "react";
 import { proxyCover } from "@/lib/api";
-import { normalizeStatus } from "@/lib/normalizeStatus";
-import { useFavoriteToggle } from "@/lib/hooks/useFavoriteToggle";
-import HeartIcon from "./HeartIcon";
 
 interface Props {
   title: string;
   cover: string | null;
-  source: string;
   id: string;
-  chapter?: string;
-  time?: string;
   status?: string | number | null;
   rating?: string | number | null;
-  country?: string | null;
-  chapters?: { number: string; time: string | null }[];
 }
 
-/** Normalize chapter display: always returns "Ch. X" format. */
-function chapterLabel(raw: string): string {
-  const stripped = raw.replace(/^chapter\s+/i, "").replace(/^ch\.?\s*/i, "").trim();
-  return `Chapter ${stripped}`;
-}
+const STATUS_COLORS: Record<string, string> = {
+  Ongoing: "#22c55e",
+  Completed: "#3b82f6",
+  Hiatus: "#f59e0b",
+  Cancelled: "#ef4444",
+};
 
-/** Extract numeric part from chapter string for history lookup. */
-function chapterNum(raw: string): string {
-  return raw.replace(/^chapter\s+/i, "").replace(/^ch\.?\s*/i, "");
-}
-
-/** Shared chapter pill component used by both chapters[] and single-chapter paths. */
-function ChapterPill({
-  number,
-  time,
-  source,
-  id,
-  isRead,
-}: {
-  number: string;
-  time?: string | null;
-  source: string;
-  id: string;
-  isRead: boolean;
-}) {
-  return (
-    <Link
-      href={`/manga/${source}/${encodeURIComponent(id)}/${number}`}
-      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors duration-150 w-fit ${
-        isRead
-          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-          : "bg-(--color-bg) text-(--color-text-secondary) border border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)/40 hover:bg-(--color-accent)/5"
-      }`}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {isRead && (
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      )}
-      {chapterLabel(number)}
-      {time && (
-        <span className="opacity-60">
-          · {timeAgo(new Date(time).getTime())}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-function MangaCard({
-  title,
-  cover,
-  source,
-  id,
-  chapter,
-  time,
-  status,
-  rating,
-  country,
-  chapters,
-}: Props) {
+function MangaCard({ title, cover, id, status, rating }: Props) {
   const [imgErr, setImgErr] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const { fav, toggle: toggleFav } = useFavoriteToggle(id, { title, cover, source });
 
-  // Normalize status
-  const normalized = normalizeStatus(status);
-  const statusLabel = normalized?.label ?? null;
-  const statusColor = normalized?.color ?? "";
+  const statusLabel =
+    status != null
+      ? typeof status === "number"
+        ? [1].includes(status)
+          ? "Ongoing"
+          : [2].includes(status)
+            ? "Completed"
+            : [3].includes(status)
+              ? "Hiatus"
+              : null
+        : status
+      : null;
 
-  // Normalize rating
+  const statusColor = statusLabel ? STATUS_COLORS[statusLabel] || "#888" : "";
+
   const ratingNum = rating != null && rating !== "" ? Number(rating) : null;
   const hasRating = ratingNum !== null && !isNaN(ratingNum) && ratingNum > 0;
 
-  const isNew = time
-    ? Date.now() - new Date(time).getTime() < 24 * 60 * 60 * 1000
-    : false;
-
-  // Recompute read state when history changes
-  const [historyTick, setHistoryTick] = useState(0);
-  useEffect(() => {
-    const bump = () => setHistoryTick((t) => t + 1);
-    // Same-tab: custom event fired by addHistory()
-    window.addEventListener("manhwa-history-change", bump);
-    // Cross-tab: native storage event
-    window.addEventListener("storage", bump);
-    // Fallback: recompute when tab becomes visible (covers slow storage events)
-    document.addEventListener("visibilitychange", bump);
-    return () => {
-      window.removeEventListener("manhwa-history-change", bump);
-      window.removeEventListener("storage", bump);
-      document.removeEventListener("visibilitychange", bump);
-    };
-  }, []);
-
-  const readChapters = useMemo(() => getReadChapters(id), [id, historyTick]);
-
-  const handleFav = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleFav();
-  };
-
   return (
-    <div className="group flex flex-col rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border) hover:border-(--color-border-hover) transition-colors duration-200 min-h-65">
-      {/* Cover + Title — link to manga detail */}
-      <Link
-        href={`/manga/${source}/${encodeURIComponent(id)}`}
-        className="block"
-      >
+    <div className="group flex flex-col rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border) hover:border-(--color-border-hover) transition-colors duration-200">
+      <Link href={`/manga/${encodeURIComponent(id)}`} className="block">
         {/* Cover */}
         <div className="aspect-3/4 relative overflow-hidden bg-(--color-surface)">
-          {/* "Baru" badge */}
-          {isNew && (
-            <span className="absolute top-2 left-2 z-10 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-(--color-accent) text-white">
-              Baru
-            </span>
-          )}
-
-          {/* Bookmark toggle */}
-          <button
-            onClick={handleFav}
-            className="absolute top-2 right-2 z-10 p-1.5 rounded-md bg-black/50 border border-white/10 hover:bg-black/70 transition-colors duration-150"
-            aria-label={fav ? "Hapus dari favorit" : "Tambah ke favorit"}
-          >
-            <HeartIcon
-              filled={fav}
-              className={fav ? "text-(--color-danger)" : "text-white/60"}
-            />
-          </button>
-
-          {/* Source flag — bottom-left */}
-          <img
-            src={country === "CN" ? "https://flagsapi.com/CN/flat/64.png" : country === "JP" ? "https://flagsapi.com/JP/flat/64.png" : "https://flagsapi.com/KR/flat/64.png"}
-            alt={country === "CN" ? "China" : country === "JP" ? "Japan" : "Korea"}
-            className="absolute bottom-2 left-2 z-10 w-5 h-[15px] rounded-[2px] shadow-md object-cover"
-          />
-
-
-
           {cover && !imgErr ? (
             <img
               src={proxyCover(cover)}
               alt={title}
+              referrerPolicy="no-referrer"
               className="relative w-full h-full object-cover transition-[filter,transform] duration-300 group-hover:scale-[1.03]"
               style={{
                 filter: imgLoaded ? "none" : "blur(10px)",
@@ -190,23 +75,8 @@ function MangaCard({
         </div>
       </Link>
 
-      {/* Chapter list — flex-1 pushes badges to bottom */}
-      <div className="px-3 pb-2.5 flex-1 flex flex-col gap-1 justify-start">
-        {chapters && chapters.length > 0 ? (
-          chapters.map((ch, i) => {
-            const isRead = readChapters.has(chapterNum(ch.number));
-            return (
-              <ChapterPill key={i} number={ch.number} time={ch.time} source={source} id={id} isRead={isRead} />
-            );
-          })
-        ) : chapter ? (
-          <ChapterPill number={chapter} time={time} source={source} id={id} isRead={readChapters.has(chapterNum(chapter))} />
-        ) : null}
-
-      </div>
-
-      {/* Rating + Status badges — always at bottom */}
-      <div className="px-3 pb-2.5 flex items-center gap-1.5 flex-wrap">
+      {/* Rating + Status badges */}
+      <div className="px-3 pb-2.5 flex items-center gap-1.5 flex-wrap mt-auto">
         {hasRating && (
           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded text-amber-500 bg-amber-500/10">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">

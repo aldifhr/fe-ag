@@ -20,3 +20,6 @@ tsconfig.tsbuildinfo
 .qoder/
 *.pyc
 __pycache__/
+
+# clerk configuration (can include secrets)
+/.clerk/

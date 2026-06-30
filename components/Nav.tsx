@@ -1,10 +1,7 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
-// Clerk auth disabled — re-enable when SSL ready
-import SearchModal from "@/components/SearchModal";
 import { useTheme } from "@/components/ThemeProvider";
-import { getFavorites } from "@/lib/favorites";
 import NavDesktop from "@/components/NavDesktop";
 import NavMobile from "@/components/NavMobile";
 
@@ -14,41 +11,14 @@ function isActive(pathname: string, href: string) {
 }
 
 export default function Nav() {
-  const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   const [mobileOtherOpen, setMobileOtherOpen] = useState(false);
-  const [favCount, setFavCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
 
   const isMangaPage = pathname.startsWith("/manga/");
-
-  useEffect(() => {
-    setFavCount(getFavorites().length);
-  }, []);
-
-  // Refresh count when localStorage changes (other tabs or same-tab updates)
-  useEffect(() => {
-    function onStorage() {
-      setFavCount(getFavorites().length);
-    }
-    function onFavChange() {
-      setFavCount(getFavorites().length);
-    }
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("manhwa-favorites-change", onFavChange);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("manhwa-favorites-change", onFavChange);
-    };
-  }, []);
-
-  // Also re-check on route change in case user navigated away after toggling favorite
-  useEffect(() => {
-    setFavCount(getFavorites().length);
-  }, [pathname]);
 
   // Close desktop "Lainnya" dropdown on outside click or Escape
   useEffect(() => {
@@ -68,15 +38,6 @@ export default function Nav() {
     };
   }, [otherOpen]);
 
-  const openSearch = useCallback(() => setSearchOpen(true), []);
-  const closeSearch = useCallback(() => setSearchOpen(false), []);
-
-  // Listen for open-search custom event (from HeroSection)
-  useEffect(() => {
-    const handler = () => setSearchOpen(true);
-    window.addEventListener("open-search", handler);
-    return () => window.removeEventListener("open-search", handler);
-  }, []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const goBack = useCallback(() => {
     if (window.history.length > 1) router.back();
@@ -105,19 +66,16 @@ export default function Nav() {
 
   return (
     <>
-      <SearchModal open={searchOpen} onClose={closeSearch} />
       <nav className="sticky top-0 z-50 bg-(--color-bg)/95 backdrop-blur-sm border-b border-(--color-border)">
         <NavDesktop
           isMangaPage={isMangaPage}
           pathname={pathname}
           theme={theme}
           toggle={toggle}
-          favCount={favCount}
           otherOpen={otherOpen}
           setOtherOpen={setOtherOpen}
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}
-          openSearch={openSearch}
           goBack={goBack}
           navLinkClass={navLinkClass}
           isActive={isActive}
@@ -128,7 +86,6 @@ export default function Nav() {
           mobileOtherOpen={mobileOtherOpen}
           setMobileOtherOpen={setMobileOtherOpen}
           pathname={pathname}
-          favCount={favCount}
           theme={theme}
           toggle={toggle}
           closeMenu={closeMenu}

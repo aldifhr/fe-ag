@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-
 import "./globals.css";
 import Nav from "@/components/Nav";
 import ThemeProvider from "@/components/ThemeProvider";
@@ -15,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Manhwa.agg",
-  description: "An aggregator for manga/manhwa/manhua from various sources.",
+  description: "Dashboard for monitoring manhwa from discord",
 };
 
 export default function RootLayout({
@@ -26,7 +24,6 @@ export default function RootLayout({
   return (
     <html lang="id" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-bg text-text">
-        <ClerkProvider>
           <QueryProvider>
             <ThemeProvider>
               <Nav />
@@ -35,7 +32,6 @@ export default function RootLayout({
               </main>
             </ThemeProvider>
           </QueryProvider>
-        </ClerkProvider>
       </body>
     </html>
   );
