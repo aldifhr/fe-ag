@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { timeAgo } from "@/lib/timeAgo";
 
 /* ── Types ── */
 
@@ -30,17 +31,6 @@ interface ChapterItem {
   sentAt: string;
   source: string;
   title?: string;
-}
-
-function timeAgo(dateStr: string): string {
-  const diffMs = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "baru saja";
-  if (mins < 60) return `${mins}m lalu`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}j lalu`;
-  const days = Math.floor(hrs / 24);
-  return `${days}h lalu`;
 }
 
 export default function MangaDetailPage() {
@@ -152,6 +142,7 @@ export default function MangaDetailPage() {
             <img
               src={data.cover}
               alt={data.title}
+              loading="lazy"
               className="w-48 md:w-72 aspect-[3/4] rounded-xl object-cover bg-(--color-surface) border border-(--color-border) shadow-lg"
             />
           ) : (

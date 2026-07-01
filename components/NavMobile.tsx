@@ -4,15 +4,11 @@ import IncidentBadge from "./IncidentBadge";
 interface NavMobileProps {
   isMangaPage: boolean;
   menuOpen: boolean;
-  mobileOtherOpen: boolean;
-  setMobileOtherOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  pathname: string;
   theme: string;
   toggle: () => void;
   closeMenu: () => void;
   goBack: () => void;
   mobileLinkClass: (href: string) => string;
-  isActive: (pathname: string, href: string) => boolean;
 }
 
 export default function NavMobile({

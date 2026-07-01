@@ -20,8 +20,7 @@ export default async function middleware(request: NextRequest) {
   const pw = process.env.SITE_PASSWORD;
   const secret = process.env.AUTH_SECRET;
   if (!pw || !secret) {
-    console.warn("Missing SITE_PASSWORD or AUTH_SECRET, skipping auth check");
-    return NextResponse.next();
+    return redirectToLogin(request);
   }
 
   const expectedHash = await computeAuthHash(pw, secret);

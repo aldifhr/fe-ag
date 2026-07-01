@@ -172,7 +172,14 @@ export async function GET() {
         const r = Number(item.rating);
         return !isNaN(r) && r > 0;
       })
-      .sort((a, b) => Number(b.rating) - Number(a.rating))
+      .sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (isNaN(ra) && isNaN(rb)) return 0;
+        if (isNaN(ra)) return 1;
+        if (isNaN(rb)) return -1;
+        return rb - ra;
+      })
       .slice(0, 10)
       .map((item) => ({
         id: slugify(item.title),

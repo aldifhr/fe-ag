@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     sameSite: "lax",
     path: "/",
     maxAge: COOKIE_MAX_AGE,
-    secure: false, // local dev; set true in production
+    secure: process.env.NODE_ENV === "production",
   });
   return response;
 }

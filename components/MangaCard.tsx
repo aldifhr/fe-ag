@@ -12,11 +12,12 @@ interface Props {
   rating?: string | number | null;
 }
 
-const STATUS_COLORS: Record<string, string> = {
+export const STATUS_COLORS: Record<string, string> = {
   Ongoing: "#22c55e",
   Completed: "#3b82f6",
   Hiatus: "#f59e0b",
   Cancelled: "#ef4444",
+  Unknown: "#6b7280",
 };
 
 function MangaCard({ title, cover, id, status, rating }: Props) {

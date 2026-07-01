@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     const items = catalogData?.results ?? [];
 
     // Map catalog items to SearchResult format for frontend consistency
-    const results = items.map((item: any) => {
+    const results = items.map((item: CatalogItem) => {
       const source = item.sources?.[0]?.source || item.latestChapter?.source || "shinigami";
       const url = item.latestChapter?.url || item.sources?.[0]?.url || "";
 

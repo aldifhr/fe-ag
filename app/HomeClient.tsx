@@ -3,24 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRecentHistory, type HistoryItem } from "@/lib/api";
 import { useState, useCallback, useEffect } from "react";
+import { timeAgo } from "@/lib/timeAgo";
 
 const GRID_CLASS = "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3";
-
-/* ── Helpers ── */
-
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "baru saja";
-  if (mins < 60) return `${mins}m lalu`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}j lalu`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}h lalu`;
-  return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-}
 
 /* ── History Grid Card ── */
 

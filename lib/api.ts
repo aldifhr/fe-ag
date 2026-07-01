@@ -44,13 +44,19 @@ export async function getWhitelist(
   const { results, totalPages } = data;
   if (totalPages <= 1) return results;
 
-  const remaining = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, i) =>
-      fetchJson<{ results: SearchResult[] }>(
-        `/api/reader/whitelist?${new URLSearchParams({ page: String(i + 2), page_size: String(pageSize) })}`,
-      ),
+  // Batch with concurrency limit (max 4)
+  const fetchers = Array.from({ length: totalPages - 1 }, (_, i) =>
+    () => fetchJson<{ results: SearchResult[] }>(
+      `/api/reader/whitelist?${new URLSearchParams({ page: String(i + 2), page_size: String(pageSize) })}`,
     ),
   );
+  const batched: { results: SearchResult[] }[] = [];
+  const CONCURRENCY = 4;
+  for (let i = 0; i < fetchers.length; i += CONCURRENCY) {
+    const batch = await Promise.all(fetchers.slice(i, i + CONCURRENCY).map(f => f()));
+    batched.push(...batch);
+  }
+  const remaining = batched;
 
   return [...results, ...remaining.flatMap((r) => r.results)];
 }

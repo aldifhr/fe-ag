@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { timeAgo } from "@/lib/timeAgo";
 
 /* ── Types ── */
 
@@ -81,18 +82,6 @@ interface DashboardData {
 }
 
 /* ── Helpers ── */
-
-function timeAgo(dateStr: string): string {
-  const diffMs = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "baru saja";
-  if (mins < 60) return `${mins}m lalu`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}j lalu`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}h lalu`;
-  return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-}
 
 function shortDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -280,7 +269,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!data) return <DashboardSkeleton />;
+  if (!data) return <div className="text-center py-20 text-(--color-text-muted)">Dashboard data unavailable</div>;
   const { overview, sourceHealth, queueLength, cronStatus, fastCronNextRun, health } = data;
   const sourceKeys = Object.keys(sourceHealth);
 

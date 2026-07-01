@@ -13,7 +13,6 @@ function isActive(pathname: string, href: string) {
 export default function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
-  const [mobileOtherOpen, setMobileOtherOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
@@ -72,26 +71,19 @@ export default function Nav() {
           pathname={pathname}
           theme={theme}
           toggle={toggle}
-          otherOpen={otherOpen}
-          setOtherOpen={setOtherOpen}
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}
           goBack={goBack}
           navLinkClass={navLinkClass}
-          isActive={isActive}
         />
         <NavMobile
           isMangaPage={isMangaPage}
           menuOpen={menuOpen}
-          mobileOtherOpen={mobileOtherOpen}
-          setMobileOtherOpen={setMobileOtherOpen}
-          pathname={pathname}
           theme={theme}
           toggle={toggle}
           closeMenu={closeMenu}
           goBack={goBack}
           mobileLinkClass={mobileLinkClass}
-          isActive={isActive}
         />
       </nav>
     </>

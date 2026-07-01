@@ -6,13 +6,10 @@ interface NavDesktopProps {
   pathname: string;
   theme: string;
   toggle: () => void;
-  otherOpen: boolean;
-  setOtherOpen: React.Dispatch<React.SetStateAction<boolean>>;
   menuOpen: boolean;
   setMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   goBack: () => void;
   navLinkClass: (href: string) => string;
-  isActive: (pathname: string, href: string) => boolean;
 }
 
 export default function NavDesktop({

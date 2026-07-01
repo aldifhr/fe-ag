@@ -120,7 +120,15 @@ export default function IncidentsPage() {
         {data.timeline.length === 0 ? (
           <p className="text-sm text-(--color-text-muted) py-8 text-center">No incidents in the last 30 days</p>
         ) : (
-          <p className="text-sm text-(--color-text-muted) py-4">TODO: render timeline items</p>
+          <div className="space-y-2">
+            {(data.timeline as { type?: string; message?: string; timestamp?: string }[]).map((item, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-(--color-surface-hover) text-sm">
+                <span className="w-2 h-2 rounded-full bg-(--color-text-muted)" />
+                <span className="text-(--color-text-muted)">{item.message || item.type || "Event"}</span>
+                {item.timestamp && <span className="ml-auto text-xs text-(--color-text-muted)">{item.timestamp}</span>}
+              </div>
+            ))}
+          </div>
         )}
       </section>
     </div>

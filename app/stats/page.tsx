@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { STATUS_COLORS } from "@/components/MangaCard";
+import { timeAgo } from "@/lib/timeAgo";
 
 /* ── Types ── */
 
@@ -23,31 +25,10 @@ interface StatsResponse {
 
 /* ── Helpers ── */
 
-const STATUS_COLORS: Record<string, string> = {
-  Ongoing: "#22c55e",
-  Completed: "#3b82f6",
-  Hiatus: "#f59e0b",
-  Cancelled: "#ef4444",
-  Unknown: "#6b7280",
-};
-
 const RATING_BAR_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#22d3ee"];
 
 function statusColor(label: string): string {
   return STATUS_COLORS[label] || "#6b7280";
-}
-
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 60) return `${mins}m lalu`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}j lalu`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}h lalu`;
-  return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 }
 
 /* ── Fetch ── */
@@ -152,6 +133,7 @@ function TopRatedCard({
           src={item.cover}
           alt=""
           referrerPolicy="no-referrer"
+          loading="lazy"
           className="w-8 h-10 rounded object-cover bg-(--color-surface) shrink-0"
         />
       ) : (
@@ -180,6 +162,7 @@ function UpdateRow({
           src={item.cover}
           alt=""
           referrerPolicy="no-referrer"
+          loading="lazy"
           className="w-8 h-10 rounded object-cover bg-(--color-surface) shrink-0"
         />
       ) : (
@@ -261,7 +244,7 @@ export default function StatsPage() {
     );
   }
 
-  if (!data) return null;
+  if (!data) return <div className="text-center py-20 text-(--color-text-muted)">No data available</div>;
 
   return (
     <div className="space-y-6">

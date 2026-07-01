@@ -15,7 +15,7 @@ export default function IncidentBadge() {
           setCount(body.data.ongoingCount || 0);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn("Failed to fetch incidents:", err));
   }, []);
 
   if (count === 0) return null;

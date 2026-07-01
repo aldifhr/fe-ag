@@ -18,10 +18,8 @@ export async function GET(request: NextRequest) {
     const body = await res.json();
     const response = NextResponse.json(body, { status: res.status });
 
-    const setCookie = res.headers.get("set-cookie");
-    if (setCookie) {
-      response.headers.set("set-cookie", setCookie);
-    }
+    const setCookies = res.headers.getSetCookie();
+    setCookies.forEach((c) => response.headers.append("set-cookie", c));
 
     // Set auth_ui cookie so client knows login state
     if (body?.data?.authenticated) {
@@ -70,10 +68,8 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json(data, { status: res.status });
 
     // Forward Set-Cookie from backend so browser actually gets the session cookie
-    const setCookie = res.headers.get("set-cookie");
-    if (setCookie) {
-      response.headers.set("set-cookie", setCookie);
-    }
+    const setCookies = res.headers.getSetCookie();
+    setCookies.forEach((c) => response.headers.append("set-cookie", c));
 
     // Also set site_auth cookie so middleware doesn't redirect back to /login
     if (data?.success) {
