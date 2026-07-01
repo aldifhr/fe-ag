@@ -27,7 +27,8 @@ export default function LoginPage() {
       if (json.success) {
         router.push(redirectTo);
       } else {
-        setError(json.error || "Password salah");
+        const msg = typeof json.error === "string" ? json.error : json.error?.message || null;
+        setError(msg || "Password salah");
       }
     } catch {
       setError("Gagal terhubung ke server");

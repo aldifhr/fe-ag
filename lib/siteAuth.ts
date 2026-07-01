@@ -1,7 +1,8 @@
 const COOKIE_NAME = "site_auth";
+const UI_COOKIE_NAME = "auth_ui";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-export { COOKIE_NAME, COOKIE_MAX_AGE };
+export { COOKIE_NAME, UI_COOKIE_NAME, COOKIE_MAX_AGE };
 
 export async function computeAuthHash(
   password: string,

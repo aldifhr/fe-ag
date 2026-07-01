@@ -1,7 +1,5 @@
 import type React from "react";
 import Link from "next/link";
-import LoginModalButton from "./LoginModalButton";
-
 interface NavDesktopProps {
   isMangaPage: boolean;
   pathname: string;
@@ -18,69 +16,39 @@ interface NavDesktopProps {
 
 export default function NavDesktop({
   isMangaPage,
-  pathname,
+  goBack,
   theme,
   toggle,
   menuOpen,
   setMenuOpen,
-  goBack,
   navLinkClass,
 }: NavDesktopProps) {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
       {/* Left group */}
       <div className="flex items-center gap-2">
-        {/* Back button — manga pages only */}
         {isMangaPage && (
-          <button
-            onClick={goBack}
-            className="p-2 -ml-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
-            aria-label="Kembali"
-          >
+          <button onClick={goBack} className="p-2 -ml-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150" aria-label="Kembali">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5" />
-              <path d="m12 19-7-7 7-7" />
+              <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
             </svg>
           </button>
         )}
-
         <Link href="/" className="font-semibold text-[15px] tracking-tight text-(--color-text)">
           Dashboard<span className="text-(--color-accent)">.</span>
         </Link>
-
-        {/* Desktop links */}
         <div className="hidden sm:flex items-center gap-1 ml-4">
-          <Link href="/" className={navLinkClass("/")}>
-            Home
-          </Link>
-          <Link href="/whitelist" className={navLinkClass("/whitelist")}>
-            Whitelist
-          </Link>
-          <Link href="/stats" className={navLinkClass("/stats")}>
-            Stats
-          </Link>
-          <Link href="/dashboard" className={navLinkClass("/dashboard")}>
-            Status
-          </Link>
+          <Link href="/" className={navLinkClass("/")}>Home</Link>
+          <Link href="/whitelist" className={navLinkClass("/whitelist")}>Whitelist</Link>
+          <Link href="/stats" className={navLinkClass("/stats")}>Stats</Link>
+          <Link href="/dashboard" className={navLinkClass("/dashboard")}>Status</Link>
           <Link href="/incidents" className={navLinkClass("/incidents")}>
-            Insiden
+            Incident
           </Link>
-          <Link href="/logs" className={navLinkClass("/logs")}>
-            Logs
-          </Link>
+          <Link href="/logs" className={navLinkClass("/logs")}>Logs</Link>
         </div>
       </div>
-
-      {/* Right group */}
       <div className="flex items-center gap-2">
-        {/* Login */}
-        <LoginModalButton className="p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150 hidden sm:inline-flex" aria-label="Login">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-            <polyline points="10 17 15 12 10 7" />
-            <line x1="15" y1="12" x2="3" y2="12" />
-          </svg>
-        </LoginModalButton>
 
         {/* Theme toggle */}
         <button

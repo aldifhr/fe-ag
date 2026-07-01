@@ -17,11 +17,13 @@ function LoginModal({ onLogin }: { onLogin: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
+
       const json = await res.json();
       if (json.success) {
         onLogin();
       } else {
-        setError(json.error || "Password salah");
+        const msg = typeof json.error === "string" ? json.error : json.error?.message || null;
+        setError(msg || "Password salah");
       }
     } catch {
       setError("Gagal terhubung ke server");

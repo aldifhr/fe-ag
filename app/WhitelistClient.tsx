@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getWhitelist } from "@/lib/api";
 import MangaCard from "@/components/MangaCard";
+import ProtectedPage from "@/components/ProtectedPage";
 
 const GRID_CLASS = "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3";
 
@@ -14,25 +15,26 @@ export function WhitelistClient() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Whitelist</h1>
-        <div className={GRID_CLASS}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="skeleton aspect-3/4 w-full rounded-lg" />
-              <div className="skeleton h-3.5 w-3/4 rounded" />
-            </div>
-          ))}
+        <div className="space-y-6">
+          <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Whitelist</h1>
+          <div className={GRID_CLASS}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <div className="skeleton aspect-3/4 w-full rounded-lg" />
+                <div className="skeleton h-3.5 w-3/4 rounded" />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Whitelist</h1>
-        <div className="flex flex-col items-center justify-center py-16 text-(--color-text-muted) gap-4">
+        <div className="space-y-6">
+          <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Whitelist</h1>
+          <div className="flex flex-col items-center justify-center py-16 text-(--color-text-muted) gap-4">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
@@ -47,8 +49,9 @@ export function WhitelistClient() {
           </button>
         </div>
       </div>
-    );
+    )
   }
+  
 
   const items = data ?? [];
 
