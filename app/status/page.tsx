@@ -100,12 +100,12 @@ function shortDate(dateStr: string): string {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 flex flex-col gap-1">
-      <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">{label}</p>
+    <div className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-1">
+      <p className="text-xs font-medium uppercase tracking-wider text-text-muted">{label}</p>
       <p className="text-3xl font-bold tabular-nums leading-tight" style={color ? { color } : undefined}>
         {value}
       </p>
-      {sub && <p className="text-xs text-(--color-text-muted)">{sub}</p>}
+      {sub && <p className="text-xs text-text-muted">{sub}</p>}
     </div>
   );
 }
