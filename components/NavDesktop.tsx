@@ -29,7 +29,7 @@ export default function NavDesktop({
       {/* Left group */}
       <div className="flex items-center gap-2">
         {isMangaPage && (
-          <button onClick={goBack} className="p-2 -ml-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150" aria-label="Kembali">
+          <button onClick={goBack} className="p-2 -ml-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150" aria-label="Back">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
             </svg>
@@ -58,7 +58,7 @@ export default function NavDesktop({
         <button
           onClick={toggle}
           className="p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
-          aria-label={theme === "dark" ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           {theme === "dark" ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -247,15 +247,15 @@ export default function StatsPage() {
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <p className="text-(--color-text) text-lg font-medium">Statistik tidak tersedia</p>
+        <p className="text-(--color-text) text-lg font-medium">Statistics unavailable</p>
         <p className="text-(--color-text-muted) text-sm max-w-md">
-          {error instanceof Error ? error.message : "Terjadi kesalahan"}
+          {error instanceof Error ? error.message : "An error occurred"}
         </p>
         <button
           onClick={() => refetch()}
           className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer"
         >
-          Coba Lagi
+          Retry
         </button>
       </div>
     );
@@ -267,7 +267,7 @@ export default function StatsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-baseline gap-3">
-        <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Statistik</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Statistics</h1>
         <span className="text-sm text-(--color-text-muted)">
           {data.total} judul &middot; {data.rated} ter- rating
         </span>
@@ -280,7 +280,7 @@ export default function StatsPage() {
           label="Rata-rata Rating"
           value={data.avgRating != null ? data.avgRating.toFixed(1) : "—"}
           color="#f59e0b"
-          sub={data.rated > 0 ? `Dari ${data.rated} judul` : "Belum ada rating"}
+          sub={data.rated > 0 ? `Dari ${data.rated} judul` : "No ratings yet"}
         />
         {data.byStatus
           .filter((s) => s.label === "Ongoing")
@@ -342,7 +342,7 @@ export default function StatsPage() {
         <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-1">
           <h2 className="text-sm font-semibold text-(--color-text) mb-3">Rating Tertinggi</h2>
           {data.topRated.length === 0 ? (
-            <p className="text-sm text-(--color-text-muted) py-4 text-center">Belum ada data rating</p>
+            <p className="text-sm text-(--color-text-muted) py-4 text-center">No rating data</p>
           ) : (
             data.topRated.map((item, i) => <TopRatedCard key={item.id} item={item} rank={i + 1} />)
           )}
@@ -352,7 +352,7 @@ export default function StatsPage() {
         <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-1">
           <h2 className="text-sm font-semibold text-(--color-text) mb-3">Update Terbaru</h2>
           {data.recentUpdates.length === 0 ? (
-            <p className="text-sm text-(--color-text-muted) py-4 text-center">Belum ada update</p>
+            <p className="text-sm text-(--color-text-muted) py-4 text-center">No updates yet</p>
           ) : (
             data.recentUpdates.map((item) => <UpdateRow key={`${item.id}-${item.chapter}`} item={item} />)
           )}

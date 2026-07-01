@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   const { password } = await request.json();
 
   if (password !== process.env.SITE_PASSWORD) {
-    return NextResponse.json({ error: "Password salah" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
 
   const hash = await computeAuthHash(password, process.env.AUTH_SECRET || "");

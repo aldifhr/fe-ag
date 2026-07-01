@@ -113,13 +113,13 @@ export default function MangaDetailPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <p className="text-(--color-text) text-lg font-medium">Gagal memuat manga</p>
+        <p className="text-(--color-text) text-lg font-medium">Failed to load manga</p>
         <p className="text-(--color-text-muted) text-sm max-w-md">{error}</p>
         <button
           onClick={fetchManga}
           className="mt-2 px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer"
         >
-          Coba Lagi
+          Retry
         </button>
       </div>
     );
@@ -129,12 +129,12 @@ export default function MangaDetailPage() {
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <p className="text-(--color-text-muted) text-lg">Manga tidak ditemukan</p>
+        <p className="text-(--color-text-muted) text-lg">Manga not found</p>
         <button
           onClick={() => router.push("/")}
           className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer"
         >
-          Kembali
+          Back
         </button>
       </div>
     );
@@ -268,7 +268,7 @@ export default function MangaDetailPage() {
 
       {/* ── Chapter History ── */}
       <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-(--color-text)">Riwayat Chapter</h2>
+        <h2 className="text-sm font-semibold text-(--color-text)">Chapter History</h2>
 
         {chaptersLoading ? (
           <div className="space-y-2">
@@ -278,7 +278,7 @@ export default function MangaDetailPage() {
           </div>
         ) : chapters.length === 0 ? (
           <p className="text-sm text-(--color-text-muted) py-4 text-center">
-            Belum ada riwayat pengiriman
+            No delivery history
           </p>
         ) : (
           <div className="space-y-1">

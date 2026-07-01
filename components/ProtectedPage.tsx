@@ -23,10 +23,10 @@ function LoginModal({ onLogin }: { onLogin: () => void }) {
         onLogin();
       } else {
         const msg = typeof json.error === "string" ? json.error : json.error?.message || null;
-        setError(msg || "Password salah");
+        setError(msg || "Incorrect password");
       }
     } catch {
-      setError("Gagal terhubung ke server");
+      setError("Failed to connect to server");
     } finally {
       setLoading(false);
     }
@@ -42,9 +42,9 @@ function LoginModal({ onLogin }: { onLogin: () => void }) {
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-(--color-text)">Akses Terbatas</h1>
+          <h1 className="text-xl font-semibold text-(--color-text)">Restricted Access</h1>
           <p className="text-sm text-(--color-text-muted) mt-1 text-center">
-            Masukkan password untuk melanjutkan
+            Enter password to continue
           </p>
         </div>
 
@@ -64,7 +64,7 @@ function LoginModal({ onLogin }: { onLogin: () => void }) {
             disabled={loading}
             className="w-full py-3 bg-(--color-accent) text-white font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
           >
-            {loading ? "Memeriksa..." : "Masuk"}
+            {loading ? "Verifying..." : "Sign In"}
           </button>
         </form>
       </div>

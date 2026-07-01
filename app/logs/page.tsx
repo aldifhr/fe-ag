@@ -64,9 +64,9 @@ export default function LogsPage() {
             </>
           )}
         </svg>
-        <p className="text-(--color-text) text-lg font-medium">Logs tidak tersedia</p>
+        <p className="text-(--color-text) text-lg font-medium">Logs unavailable</p>
         <p className="text-(--color-text-muted) text-sm max-w-md">{error.message}</p>
-        {!isAuth && <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Coba Lagi</button>}
+        {!isAuth && <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Retry</button>}
       </div>
     );
   }
@@ -84,7 +84,7 @@ export default function LogsPage() {
 
       {logs.length === 0 ? (
         <div className="rounded-xl bg-(--color-surface) border border-(--color-border) p-10 text-center">
-          <p className="text-sm text-(--color-text-muted)">Belum ada log</p>
+          <p className="text-sm text-(--color-text-muted)">No logs yet</p>
         </div>
       ) : (
         <div className="rounded-xl bg-(--color-surface) border border-(--color-border) overflow-hidden">

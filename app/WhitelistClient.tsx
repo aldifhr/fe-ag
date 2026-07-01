@@ -125,9 +125,9 @@ export function WhitelistClient() {
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          <p className="text-sm">Gagal mengambil data</p>
+          <p className="text-sm">Failed to load data</p>
           <button onClick={() => refetch()} className="px-4 py-2 text-xs font-medium rounded-lg bg-(--color-accent) text-white hover:opacity-90 transition-opacity">
-            Coba Lagi
+            Retry
           </button>
         </div>
       </div>
@@ -242,7 +242,7 @@ export function WhitelistClient() {
       {/* Grid */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-(--color-text-muted) gap-3">
-          <p className="text-sm">Tidak ada hasil</p>
+          <p className="text-sm">No results</p>
         </div>
       ) : (
         <div className={GRID_CLASS}>

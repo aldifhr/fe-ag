@@ -31,10 +31,10 @@ export default function LoginPage() {
           typeof json.error === "string"
             ? json.error
             : json.error?.message || null;
-        setError(msg || "Password salah");
+        setError(msg || "Incorrect password");
       }
     } catch {
-      setError("Gagal terhubung ke server");
+      setError("Failed to connect to server");
     } finally {
       setLoading(false);
     }
@@ -95,10 +95,10 @@ export default function LoginPage() {
               </svg>
             </div>
             <h1 className="text-xl font-semibold text-(--color-text) tracking-tight">
-              Akses Terbatas
+              Restricted Access
             </h1>
             <p className="text-sm text-(--color-text-muted) mt-1.5">
-              Masukkan password untuk melanjutkan
+              Enter password to continue
             </p>
           </div>
 
@@ -182,10 +182,10 @@ export default function LoginPage() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     />
                   </svg>
-                  Memeriksa...
+                  Verifying...
                 </span>
               ) : (
-                "Masuk"
+                "Sign In"
               )}
             </button>
           </form>

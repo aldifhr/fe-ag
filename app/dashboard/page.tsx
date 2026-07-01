@@ -210,9 +210,9 @@ export default function DashboardPage() {
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          <p className="text-(--color-text) text-lg font-medium">Dashboard tidak tersedia</p>
-          <p className="text-(--color-text-muted) text-sm">{error instanceof Error ? error.message : "Terjadi kesalahan"}</p>
-          <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Coba Lagi</button>
+          <p className="text-(--color-text) text-lg font-medium">Dashboard unavailable</p>
+          <p className="text-(--color-text-muted) text-sm">{error instanceof Error ? error.message : "An error occurred"}</p>
+          <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Retry</button>
         </div>
       </ProtectedPage>
     );
@@ -247,7 +247,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-4 text-xs text-(--color-text-muted) tabular-nums">
               <span>Uptime: {health.uptime}</span>
-              <span>Insiden: {health.totalIncidents}</span>
+              <span>Incidents: {health.totalIncidents}</span>
               <span>Terakhir: {timeAgo(health.lastUpdated)}</span>
             </div>
           </div>
@@ -295,9 +295,9 @@ export default function DashboardPage() {
 
       {/* Source Health */}
       <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-(--color-text)">Kesehatan Sumber</h2>
+        <h2 className="text-sm font-semibold text-(--color-text)">Source Health</h2>
         {sourceKeys.length === 0 ? (
-          <p className="text-sm text-(--color-text-muted) py-4 text-center">Tidak ada data</p>
+          <p className="text-sm text-(--color-text-muted) py-4 text-center">No data</p>
         ) : (
           <div className="space-y-3">
             {sourceKeys.map((name) => {

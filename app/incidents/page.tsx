@@ -63,9 +63,9 @@ export default function IncidentsPage() {
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <p className="text-(--color-text) text-lg font-medium">Insiden tidak tersedia</p>
-        <p className="text-(--color-text-muted) text-sm">{error instanceof Error ? error.message : "Terjadi kesalahan"}</p>
-        <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Coba Lagi</button>
+        <p className="text-(--color-text) text-lg font-medium">Incidents unavailable</p>
+        <p className="text-(--color-text-muted) text-sm">{error instanceof Error ? error.message : "An error occurred"}</p>
+        <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Retry</button>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default function IncidentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Insiden</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Incidents</h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 flex flex-col gap-1">
@@ -85,25 +85,25 @@ export default function IncidentsPage() {
           <p className="text-xs text-(--color-text-muted)">30 hari terakhir</p>
         </div>
         <div className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 flex flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">24 Jam</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">24 Hours</p>
           <p className="text-3xl font-bold tabular-nums text-(--color-text) leading-tight">{recent24h}</p>
           <p className="text-xs text-(--color-text-muted)">Baru</p>
         </div>
         <div className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 flex flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">Berlangsung</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">Ongoing</p>
           <p className="text-3xl font-bold tabular-nums text-amber-400 leading-tight">{ongoingCount}</p>
           <p className="text-xs text-(--color-text-muted)">Belum selesai</p>
         </div>
         <div className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 flex flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">Selesai</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-(--color-text-muted)">Resolved</p>
           <p className="text-3xl font-bold tabular-nums text-green-400 leading-tight">{stats.byStatus.resolved}</p>
-          <p className="text-xs text-(--color-text-muted)">Telah diresolve</p>
+          <p className="text-xs text-(--color-text-muted)">Resolved</p>
         </div>
       </div>
 
       {/* Severity breakdown */}
       <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-(--color-text)">Berdasarkan Severity</h2>
+        <h2 className="text-sm font-semibold text-(--color-text)">By Severity</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {Object.entries(stats.bySeverity).map(([level, count]) => (
             <div key={level} className="flex items-center justify-between px-4 py-3 rounded-lg bg-(--color-surface-hover)">
@@ -116,9 +116,9 @@ export default function IncidentsPage() {
 
       {/* Timeline */}
       <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-(--color-text)">Riwayat Insiden</h2>
+        <h2 className="text-sm font-semibold text-(--color-text)">Incident History</h2>
         {data.timeline.length === 0 ? (
-          <p className="text-sm text-(--color-text-muted) py-8 text-center">Tidak ada insiden dalam 30 hari terakhir</p>
+          <p className="text-sm text-(--color-text-muted) py-8 text-center">No incidents in the last 30 days</p>
         ) : (
           <p className="text-sm text-(--color-text-muted) py-4">TODO: render timeline items</p>
         )}
