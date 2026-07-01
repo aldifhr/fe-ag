@@ -42,7 +42,7 @@ export default function NavDesktop({
           <Link href="/" className={navLinkClass("/")}>Home</Link>
           <Link href="/whitelist" className={navLinkClass("/whitelist")}>Whitelist</Link>
           <Link href="/stats" className={navLinkClass("/stats")}>Stats</Link>
-          <Link href="/dashboard" className={navLinkClass("/dashboard")}>Status</Link>
+          <Link href="/status" className={navLinkClass("/status")}>Status</Link>
           <Link href="/incidents" className={navLinkClass("/incidents")}>
             <span className="relative">
               Incident

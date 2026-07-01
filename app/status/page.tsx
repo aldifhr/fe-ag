@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import ProtectedPage from "@/components/ProtectedPage";
 
 /* ── Types ── */
 
@@ -198,32 +197,29 @@ export default function DashboardPage() {
   });
 
   /* ── Loading ── */
-  if (isLoading) return <ProtectedPage><DashboardSkeleton /></ProtectedPage>;
+  if (isLoading) return <DashboardSkeleton />;
 
   /* ── Error ── */
   if (error) {
     return (
-      <ProtectedPage>
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-(--color-text-muted)">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <p className="text-(--color-text) text-lg font-medium">Dashboard unavailable</p>
-          <p className="text-(--color-text-muted) text-sm">{error instanceof Error ? error.message : "An error occurred"}</p>
-          <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Retry</button>
-        </div>
-      </ProtectedPage>
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-(--color-text-muted)">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <p className="text-(--color-text) text-lg font-medium">Dashboard unavailable</p>
+        <p className="text-(--color-text-muted) text-sm">{error instanceof Error ? error.message : "An error occurred"}</p>
+        <button onClick={() => refetch()} className="px-5 py-2 rounded-lg bg-(--color-accent) text-white text-sm font-medium transition-colors cursor-pointer">Retry</button>
+      </div>
     );
   }
 
-  if (!data) return <ProtectedPage><DashboardSkeleton /></ProtectedPage>;
+  if (!data) return <DashboardSkeleton />;
   const { overview, sourceHealth, whitelistCount, queueLength, health } = data;
   const sourceKeys = Object.keys(sourceHealth);
 
   return (
-    <ProtectedPage>
     <div className="space-y-6">
       <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Status</h1>
 
@@ -319,6 +315,5 @@ export default function DashboardPage() {
         )}
       </section>
     </div>
-    </ProtectedPage>
   );
 }

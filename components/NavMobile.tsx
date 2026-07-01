@@ -38,7 +38,7 @@ export default function NavMobile({
         <Link href="/" onClick={closeMenu} className={mobileLinkClass("/")}>Home</Link>
         <Link href="/whitelist" onClick={closeMenu} className={mobileLinkClass("/whitelist")}>Whitelist</Link>
         <Link href="/stats" onClick={closeMenu} className={mobileLinkClass("/stats")}>Stats</Link>
-        <Link href="/dashboard" onClick={closeMenu} className={mobileLinkClass("/dashboard")}>Status</Link>
+        <Link href="/status" onClick={closeMenu} className={mobileLinkClass("/status")}>Status</Link>
         <Link href="/incidents" onClick={closeMenu} className={mobileLinkClass("/incidents")}>
           <span className="relative">
             Incidents
