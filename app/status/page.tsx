@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 /* ── Types ── */
@@ -60,11 +61,22 @@ interface HealthData {
   totalIncidents: number;
 }
 
+interface CronStatusData {
+  outcome?: string;
+  timestamp?: string;
+  duration?: string;
+  sent?: number;
+  skipped?: number;
+  message?: string;
+}
+
 interface DashboardData {
   overview: Overview | null;
   sourceHealth: Record<string, SourceHealthEntry>;
   whitelistCount: number;
   queueLength: number;
+  cronStatus: CronStatusData | null;
+  fastCronNextRun: number | null;
   health: HealthData | null;
 }
 
@@ -98,6 +110,59 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
       </p>
       {sub && <p className="text-xs text-(--color-text-muted)">{sub}</p>}
     </div>
+  );
+}
+
+function CronCountdown({ nextRun, lastRun }: { nextRun: number | null; lastRun: CronStatusData | null }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!nextRun) return null;
+
+  const diff = Math.max(0, Math.floor((nextRun * 1000 - now) / 1000));
+  const mins = Math.floor(diff / 60);
+  const secs = Math.floor(diff % 60);
+  const INTERVAL = 600; // 10 menit
+  const elapsed = lastRun?.timestamp ? (now - new Date(lastRun.timestamp).getTime()) / 1000 : 0;
+  const progress = Math.min(elapsed / INTERVAL, 1);
+  const statusOk = lastRun?.outcome === "ok";
+
+  return (
+    <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-sm font-semibold text-(--color-text)">Fast Cron</h2>
+        <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${statusOk ? "text-green-500" : "text-red-500"}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${statusOk ? "bg-green-500" : "bg-red-500"}`} />
+          {statusOk ? "Active" : lastRun?.outcome || "Unknown"}
+        </span>
+      </div>
+
+      <div className="text-center py-3">
+        <span className="text-4xl font-bold tabular-nums text-(--color-text) tracking-wider">
+          {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+        </span>
+        <p className="text-xs text-(--color-text-muted) mt-1">Next run</p>
+      </div>
+
+      <div className="h-1.5 rounded-full bg-(--color-surface-hover) overflow-hidden">
+        <div
+          className="h-full rounded-full bg-(--color-accent) transition-all duration-1000"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+
+      <div className="flex justify-between text-xs text-(--color-text-muted) mt-3">
+        <span>Last: {lastRun?.timestamp ? timeAgo(lastRun.timestamp) : "—"}</span>
+        <span>
+          {lastRun?.duration ? `${lastRun.duration}s` : ""}
+          {lastRun && (lastRun.skipped ?? 0) > 0 ? ` · ${lastRun.skipped} skipped` : ""}
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -216,7 +281,7 @@ export default function DashboardPage() {
   }
 
   if (!data) return <DashboardSkeleton />;
-  const { overview, sourceHealth, whitelistCount, queueLength, health } = data;
+  const { overview, sourceHealth, queueLength, cronStatus, fastCronNextRun, health } = data;
   const sourceKeys = Object.keys(sourceHealth);
 
   return (
@@ -224,12 +289,14 @@ export default function DashboardPage() {
       <h1 className="text-xl font-semibold tracking-tight text-(--color-text)">Status</h1>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard label="Total Manga" value={whitelistCount} sub="Di whitelist" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <StatCard label="Total Chapter" value={overview?.totalChaptersSent ?? "—"} sub="Telah dikirim" color="#3b82f6" />
         <StatCard label="Rata-rata" value={overview ? `${overview.averageChaptersPerDay.toFixed(1)}` : "—"} sub="Chapter/hari" color="#22c55e" />
         <StatCard label="Antrian" value={queueLength} sub="Dalam antrian" color="#f59e0b" />
       </div>
+
+      {/* Fast Cron Countdown */}
+      <CronCountdown nextRun={fastCronNextRun} lastRun={cronStatus} />
 
       {/* Health Networks */}
       {health && health.networks && health.networks.length > 0 && (

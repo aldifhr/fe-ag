@@ -29,14 +29,14 @@ export default function NavDesktop({
       {/* Left group */}
       <div className="flex items-center gap-2">
         {isMangaPage && (
-          <button onClick={goBack} className="p-2 -ml-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150" aria-label="Back">
+          <button onClick={goBack} className="p-2 -ml-2 text-text-muted hover:text-text hover:bg-surface rounded-md transition-colors duration-150" aria-label="Back">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
             </svg>
           </button>
         )}
-        <Link href="/" className="font-semibold text-[15px] tracking-tight text-(--color-text)">
-          Dashboard<span className="text-(--color-accent)">.</span>
+        <Link href="/" className="font-semibold text-[15px] tracking-tight text-text">
+          Dashboard<span className="text-accent">.</span>
         </Link>
         <div className="hidden sm:flex items-center gap-1 ml-4">
           <Link href="/" className={navLinkClass("/")}>Home</Link>
@@ -57,7 +57,7 @@ export default function NavDesktop({
         {/* Theme toggle */}
         <button
           onClick={toggle}
-          className="p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
+          className="p-2 text-text-muted hover:text-text(--color-surface) rounded-md transition-colors duration-150"
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           {theme === "dark" ? (
@@ -82,7 +82,7 @@ export default function NavDesktop({
         {/* Mobile hamburger */}
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="sm:hidden p-2 text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface) rounded-md transition-colors duration-150"
+          className="sm:hidden p-2 text-text-muted hover:text-text hover:bg-surface rounded-md transition-colors duration-150"
           aria-label="Menu"
         >
           {menuOpen ? (
