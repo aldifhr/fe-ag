@@ -1,5 +1,6 @@
 import type React from "react";
 import Link from "next/link";
+import IncidentBadge from "./IncidentBadge";
 interface NavMobileProps {
   isMangaPage: boolean;
   menuOpen: boolean;
@@ -38,7 +39,12 @@ export default function NavMobile({
         <Link href="/whitelist" onClick={closeMenu} className={mobileLinkClass("/whitelist")}>Whitelist</Link>
         <Link href="/stats" onClick={closeMenu} className={mobileLinkClass("/stats")}>Statistik</Link>
         <Link href="/dashboard" onClick={closeMenu} className={mobileLinkClass("/dashboard")}>Status</Link>
-        <Link href="/incidents" onClick={closeMenu} className={mobileLinkClass("/incidents")}>Insiden</Link>
+        <Link href="/incidents" onClick={closeMenu} className={mobileLinkClass("/incidents")}>
+          <span className="relative">
+            Insiden
+            <IncidentBadge />
+          </span>
+        </Link>
         <Link href="/logs" onClick={closeMenu} className={mobileLinkClass("/logs")}>Logs</Link>
         <div className="border-t border-(--color-border) mt-1 pt-1">
           <button onClick={() => { toggle(); closeMenu(); }} className="px-4 py-3 text-[15px] font-medium text-(--color-text-secondary) hover:text-(--color-text) hover:bg-(--color-surface) rounded-lg transition-colors duration-150 inline-flex items-center gap-2 w-full">

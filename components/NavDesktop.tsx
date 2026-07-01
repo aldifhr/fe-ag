@@ -1,5 +1,6 @@
 import type React from "react";
 import Link from "next/link";
+import IncidentBadge from "./IncidentBadge";
 interface NavDesktopProps {
   isMangaPage: boolean;
   pathname: string;
@@ -43,7 +44,10 @@ export default function NavDesktop({
           <Link href="/stats" className={navLinkClass("/stats")}>Stats</Link>
           <Link href="/dashboard" className={navLinkClass("/dashboard")}>Status</Link>
           <Link href="/incidents" className={navLinkClass("/incidents")}>
-            Incident
+            <span className="relative">
+              Incident
+              <IncidentBadge />
+            </span>
           </Link>
           <Link href="/logs" className={navLinkClass("/logs")}>Logs</Link>
         </div>
