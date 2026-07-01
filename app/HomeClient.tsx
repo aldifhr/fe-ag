@@ -29,18 +29,20 @@ function HistoryGridCard({ item, isRead, onToggleRead }: { item: HistoryItem; is
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <div className="group relative flex flex-col rounded-lg overflow-hidden bg-(--color-surface) border border-(--color-border) hover:border-(--color-border-hover) transition-colors duration-200">
-      {/* Mark read button — title area */}
+    <div className="group relative flex flex-col rounded-lg overflow-hidden bg-surface border border-border hover:border-border-hover transition-colors duration-200">
+      {/* Mark read button — top-right */}
       <button
         onClick={(e) => { e.preventDefault(); onToggleRead(); }}
-        className={`absolute top-1.5 right-1.5 z-10 text-[10px] font-medium px-2 py-0.5 rounded-full border transition-all duration-200 ${
+        className={`absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 ${
           isRead
-            ? "bg-(--color-accent)/15 text-(--color-accent) border-(--color-accent)/30"
-            : "bg-black/40 text-white/70 border-white/20 opacity-0 group-hover:opacity-100 hover:bg-(--color-accent) hover:text-white hover:border-(--color-accent)"
+            ? "bg-accent text-white opacity-0 group-hover:opacity-100"
+            : "bg-black/40 text-white/80 hover:bg-accent hover:text-white opacity-0 group-hover:opacity-100"
         }`}
         aria-label={isRead ? "Tandai belum dibaca" : "Tandai sudah dibaca"}
       >
-        {isRead ? "✓ Dibaca" : "Tandai"}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          {isRead ? <path d="M18 6L6 18M6 6l12 12" /> : <polyline points="20 6 9 17 4 12" />}
+        </svg>
       </button>
 
       <a
@@ -50,7 +52,7 @@ function HistoryGridCard({ item, isRead, onToggleRead }: { item: HistoryItem; is
         className={`flex flex-col transition-opacity duration-200 ${isRead ? "opacity-45" : ""}`}
       >
         {/* Cover */}
-        <div className="aspect-3/4 relative overflow-hidden bg-(--color-surface)">
+        <div className="aspect-3/4 relative overflow-hidden bg-surface">
           {item.cover && !imgErr ? (
             <img
               src={item.cover}
@@ -77,31 +79,21 @@ function HistoryGridCard({ item, isRead, onToggleRead }: { item: HistoryItem; is
               Dibaca
             </div>
           )}
-
-          {/* Baca overlay */}
-          <div className="absolute inset-x-0 bottom-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <span className="flex items-center justify-center gap-1.5 w-full py-1.5 text-[12px] font-semibold rounded-md bg-(--color-accent) text-white shadow-lg">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-              Baca
-            </span>
-          </div>
         </div>
 
         {/* Title */}
-        <div className="px-3 py-2.5 min-h-[56px] flex items-start">
+        <div className="px-3 py-2.5">
           <h3 className="text-[13px] font-medium leading-snug line-clamp-2 text-(--color-text) group-hover:text-(--color-text-secondary) transition-colors duration-150">
             {item.title}
           </h3>
         </div>
 
         {/* Chapter + Source badges */}
-        <div className="px-3 pb-2.5 flex items-center gap-1.5 mt-auto min-w-0">
-          <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded text-(--color-text-muted) bg-(--color-surface-hover)">
+        <div className="px-3 pb-2.5 flex items-center gap-1.5 flex-wrap mt-auto">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded text-(--color-text-muted) bg-(--color-surface-hover)">
             {item.chapter}
           </span>
-          <span className="truncate inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded text-(--color-text-muted) bg-(--color-surface-hover) capitalize">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded text-(--color-text-muted) bg-(--color-surface-hover) capitalize">
             {item.source}
           </span>
         </div>
