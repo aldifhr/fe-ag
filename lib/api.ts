@@ -32,15 +32,27 @@ export interface CatalogPage {
 
 export async function getWhitelist(
   page = 1,
-  pageSize = 50,
+  pageSize = 100,
   search = "",
 ): Promise<SearchResult[]> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
   if (search) params.set("search", search);
-  const data = await fetchJson<{ results: SearchResult[] }>(
+  const data = await fetchJson<{ results: SearchResult[]; totalPages: number }>(
     `/api/reader/whitelist?${params}`,
   );
-  return data.results;
+
+  const { results, totalPages } = data;
+  if (totalPages <= 1) return results;
+
+  const remaining = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      fetchJson<{ results: SearchResult[] }>(
+        `/api/reader/whitelist?${new URLSearchParams({ page: String(i + 2), page_size: String(pageSize) })}`,
+      ),
+    ),
+  );
+
+  return [...results, ...remaining.flatMap((r) => r.results)];
 }
 
 export async function getCatalogPage(
