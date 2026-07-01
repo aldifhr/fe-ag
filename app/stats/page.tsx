@@ -3,6 +3,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { STATUS_COLORS } from "@/components/MangaCard";
 import { timeAgo } from "@/lib/timeAgo";
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 /* ── Types ── */
 
@@ -15,6 +24,8 @@ interface StatsData {
   ratingDistribution: { label: string; count: number; percentage: number }[];
   topRated: { id: string; title: string; cover: string | null; rating: number }[];
   recentUpdates: { id: string; title: string; cover: string | null; chapter: string; time: string; source: string }[];
+  trends: { date: string; chapters: number }[];
+  sourceStats: { source: string; chapters: number }[];
 }
 
 interface StatsResponse {
@@ -179,6 +190,85 @@ function UpdateRow({
   );
 }
 
+/* ── Charts ── */
+
+function ChapterTrendsChart({ data }: { data: { date: string; chapters: number }[] }) {
+  if (!data || data.length === 0) return <p className="text-sm text-(--color-text-muted) py-4 text-center">No trend data</p>;
+  const sliced = data.slice(-14);
+  return (
+    <div className="h-48">
+      <ResponsiveContainer width="100%" height="100%">
+        <RechartsBarChart data={sliced} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
+            tickFormatter={(v: string) => {
+              const d = new Date(v);
+              return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+            }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis tick={{ fontSize: 11, fill: "var(--color-text-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip
+            contentStyle={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            labelFormatter={(v) => { const d = new Date(v as string); return d.toLocaleDateString("id-ID", { day: "numeric", month: "long" }); }}
+            formatter={(value) => [value, "Chapter"]}
+          />
+          <Bar dataKey="chapters" radius={[4, 4, 0, 0]} maxBarSize={32}>
+            {sliced.map((entry, idx) => (
+              <Cell
+                key={idx}
+                fill={entry.chapters > 0 ? "#818cf8" : "var(--color-text-muted)"}
+                fillOpacity={entry.chapters > 0 ? 0.85 : 0.3}
+              />
+            ))}
+          </Bar>
+        </RechartsBarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function SourceChapterChart({ data }: { data: { source: string; chapters: number }[] }) {
+  if (!data || data.length === 0) return <p className="text-sm text-(--color-text-muted) py-4 text-center">No source data</p>;
+  const maxVal = Math.max(...data.map((d) => d.chapters), 1);
+
+  // Recharts horizontal bar for cleaner look
+  return (
+    <div className="h-48">
+      <ResponsiveContainer width="100%" height="100%">
+        <RechartsBarChart data={data} layout="vertical" margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="source"
+            tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
+            axisLine={false}
+            tickLine={false}
+            width={80}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            formatter={(value) => [value, "Chapter"]}
+          />
+          <Bar dataKey="chapters" radius={[0, 4, 4, 0]} maxBarSize={20} fill="#f59e0b" fillOpacity={0.8} />
+        </RechartsBarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 /* ── Skeleton ── */
 
 function StatsSkeleton() {
@@ -275,6 +365,18 @@ export default function StatsPage() {
           .map((s) => (
             <StatCard key={s.label} label={s.label} value={s.count} sub={`${s.percentage}% dari total`} color="#3b82f6" />
           ))}
+      </div>
+
+      {/* Trend charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-(--color-text)">Chapter per Hari</h2>
+          <ChapterTrendsChart data={data.trends} />
+        </section>
+        <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-(--color-text)">Chapter per Sumber</h2>
+          <SourceChapterChart data={data.sourceStats} />
+        </section>
       </div>
 
       {/* Distribution charts */}

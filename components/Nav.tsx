@@ -46,7 +46,7 @@ export default function Nav() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 bg-(--color-bg)/95 backdrop-blur-sm border-b border-(--color-border)">
+      <nav className="sticky top-0 z-50 bg-bg/95 backdrop-blur-sm border-b border-border">
         <NavDesktop
           isMangaPage={isMangaPage}
           pathname={pathname}

@@ -14,6 +14,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Manhwa.agg",
   description: "Dashboard for monitoring manhwa from discord",
+  manifest: "/manifest.json",
+  other: {
+    "theme-color": "#0a0a0f",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+  },
 };
 
 export default function RootLayout({
@@ -32,6 +38,11 @@ export default function RootLayout({
               </main>
             </ThemeProvider>
           </QueryProvider>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+            }}
+          />
       </body>
     </html>
   );

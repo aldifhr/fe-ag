@@ -216,6 +216,8 @@ export async function GET() {
         })),
         topRated,
         recentUpdates,
+        trends: analytics?.trends ?? [],
+        sourceStats: analytics?.sourceStats ?? [],
       },
     });
   } catch (err: unknown) {

@@ -3,6 +3,14 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { timeAgo } from "@/lib/timeAgo";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 /* ── Types ── */
 
@@ -345,6 +353,44 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {/* Source Response Time */}
+      {sourceKeys.length > 0 && (
+        <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-(--color-text)">Response Time per Source</h2>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={sourceKeys
+                  .map((name) => ({ name, responseTime: sourceHealth[name].responseTime || 0 }))
+                  .sort((a, b) => b.responseTime - a.responseTime)}
+                layout="vertical"
+                margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
+              >
+                <XAxis type="number" hide />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={80}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  formatter={(value) => [`${value}ms`, "Response Time"]}
+                />
+                <Bar dataKey="responseTime" radius={[0, 4, 4, 0]} maxBarSize={20} fill="#22c55e" fillOpacity={0.8} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
+
       {/* Source Health */}
       <section className="rounded-xl bg-(--color-surface) border border-(--color-border) p-5 space-y-4">
         <h2 className="text-sm font-semibold text-(--color-text)">Source Health</h2>
@@ -355,7 +401,7 @@ export default function DashboardPage() {
             {sourceKeys.map((name) => {
               const h = sourceHealth[name];
               return (
-                <div key={name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-(--color-surface-hover)">
+                <div key={name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-(--color-surface-hover) transition-colors duration-150">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium capitalize text-(--color-text)">{name}</span>
                     <HealthBadge status={h.status} />
