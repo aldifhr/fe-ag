@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 import NavDesktop from "@/components/NavDesktop";
@@ -12,30 +12,11 @@ function isActive(pathname: string, href: string) {
 
 export default function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [otherOpen, setOtherOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
 
   const isMangaPage = pathname.startsWith("/manga/");
-
-  // Close desktop "Lainnya" dropdown on outside click or Escape
-  useEffect(() => {
-    if (!otherOpen) return;
-    function onDocClick(e: MouseEvent) {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-other-menu]")) setOtherOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOtherOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [otherOpen]);
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const goBack = useCallback(() => {
